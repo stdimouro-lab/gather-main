@@ -20,26 +20,26 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   {
     id: 'welcome',
-    title: 'Welcome to Calendly',
-    subtitle: 'Family-first calendar for busy lives',
+    title: "Welcome to Gather",
+    subtitle: "Where life meets — family-first tables for busy lives",
     icon: Heart
   },
   {
     id: 'coparent',
-    title: 'Share with Co-parent',
-    subtitle: 'Keep both households in sync',
+    title: "Invite Your Co-parent to the Table",
+    subtitle: "Keep both households in sync",
     icon: Users
   },
   {
     id: 'privacy',
-    title: 'Your Privacy Matters',
-    subtitle: 'Control what others see',
+    title: "Your Privacy Matters",
+    subtitle: "Control what others see at your table",
     icon: Shield
   },
   {
     id: 'email',
-    title: 'Smart Event Detection',
-    subtitle: "We'll suggest events from your emails",
+    title: "Smart Event Detection",
+    subtitle: "We'll suggest events from your emails to add to your tables",
     icon: Mail
   }
 ];
@@ -91,15 +91,15 @@ export default function OnboardingFlow({
             <div className="pt-4 space-y-3 text-sm">
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">Separate calendars for different parts of your life</span>
+                <span className="text-slate-600">"Separate tables" for different parts of your life</span>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">Share only what matters with who it matters</span>
+                <span className="text-slate-600">"Invite" only who needs to be at each table</span>
               </div>
               <div className="flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">Family first, oversharing never</span>
+                <span className="text-slate-600">"Family first," oversharing never</span>
               </div>
             </div>
           </motion.div>
@@ -122,12 +122,12 @@ export default function OnboardingFlow({
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-4">
                 <p className="text-xs text-blue-700">
-                  ✨ We'll automatically create a "Kids" calendar for you. Share it with your co-parent to stay in sync on schedules, pickups, and activities.
+                  ✨ We'll automatically create a "Kids" table for you. Invite your co-parent to stay in sync on schedules, pickups, and activities.
                 </p>
               </CardContent>
             </Card>
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-600">Co-parent email (optional)</Label>
+              <Label className="text-sm font-medium text-slate-600">"Co-parent email" (optional)</Label>
               <Input
                 type="email"
                 placeholder="parent@example.com"
@@ -135,7 +135,7 @@ export default function OnboardingFlow({
                 onChange={(e) => setCoparentEmail(e.target.value)}
                 className="rounded-xl"
               />
-              <p className="text-xs text-slate-400">You can invite them later too</p>
+              <p className="text-xs text-slate-400">"You can invite them later too"</p>
             </div>
           </motion.div>
         );
@@ -160,16 +160,16 @@ export default function OnboardingFlow({
                   <div className="flex items-start gap-3">
                     <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                      <h3 className="font-medium text-sm text-slate-900">Show others "Busy" instead of details</h3>
+                      <h3 className="font-medium text-sm text-slate-900">"Busy only" mode for shared tables</h3>
                       <p className="text-xs text-slate-500">
-                        People can see when you're busy, but not what you're doing. Perfect for co-parenting.
+They see when you're busy, not what you're doing. Perfect for co-parenting.
                       </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <span className="text-sm font-medium text-slate-700">Default to "Busy only" when sharing</span>
+                <span className="text-sm font-medium text-slate-700">"Default to busy only when inviting people"</span>
                 <Switch checked={busyByDefault} onCheckedChange={setBusyByDefault} />
               </div>
             </div>
@@ -195,18 +195,18 @@ export default function OnboardingFlow({
                 <div className="space-y-2">
                   <p className="text-xs text-amber-800">
                     <Sparkles className="w-4 h-4 inline mr-1" />
-                    We scan your emails for school events, appointments, and reservations.
+We scan your emails for school events, appointments, and reservations.
                   </p>
                   <p className="text-xs text-amber-700">
-                    You decide what to add — nothing is auto-added.
+You decide what to add — nothing is auto-added.
                   </p>
                 </div>
               </CardContent>
             </Card>
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
               <div>
-                <p className="text-sm font-medium text-slate-700">Enable smart suggestions</p>
-                <p className="text-xs text-slate-500">Scan emails for events</p>
+                <p className="text-sm font-medium text-slate-700">"Enable smart suggestions"</p>
+                <p className="text-xs text-slate-500">"Scan emails for events"</p>
               </div>
               <Switch checked={emailSuggestions} onCheckedChange={setEmailSuggestions} />
             </div>

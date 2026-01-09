@@ -81,7 +81,7 @@ export default function TabModal({
         <form onSubmit={handleSubmit}>
           <DialogHeader className="px-6 pt-4 pb-2">
             <DialogTitle className="text-xl font-semibold text-slate-900">
-              {tab ? 'Edit Calendar' : 'New Calendar'}
+              {tab ? "Edit Table" : "Create a New Table"}
             </DialogTitle>
           </DialogHeader>
           
@@ -93,7 +93,7 @@ export default function TabModal({
             
             <TabsContent value="general" className="space-y-4 mt-0">
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500">Calendar Name</Label>
+                <Label className="text-xs font-medium text-slate-500">"Table Name"</Label>
                 <Input
                   placeholder="e.g., Work, Family, Kids"
                   value={formData.name}
@@ -134,8 +134,8 @@ export default function TabModal({
               
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <Label className="text-sm font-medium text-slate-700">Default Calendar</Label>
-                  <p className="text-xs text-slate-400">New events will use this calendar</p>
+                  <Label className="text-sm font-medium text-slate-700">"Default Table"</Label>
+                  <p className="text-xs text-slate-400">"New events will use this table"</p>
                 </div>
                 <Switch
                   checked={formData.is_default}
@@ -196,7 +196,7 @@ export default function TabModal({
                 Cancel
               </Button>
               <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
-                {tab ? 'Save Changes' : 'Create Calendar'}
+                {tab ? "Save Changes" : "Create Table"}
               </Button>
             </div>
           </div>

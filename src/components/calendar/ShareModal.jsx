@@ -56,7 +56,7 @@ export default function ShareModal({
         <DialogHeader className="px-6 pt-4 pb-2">
           <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-slate-500" />
-            Share "{tab?.name}"
+            "Invite someone to" "{tab?.name}"
           </DialogTitle>
         </DialogHeader>
         
@@ -66,8 +66,8 @@ export default function ShareModal({
             <div className="flex gap-2">
               <div className="flex-1 space-y-1">
                 <Label className="text-xs font-medium text-slate-500">
-                  Invite by email
-                </Label>
+                   "Invite by email"
+                 </Label>
                 <div className="flex gap-2">
                   <Input
                     type="email"
@@ -96,25 +96,25 @@ export default function ShareModal({
               disabled={!email || isInviting}
             >
               <UserPlus className="w-4 h-4 mr-2" />
-              {isInviting ? 'Inviting...' : 'Send Invite'}
+              {isInviting ? "Inviting..." : "Send Invite"}
             </Button>
           </form>
           
           {/* Role descriptions */}
           <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-            <p className="text-xs font-medium text-slate-500">Permission levels:</p>
+            <p className="text-xs font-medium text-slate-500">"Permission levels"</p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="space-y-1">
                 <Badge className={roleColors.viewer}>Viewer</Badge>
-                <p className="text-slate-500">Can see events</p>
+                <p className="text-slate-500">"Can see events"</p>
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.editor}>Editor</Badge>
-                <p className="text-slate-500">Can add & edit</p>
+                <p className="text-slate-500">"Can add & edit"</p>
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.admin}>Admin</Badge>
-                <p className="text-slate-500">Full control</p>
+                <p className="text-slate-500">"Full control"</p>
               </div>
             </div>
           </div>
@@ -123,8 +123,8 @@ export default function ShareModal({
           {shares && shares.length > 0 && (
             <div className="space-y-3">
               <Label className="text-xs font-medium text-slate-500">
-                People with access
-              </Label>
+                 "People at this table"
+               </Label>
               <div className="space-y-2">
                 <AnimatePresence>
                   {shares.map((share) => (
@@ -146,7 +146,7 @@ export default function ShareModal({
                             {share.shared_with_email}
                           </p>
                           {!share.accepted && (
-                            <p className="text-xs text-amber-600">Pending invite</p>
+                            <p className="text-xs text-amber-600">"Pending invite"</p>
                           )}
                         </div>
                       </div>

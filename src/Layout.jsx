@@ -47,7 +47,7 @@ export default function Layout({ children }) {
               <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                 <Calendar className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-semibold text-slate-900 hidden sm:block">Calendly</span>
+              <span className="text-lg font-semibold text-slate-900 hidden sm:block">Gather</span>
             </Link>
             
             <div className="hidden md:flex items-center gap-1 ml-4">
@@ -58,7 +58,7 @@ export default function Layout({ children }) {
                   className={`text-sm ${isActive('Calendar') && !isActive('SharedWithMe') ? 'bg-slate-100 text-slate-900' : 'text-slate-600'}`}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
-                  My Calendar
+                  My Tables
                 </Button>
               </Link>
               <Link to={createPageUrl('SharedWithMe')}>
@@ -94,7 +94,7 @@ export default function Layout({ children }) {
                 <DropdownMenuItem className="md:hidden" asChild>
                   <Link to={createPageUrl('Calendar')} className="flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
-                    My Calendar
+                    My Tables
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="md:hidden" asChild>
