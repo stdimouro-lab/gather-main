@@ -44,9 +44,10 @@ export default function TabFilter({
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
+                whileHover={{ x: 4 }}
                 className={cn(
                   "group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
-                  isActive ? `${colors.light} ${colors.border} border` : "hover:bg-slate-50"
+                  isActive ? `${colors.light} ${colors.border} border shadow-sm` : "hover:bg-slate-50"
                 )}
                 onClick={() => onToggleTab(tab.id)}
               >
