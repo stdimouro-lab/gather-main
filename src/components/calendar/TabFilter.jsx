@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const TAB_COLORS = {
-  coral: { bg: 'bg-rose-500', light: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200' },
-  sky: { bg: 'bg-sky-500', light: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-200' },
-  emerald: { bg: 'bg-emerald-500', light: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
-  amber: { bg: 'bg-amber-500', light: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
-  violet: { bg: 'bg-violet-500', light: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200' },
-  indigo: { bg: 'bg-indigo-500', light: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' },
+  coral: { bg: 'bg-gradient-to-br from-rose-400 to-rose-600', light: 'bg-rose-100/80', text: 'text-rose-700', border: 'border-rose-200' },
+  sky: { bg: 'bg-gradient-to-br from-sky-400 to-sky-600', light: 'bg-sky-100/80', text: 'text-sky-700', border: 'border-sky-200' },
+  emerald: { bg: 'bg-gradient-to-br from-emerald-400 to-emerald-600', light: 'bg-emerald-100/80', text: 'text-emerald-700', border: 'border-emerald-200' },
+  amber: { bg: 'bg-gradient-to-br from-amber-400 to-amber-600', light: 'bg-amber-100/80', text: 'text-amber-700', border: 'border-amber-200' },
+  violet: { bg: 'bg-gradient-to-br from-violet-400 to-violet-600', light: 'bg-violet-100/80', text: 'text-violet-700', border: 'border-violet-200' },
+  indigo: { bg: 'bg-gradient-to-br from-indigo-400 to-indigo-600', light: 'bg-indigo-100/80', text: 'text-indigo-700', border: 'border-indigo-200' },
 };
 
 export function getTabColors(color) {
