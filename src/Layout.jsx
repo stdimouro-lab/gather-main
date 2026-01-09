@@ -1,0 +1,126 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Calendar, Share2, LogOut, Settings, User } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { Toaster } from 'sonner';
+
+export default function Layout({ children }) {
+  const location = useLocation();
+  const [user, setUser] = React.useState(null);
+
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await base44.auth.me();
+      setUser(userData);
+    };
+    fetchUser();
+  }, []);
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const isActive = (path) => {
+    return location.pathname.includes(path);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Toaster position="top-right" richColors />
+      
+      {/* Top Navigation */}
+      <nav className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30">
+        <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
+          <div className="flex items-center gap-6">
+            <Link to={createPageUrl('Calendar')} className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-lg font-semibold text-slate-900 hidden sm:block">Calendly</span>
+            </Link>
+            
+            <div className="hidden md:flex items-center gap-1 ml-4">
+              <Link to={createPageUrl('Calendar')}>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`text-sm ${isActive('Calendar') && !isActive('SharedWithMe') ? 'bg-slate-100 text-slate-900' : 'text-slate-600'}`}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  My Calendar
+                </Button>
+              </Link>
+              <Link to={createPageUrl('SharedWithMe')}>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`text-sm ${isActive('SharedWithMe') ? 'bg-slate-100 text-slate-900' : 'text-slate-600'}`}
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Shared with me
+                </Button>
+              </Link>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-indigo-100 text-indigo-700 font-medium">
+                      {getInitials(user?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium text-slate-900">{user?.full_name}</p>
+                  <p className="text-xs text-slate-500">{user?.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="md:hidden" asChild>
+                  <Link to={createPageUrl('Calendar')} className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    My Calendar
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="md:hidden" asChild>
+                  <Link to={createPageUrl('SharedWithMe')} className="flex items-center">
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Shared with me
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="md:hidden" />
+                <DropdownMenuItem 
+                  onClick={() => base44.auth.logout()}
+                  className="text-red-600"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </nav>
+      
+      {/* Main Content */}
+      <main>
+        {children}
+      </main>
+    </div>
+  );
+}
