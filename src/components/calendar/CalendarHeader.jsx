@@ -24,7 +24,7 @@ export default function CalendarHeader({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-slate-200/50">
       <div className="flex items-center gap-3">
         <motion.div 
           className="flex items-center gap-1"
@@ -89,7 +89,7 @@ export default function CalendarHeader({
         
         <Button 
           onClick={onAddEvent}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-200"
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-indigo-200/50 transition-all hover:shadow-xl hover:shadow-indigo-200/70"
         >
           <Plus className="h-4 w-4 mr-2" />
           New Event
