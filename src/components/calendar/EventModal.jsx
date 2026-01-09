@@ -11,6 +11,7 @@ import { format, parseISO } from 'date-fns';
 import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTabColors } from './TabFilter';
+import EventTypeTag, { getEventTypeInfo } from './EventTypeTag';
 import { cn } from "@/lib/utils";
 
 export default function EventModal({ 
@@ -35,6 +36,7 @@ export default function EventModal({
     notes: '',
     private_notes: '',
     visibility: 'full',
+    event_type: 'other',
     recurrence: { type: 'none' }
   });
   
@@ -55,6 +57,7 @@ export default function EventModal({
         notes: event.notes || '',
         private_notes: event.private_notes || '',
         visibility: event.visibility || 'full',
+        event_type: event.event_type || 'other',
         recurrence: event.recurrence || { type: 'none' }
       });
     } else {
@@ -74,6 +77,7 @@ export default function EventModal({
         notes: '',
         private_notes: '',
         visibility: 'full',
+        event_type: 'other',
         recurrence: { type: 'none' }
       });
     }
@@ -184,6 +188,32 @@ export default function EventModal({
                 </div>
               </div>
               
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-500">Event Type</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['school', 'sports', 'appointment', 'reservation', 'family', 'work'].map((type) => {
+                    const typeInfo = getEventTypeInfo(type);
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, event_type: type })}
+                        disabled={!canEdit}
+                        className={cn(
+                          'p-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 justify-center',
+                          formData.event_type === type
+                            ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        )}
+                      >
+                        <span>{typeInfo.emoji}</span>
+                        <span className="hidden sm:inline">{typeInfo.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Location
