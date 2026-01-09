@@ -41,7 +41,20 @@ export default function CalendarPage() {
   // Fetch tabs (owned by user)
   const { data: ownedTabs = [], isLoading: isLoadingTabs } = useQuery({
     queryKey: ['tabs', user?.email],
-    queryFn: () => base44.entities.CalendarTab.filter({ owner_email: user?.email }),
+    queryFn: async () => {
+      const tabs = await base44.entities.CalendarTab.filter({ owner_email: user?.email });
+      // If no tabs exist for this user, create default ones
+      if (tabs.length === 0) {
+        const defaultTabs = [
+          { name: 'Work', color: 'indigo', is_default: true, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
+          { name: 'Personal', color: 'violet', is_default: false, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
+          { name: 'Family', color: 'emerald', is_default: false, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
+        ];
+        const created = await base44.entities.CalendarTab.bulkCreate(defaultTabs);
+        return created;
+      }
+      return tabs;
+    },
     enabled: !!user?.email,
   });
 
