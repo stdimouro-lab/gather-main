@@ -139,12 +139,20 @@ export default function WeekView({
                         onSelectEvent(event);
                       }}
                       className={cn(
-                        "absolute rounded-lg px-2 py-1 cursor-pointer pointer-events-auto transition-all hover:scale-[1.02] overflow-hidden",
+                        "absolute rounded-xl px-2 py-1 cursor-pointer pointer-events-auto transition-all hover:scale-[1.02] overflow-hidden hover:shadow-lg",
                         colors.bg,
-                        "text-white shadow-sm"
+                        "text-white shadow-md"
                       )}
                     >
                       <div className="text-xs font-medium truncate">
+                        <span className="mr-1">
+                          {event.event_type === 'school' && '🎒'}
+                          {event.event_type === 'sports' && '⚽'}
+                          {event.event_type === 'appointment' && '🩺'}
+                          {event.event_type === 'reservation' && '🍽️'}
+                          {event.event_type === 'family' && '🎉'}
+                          {event.event_type === 'work' && '💼'}
+                        </span>
                         {event.visibility === 'busy_only' ? 'Busy' : event.title}
                       </div>
                       <div className="text-xs opacity-80">
