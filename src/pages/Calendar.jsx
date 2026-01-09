@@ -10,7 +10,9 @@ import EventModal from '@/components/calendar/EventModal';
 import TabModal from '@/components/calendar/TabModal';
 import ShareModal from '@/components/calendar/ShareModal';
 import EventHistoryPanel from '@/components/calendar/EventHistoryPanel';
-import { Loader2 } from 'lucide-react';
+import SuggestionsInbox from '@/components/calendar/SuggestionsInbox';
+import OnboardingFlow from '@/components/calendar/OnboardingFlow';
+import { Loader2, Sparkles } from 'lucide-react';
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -24,6 +26,8 @@ export default function CalendarPage() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [user, setUser] = useState(null);
   
   const queryClient = useQueryClient();
@@ -123,6 +127,32 @@ export default function CalendarPage() {
     queryKey: ['event-history', selectedEvent?.id],
     queryFn: () => base44.entities.EventHistory.filter({ event_id: selectedEvent?.id }, '-created_date'),
     enabled: !!selectedEvent?.id && isHistoryOpen,
+  });
+
+  // Fetch suggestions
+  const { data: suggestions = [] } = useQuery({
+    queryKey: ['suggestions', user?.email],
+    queryFn: () => base44.entities.EventSuggestion.filter({ user_email: user?.email }, '-created_date'),
+    enabled: !!user?.email,
+  });
+
+  // Fetch user preferences
+  const { data: userPreferences } = useQuery({
+    queryKey: ['user-preferences', user?.email],
+    queryFn: async () => {
+      const prefs = await base44.entities.UserPreferences.filter({ user_email: user?.email });
+      if (prefs.length === 0) {
+        const newPrefs = await base44.entities.UserPreferences.create({
+          user_email: user.email,
+          email_suggestions_enabled: true,
+          default_visibility: 'busy_only',
+          has_completed_onboarding: false
+        });
+        return newPrefs;
+      }
+      return prefs[0];
+    },
+    enabled: !!user?.email,
   });
 
   // Create tab mutation
@@ -272,6 +302,70 @@ export default function CalendarPage() {
     },
   });
 
+  // Accept suggestion mutation
+  const acceptSuggestionMutation = useMutation({
+    mutationFn: async (suggestion) => {
+      const event = await base44.entities.Event.create({
+        title: suggestion.title,
+        tab_id: suggestion.suggested_tab_id,
+        start_date: suggestion.suggested_date + 'T' + (suggestion.suggested_time || '09:00') + ':00Z',
+        end_date: suggestion.suggested_date + 'T' + (suggestion.suggested_time ? (parseInt(suggestion.suggested_time.split(':')[0]) + 1) : '10') + ':00:00Z',
+        location: suggestion.location || '',
+        event_type: suggestion.event_type,
+        visibility: 'full',
+        owner_email: user.email,
+        version: 1,
+        last_modified_by: user.email
+      });
+      
+      await base44.entities.EventSuggestion.update(suggestion.id, { 
+        status: 'accepted',
+        accepted_as_event_id: event.id
+      });
+      
+      return event;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      toast.success('Event added from suggestion');
+    },
+  });
+
+  // Reject suggestion mutation
+  const rejectSuggestionMutation = useMutation({
+    mutationFn: (id) => base44.entities.EventSuggestion.update(id, { status: 'ignored' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+    },
+  });
+
+  // Complete onboarding
+  const handleOnboardingComplete = async (data) => {
+    await base44.entities.UserPreferences.update(userPreferences?.id, {
+      has_completed_onboarding: true,
+      default_visibility: data.busyByDefault ? 'busy_only' : 'full',
+      email_suggestions_enabled: data.emailSuggestions
+    });
+
+    if (data.coparentEmail) {
+      const kidsTab = ownedTabs.find(t => t.name === 'Kids');
+      if (kidsTab) {
+        await base44.entities.TabShare.create({
+          tab_id: kidsTab.id,
+          shared_with_email: data.coparentEmail,
+          role: 'editor',
+          shared_by_email: user.email,
+          accepted: true
+        });
+        toast.success('Invite sent to co-parent');
+      }
+    }
+
+    setIsOnboardingOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
+  };
+
   // Get user role for a tab
   const getUserRole = (tabId) => {
     const tab = ownedTabs.find(t => t.id === tabId);
@@ -329,9 +423,16 @@ export default function CalendarPage() {
     }
   };
 
+  // Show onboarding if not completed
+  useEffect(() => {
+    if (userPreferences && !userPreferences.has_completed_onboarding) {
+      setIsOnboardingOpen(true);
+    }
+  }, [userPreferences?.has_completed_onboarding]);
+
   if (!user || isLoadingTabs) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
           <p className="mt-2 text-slate-500">Loading your calendars...</p>
@@ -340,8 +441,10 @@ export default function CalendarPage() {
     );
   }
 
+  const pendingSuggestions = suggestions.filter(s => s.status === 'pending').length;
+
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar - Desktop */}
         {!isMobile && (
@@ -499,6 +602,43 @@ export default function CalendarPage() {
         history={eventHistory}
         onRevert={handleRevert}
       />
+
+      {/* Suggestions Inbox */}
+      <SuggestionsInbox
+        isOpen={isSuggestionsOpen}
+        onClose={() => setIsSuggestionsOpen(false)}
+        suggestions={suggestions}
+        tabs={allTabs}
+        onAccept={(suggestion) => acceptSuggestionMutation.mutate(suggestion)}
+        onReject={(suggestion) => rejectSuggestionMutation.mutate(suggestion.id)}
+        onEdit={(suggestion) => {
+          setSelectedEvent(null);
+          setSelectedDate(suggestion.suggested_date);
+          setIsEventModalOpen(true);
+        }}
+      />
+
+      {/* Onboarding */}
+      <OnboardingFlow
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onComplete={handleOnboardingComplete}
+      />
+
+      {/* Suggestions badge */}
+      {pendingSuggestions > 0 && !isSuggestionsOpen && (
+        <div className="fixed bottom-8 right-8 z-40">
+          <button
+            onClick={() => setIsSuggestionsOpen(true)}
+            className="relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 text-white font-bold text-sm"
+          >
+            <Sparkles className="w-6 h-6" />
+            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs rounded-full font-bold">
+              {pendingSuggestions}
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
