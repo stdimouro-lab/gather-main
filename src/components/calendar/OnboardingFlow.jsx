@@ -39,7 +39,7 @@ const STEPS = [
   {
     id: 'email',
     title: 'Smart Event Detection',
-    subtitle: 'We'll suggest events from your emails',
+    subtitle: "We'll suggest events from your emails",
     icon: Mail
   }
 ];
