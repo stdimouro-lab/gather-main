@@ -107,11 +107,20 @@ export default function MonthView({
                           onSelectEvent(event);
                         }}
                         className={cn(
-                          "px-2 py-1 rounded-md text-xs font-medium truncate cursor-pointer transition-all hover:scale-[1.02]",
+                          "px-2 py-1 rounded-lg text-xs font-medium truncate cursor-pointer transition-all hover:scale-[1.02] shadow-sm",
                           colors.light,
-                          colors.text
+                          colors.text,
+                          "hover:shadow-md"
                         )}
                       >
+                        <span className="mr-1">
+                          {event.event_type === 'school' && '🎒'}
+                          {event.event_type === 'sports' && '⚽'}
+                          {event.event_type === 'appointment' && '🩺'}
+                          {event.event_type === 'reservation' && '🍽️'}
+                          {event.event_type === 'family' && '🎉'}
+                          {event.event_type === 'work' && '💼'}
+                        </span>
                         {event.visibility === 'busy_only' ? 'Busy' : event.title}
                       </motion.div>
                     );
