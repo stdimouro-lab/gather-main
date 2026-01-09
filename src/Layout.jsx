@@ -40,11 +40,11 @@ export default function Layout({ children }) {
       <Toaster position="top-right" richColors />
       
       {/* Top Navigation */}
-      <nav className="bg-white border-b border-slate-200 px-4 py-3 sticky top-0 z-30">
+      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200/50 px-4 py-3 sticky top-0 z-30 shadow-sm">
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
           <div className="flex items-center gap-6">
-            <Link to={createPageUrl('Calendar')} className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <Link to={createPageUrl('Calendar')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                 <Calendar className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-semibold text-slate-900 hidden sm:block">Calendly</span>
