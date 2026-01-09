@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, parseISO } from 'date-fns';
-import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTabColors } from './TabFilter';
 import EventTypeTag, { getEventTypeInfo } from './EventTypeTag';
+import EventMemories from './EventMemories';
 import { cn } from "@/lib/utils";
 
 export default function EventModal({ 
@@ -110,6 +111,7 @@ export default function EventModal({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
             <TabsList className="bg-slate-100 mb-4">
               <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+              <TabsTrigger value="memories" className="text-xs">Memories</TabsTrigger>
               <TabsTrigger value="recurrence" className="text-xs">Recurrence</TabsTrigger>
               <TabsTrigger value="privacy" className="text-xs">Privacy</TabsTrigger>
             </TabsList>
@@ -238,6 +240,20 @@ export default function EventModal({
                   disabled={!canEdit}
                 />
               </div>
+            </TabsContent>
+            
+            <TabsContent value="memories" className="space-y-4 mt-0">
+              {event && (
+                <EventMemories
+                  eventId={event.id}
+                  isEditable={canEdit}
+                  userEmail={event.owner_email}
+                  visibility={formData.visibility}
+                />
+              )}
+              {!event && (
+                <p className="text-sm text-slate-400">Create the event first to add memories</p>
+              )}
             </TabsContent>
             
             <TabsContent value="recurrence" className="space-y-4 mt-0">
