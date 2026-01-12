@@ -12,6 +12,7 @@ import ShareModal from '@/components/calendar/ShareModal';
 import EventHistoryPanel from '@/components/calendar/EventHistoryPanel';
 import SuggestionsInbox from '@/components/calendar/SuggestionsInbox';
 import OnboardingFlow from '@/components/calendar/OnboardingFlow';
+import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
 import { Loader2, Sparkles } from 'lucide-react';
 
 export default function CalendarPage() {
@@ -473,6 +474,27 @@ export default function CalendarPage() {
         {/* Main Content */}
         <div className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6">
+            {/* Today at the Table */}
+            {!isLoadingEvents && (
+              <TodayAtTheTable
+                events={events}
+                tabs={allTabs}
+                onSelectEvent={(event) => {
+                  setSelectedEvent(event);
+                  setIsEventModalOpen(true);
+                }}
+                onAddEvent={(tab) => {
+                  setSelectedEvent(null);
+                  setSelectedDate(new Date());
+                  setSelectedTab(tab);
+                  setIsEventModalOpen(true);
+                }}
+                onFilterToTab={(tabId) => {
+                  setActiveTabs([tabId]);
+                }}
+              />
+            )}
+
             <CalendarHeader
               currentDate={currentDate}
               onDateChange={setCurrentDate}
@@ -558,10 +580,11 @@ export default function CalendarPage() {
           setIsEventModalOpen(false);
           setSelectedEvent(null);
           setSelectedDate(null);
+          setSelectedTab(null);
         }}
         event={selectedEvent}
         tabs={ownedTabs}
-        defaultTab={defaultTab}
+        defaultTab={selectedTab || defaultTab}
         defaultDate={selectedDate}
         onSave={handleEventSave}
         onDelete={(event) => deleteEventMutation.mutate(event)}
