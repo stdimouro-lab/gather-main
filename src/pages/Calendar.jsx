@@ -11,6 +11,7 @@ import TabModal from '@/components/calendar/TabModal';
 import ShareModal from '@/components/calendar/ShareModal';
 import EventHistoryPanel from '@/components/calendar/EventHistoryPanel';
 import SuggestionsInbox from '@/components/calendar/SuggestionsInbox';
+import SuggestionsSettingsModal from '@/components/calendar/SuggestionsSettingsModal';
 import OnboardingFlow from '@/components/calendar/OnboardingFlow';
 import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -28,6 +29,7 @@ export default function CalendarPage() {
   const [shareTab, setShareTab] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [isSuggestionsSettingsOpen, setIsSuggestionsSettingsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [user, setUser] = useState(null);
   
@@ -341,6 +343,15 @@ export default function CalendarPage() {
     },
   });
 
+  // Update suggestions settings mutation
+  const updateSuggestionsSettingsMutation = useMutation({
+    mutationFn: (data) => base44.entities.UserPreferences.update(userPreferences?.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
+      toast.success('Settings updated');
+    },
+  });
+
   // Complete onboarding
   const handleOnboardingComplete = async (data) => {
     await base44.entities.UserPreferences.update(userPreferences?.id, {
@@ -468,6 +479,8 @@ export default function CalendarPage() {
               setIsTabModalOpen(true);
             }}
             sharedTabs={sharedWithMe}
+            pendingSuggestionsCount={pendingSuggestions}
+            onOpenSuggestions={() => setIsSuggestionsOpen(true)}
           />
         )}
         
@@ -569,6 +582,8 @@ export default function CalendarPage() {
               setIsTabModalOpen(true);
             }}
             sharedTabs={sharedWithMe}
+            pendingSuggestionsCount={pendingSuggestions}
+            onOpenSuggestions={() => setIsSuggestionsOpen(true)}
           />
         )}
       </div>
@@ -635,10 +650,23 @@ export default function CalendarPage() {
         onAccept={(suggestion) => acceptSuggestionMutation.mutate(suggestion)}
         onReject={(suggestion) => rejectSuggestionMutation.mutate(suggestion.id)}
         onEdit={(suggestion) => {
+          setIsSuggestionsOpen(false);
           setSelectedEvent(null);
           setSelectedDate(suggestion.suggested_date);
           setIsEventModalOpen(true);
         }}
+        onOpenSettings={() => {
+          setIsSuggestionsOpen(false);
+          setIsSuggestionsSettingsOpen(true);
+        }}
+      />
+
+      {/* Suggestions Settings */}
+      <SuggestionsSettingsModal
+        isOpen={isSuggestionsSettingsOpen}
+        onClose={() => setIsSuggestionsSettingsOpen(false)}
+        preferences={userPreferences}
+        onSave={(data) => updateSuggestionsSettingsMutation.mutate(data)}
       />
 
       {/* Onboarding */}
