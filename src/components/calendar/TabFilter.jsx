@@ -28,7 +28,7 @@ export default function TabFilter({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">"TABLES"</h3>
+        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tables</h3>
       </div>
       
       <div className="space-y-1">
@@ -99,7 +99,7 @@ export default function TabFilter({
       
       {sharedTabs.length > 0 && (
         <div className="mt-6 pt-4 border-t border-slate-100">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">"INVITED TABLES"</h3>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Invited Tables</h3>
           <div className="space-y-1">
             {sharedTabs.filter(s => s.accepted).map((share) => {
               const tab = tabs.find(t => t.id === share.tab_id);

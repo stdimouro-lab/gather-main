@@ -104,7 +104,7 @@ export default function EventModal({
         <form onSubmit={handleSubmit}>
           <DialogHeader className="px-6 pt-4 pb-2">
             <DialogTitle className="text-xl font-semibold text-slate-900">
-              {event ? 'Edit Event' : 'New Event'}
+              {event ? "Edit Event" : "Add to the table"}
             </DialogTitle>
           </DialogHeader>
           
@@ -119,7 +119,7 @@ export default function EventModal({
             <TabsContent value="details" className="space-y-4 mt-0">
               <div className="space-y-2">
                 <Input
-                  placeholder="Event title"
+                  placeholder="What's happening?"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="text-lg font-medium border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-indigo-500"
@@ -129,14 +129,14 @@ export default function EventModal({
               </div>
               
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500">Calendar</Label>
+                <Label className="text-xs font-medium text-slate-500">"Which table does this belong to?"</Label>
                 <Select 
                   value={formData.tab_id} 
                   onValueChange={(value) => setFormData({ ...formData, tab_id: value })}
                   disabled={!canEdit || isSharedEvent}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select calendar" />
+                    <SelectValue placeholder="Select table" />
                   </SelectTrigger>
                   <SelectContent>
                     {tabs.map((tab) => {
@@ -166,7 +166,7 @@ export default function EventModal({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> Start
+                    <Calendar className="w-3 h-3" /> "When?"
                   </Label>
                   <Input
                     type={formData.all_day ? "date" : "datetime-local"}
@@ -178,7 +178,7 @@ export default function EventModal({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> End
+                    <Calendar className="w-3 h-3" /> "End"
                   </Label>
                   <Input
                     type={formData.all_day ? "date" : "datetime-local"}
@@ -218,7 +218,7 @@ export default function EventModal({
 
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> Location
+                  <MapPin className="w-3 h-3" /> "Location"
                 </Label>
                 <Input
                   placeholder="Add location"
@@ -230,7 +230,7 @@ export default function EventModal({
               
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <FileText className="w-3 h-3" /> Notes
+                  <FileText className="w-3 h-3" /> "Anything to remember?"
                 </Label>
                 <Textarea
                   placeholder="Add notes"
@@ -373,13 +373,13 @@ export default function EventModal({
                 Cancel
               </Button>
               {canEdit && (
-                <Button 
-                  type="submit" 
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  {event ? 'Save Changes' : 'Create Event'}
-                </Button>
-              )}
+                  <Button 
+                    type="submit" 
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    {event ? "Save Changes" : "Gather it"}
+                  </Button>
+                )}
             </div>
           </div>
         </form>

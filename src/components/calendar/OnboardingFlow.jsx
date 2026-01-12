@@ -20,27 +20,21 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   {
     id: 'welcome',
-    title: "Welcome to Gather",
-    subtitle: "Where life meets — family-first tables for busy lives",
+    title: "Life happens in groups.",
+    subtitle: "Gather helps you keep each one organized.",
     icon: Heart
   },
   {
-    id: 'coparent',
-    title: "Invite Your Co-parent to the Table",
-    subtitle: "Keep both households in sync",
+    id: 'tables',
+    title: "Tables keep things separate — but connected.",
+    subtitle: "One place for family, work, and everything in between.",
     icon: Users
   },
   {
     id: 'privacy',
-    title: "Your Privacy Matters",
-    subtitle: "Control what others see at your table",
+    title: "Share only what matters.",
+    subtitle: "Family doesn't need your work calendar.",
     icon: Shield
-  },
-  {
-    id: 'email',
-    title: "Smart Event Detection",
-    subtitle: "We'll suggest events from your emails to add to your tables",
-    icon: Mail
   }
 ];
 
@@ -88,55 +82,33 @@ export default function OnboardingFlow({
               <h2 className="text-2xl font-semibold text-slate-900">{Step.title}</h2>
               <p className="text-slate-500">{Step.subtitle}</p>
             </div>
-            <div className="pt-4 space-y-3 text-sm">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">"Separate tables" for different parts of your life</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">"Invite" only who needs to be at each table</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-slate-600">"Family first," oversharing never</span>
-              </div>
-            </div>
+            <p className="text-sm text-slate-500 pt-4">
+              "One place for family, work, and everything in between."
+            </p>
           </motion.div>
         );
 
-      case 1: // Co-parent
+      case 1: // Tables
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+            className="text-center space-y-4"
           >
-            <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
+            <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto">
               <StepIcon className="w-7 h-7 text-blue-600" />
             </div>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2">
               <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
               <p className="text-sm text-slate-500">{Step.subtitle}</p>
             </div>
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-4">
                 <p className="text-xs text-blue-700">
-                  ✨ We'll automatically create a "Kids" table for you. Invite your co-parent to stay in sync on schedules, pickups, and activities.
+                  "Tables are shared spaces for people and events. Create one for Family, Kids, Work — whatever fits your life."
                 </p>
               </CardContent>
             </Card>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-600">"Co-parent email" (optional)</Label>
-              <Input
-                type="email"
-                placeholder="parent@example.com"
-                value={coparentEmail}
-                onChange={(e) => setCoparentEmail(e.target.value)}
-                className="rounded-xl"
-              />
-              <p className="text-xs text-slate-400">"You can invite them later too"</p>
-            </div>
           </motion.div>
         );
 
@@ -145,71 +117,22 @@ export default function OnboardingFlow({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+            className="text-center space-y-4"
           >
-            <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+            <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
               <StepIcon className="w-7 h-7 text-purple-600" />
             </div>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2">
               <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
               <p className="text-sm text-slate-500">{Step.subtitle}</p>
             </div>
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-sm text-slate-900">"Busy only" mode for shared tables</h3>
-                      <p className="text-xs text-slate-500">
-They see when you're busy, not what you're doing. Perfect for co-parenting.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <span className="text-sm font-medium text-slate-700">"Default to busy only when inviting people"</span>
-                <Switch checked={busyByDefault} onCheckedChange={setBusyByDefault} />
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 3: // Email
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center">
-              <StepIcon className="w-7 h-7 text-amber-600" />
-            </div>
-            <div className="space-y-2 mb-6">
-              <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-sm text-slate-500">{Step.subtitle}</p>
-            </div>
-            <Card className="bg-amber-50 border-amber-200">
-              <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <p className="text-xs text-amber-800">
-                    <Sparkles className="w-4 h-4 inline mr-1" />
-We scan your emails for school events, appointments, and reservations.
-                  </p>
-                  <p className="text-xs text-amber-700">
-You decide what to add — nothing is auto-added.
-                  </p>
-                </div>
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <p className="text-xs text-slate-600">
+                  "Tables can be shared independently — invite only who belongs."
+                </p>
               </CardContent>
             </Card>
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-              <div>
-                <p className="text-sm font-medium text-slate-700">"Enable smart suggestions"</p>
-                <p className="text-xs text-slate-500">"Scan emails for events"</p>
-              </div>
-              <Switch checked={emailSuggestions} onCheckedChange={setEmailSuggestions} />
-            </div>
           </motion.div>
         );
 
@@ -253,7 +176,7 @@ You decide what to add — nothing is auto-added.
               onClick={handleNext}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
-              Next
+              "Next"
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
@@ -262,7 +185,7 @@ You decide what to add — nothing is auto-added.
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Get Started
+              "Set the table"
             </Button>
           )}
         </div>

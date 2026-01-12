@@ -51,7 +51,7 @@ export default function Sidebar({
               >
                 <div className="h-full flex flex-col">
                   <div className="flex items-center justify-between p-4 border-b border-slate-100">
-                    <h2 className="font-semibold text-slate-900">"Tables"</h2>
+                    <h2 className="font-semibold text-slate-900">Tables</h2>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -86,7 +86,7 @@ export default function Sidebar({
                       className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      + New Table
+                      "+ New Table"
                     </Button>
                   </div>
                 </div>
@@ -125,7 +125,7 @@ export default function Sidebar({
           className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
         >
           <Plus className="h-4 w-4 mr-2" />
-          + New Table
+          "+ New Table"
         </Button>
       </div>
     </div>

@@ -56,11 +56,12 @@ export default function ShareModal({
         <DialogHeader className="px-6 pt-4 pb-2">
           <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-slate-500" />
-            "Invite someone to" "{tab?.name}"
+            "Invite to the table"
           </DialogTitle>
         </DialogHeader>
         
         <div className="px-6 pb-6 space-y-6">
+          <p className="text-sm text-slate-500">"Everyone at the table sees the same plans — in real time."</p>
           {/* Invite form */}
           <form onSubmit={handleInvite} className="space-y-4">
             <div className="flex gap-2">
@@ -81,9 +82,9 @@ export default function ShareModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="viewer">"View only"</SelectItem>
+                      <SelectItem value="editor">"Can add events"</SelectItem>
+                      <SelectItem value="admin">"Can edit events"</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -96,7 +97,7 @@ export default function ShareModal({
               disabled={!email || isInviting}
             >
               <UserPlus className="w-4 h-4 mr-2" />
-              {isInviting ? "Inviting..." : "Send Invite"}
+              {isInviting ? "Inviting..." : "Send invite"}
             </Button>
           </form>
           
