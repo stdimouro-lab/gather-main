@@ -68,7 +68,7 @@ export default function Layout({ children }) {
                   className={`text-sm ${isActive('SharedWithMe') ? 'bg-slate-100 text-slate-900' : 'text-slate-600'}`}
                 >
                   <Share2 className="w-4 h-4 mr-2" />
-                  Shared with me
+                  Invited Tables
                 </Button>
               </Link>
             </div>
@@ -100,7 +100,7 @@ export default function Layout({ children }) {
                 <DropdownMenuItem className="md:hidden" asChild>
                   <Link to={createPageUrl('SharedWithMe')} className="flex items-center">
                     <Share2 className="w-4 h-4 mr-2" />
-                    Shared with me
+                    Invited Tables
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="md:hidden" />

@@ -117,8 +117,8 @@ export default function SharedWithMePage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Shared with me</h1>
-            <p className="text-slate-500">Manage calendars shared with you</p>
+            <h1 className="text-2xl font-semibold text-slate-900">"Invited Tables"</h1>
+            <p className="text-slate-500">"Tables you've been invited to"</p>
           </div>
         </div>
 
@@ -127,7 +127,7 @@ export default function SharedWithMePage() {
           <div className="mb-8">
             <h2 className="text-lg font-medium text-slate-800 mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5 text-amber-500" />
-              Pending Invites
+              "Pending Invites"
             </h2>
             <div className="space-y-3">
               <AnimatePresence>
@@ -151,9 +151,9 @@ export default function SharedWithMePage() {
                                 <CalendarIcon className={`w-5 h-5 ${colors.text}`} />
                               </div>
                               <div>
-                                <h3 className="font-medium text-slate-900">{tab?.name || 'Calendar'}</h3>
+                                <h3 className="font-medium text-slate-900">{tab?.name || "Table"}</h3>
                                 <p className="text-sm text-slate-500">
-                                  From {invite.shared_by_email}
+                                  "Invited by" {invite.shared_by_email}
                                 </p>
                               </div>
                             </div>
@@ -193,16 +193,16 @@ export default function SharedWithMePage() {
         <div>
           <h2 className="text-lg font-medium text-slate-800 mb-4 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-indigo-500" />
-            Active Calendars
+            "Active Tables"
           </h2>
           
           {acceptedShares.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <Share2 className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <h3 className="font-medium text-slate-600 mb-2">No shared calendars yet</h3>
+                <h3 className="font-medium text-slate-600 mb-2">"No tables yet"</h3>
                 <p className="text-sm text-slate-400">
-                  When someone shares a calendar with you, it will appear here
+                  "When someone invites you to a table, it will appear here"
                 </p>
               </CardContent>
             </Card>
@@ -228,9 +228,9 @@ export default function SharedWithMePage() {
                                 <CalendarIcon className={`w-5 h-5 ${colors.text}`} />
                               </div>
                               <div>
-                                <h3 className="font-medium text-slate-900">{tab?.name || 'Calendar'}</h3>
+                                <h3 className="font-medium text-slate-900">{tab?.name || "Table"}</h3>
                                 <p className="text-sm text-slate-500">
-                                  Shared by {share.shared_by_email}
+                                  "Invited by" {share.shared_by_email}
                                 </p>
                               </div>
                             </div>
