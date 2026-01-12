@@ -97,7 +97,7 @@ export default function ShareModal({
               disabled={!email || isInviting}
             >
               <UserPlus className="w-4 h-4 mr-2" />
-              {isInviting ? "Inviting..." : "Send invite"}
+              {isInviting ? "Inviting..." : "Send Invite"}
             </Button>
           </form>
           
@@ -161,9 +161,9 @@ export default function ShareModal({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                            <SelectItem value="editor">Editor</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="viewer">"View only"</SelectItem>
+                            <SelectItem value="editor">"Can add events"</SelectItem>
+                            <SelectItem value="admin">"Can edit events"</SelectItem>
                           </SelectContent>
                         </Select>
                         

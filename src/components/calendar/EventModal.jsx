@@ -136,7 +136,7 @@ export default function EventModal({
                   disabled={!canEdit || isSharedEvent}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select table" />
+                    <SelectValue placeholder="Select a table" />
                   </SelectTrigger>
                   <SelectContent>
                     {tabs.map((tab) => {
@@ -178,7 +178,7 @@ export default function EventModal({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> "End"
+                    <Calendar className="w-3 h-3" /> "Until"
                   </Label>
                   <Input
                     type={formData.all_day ? "date" : "datetime-local"}
@@ -218,7 +218,7 @@ export default function EventModal({
 
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> "Location"
+                  <MapPin className="w-3 h-3" /> Location
                 </Label>
                 <Input
                   placeholder="Add location"
@@ -230,10 +230,10 @@ export default function EventModal({
               
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <FileText className="w-3 h-3" /> "Anything to remember?"
+                  <FileText className="w-3 h-3" /> Notes
                 </Label>
                 <Textarea
-                  placeholder="Add notes"
+                  placeholder="Anything to remember?"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="min-h-[80px] resize-none"
@@ -373,13 +373,13 @@ export default function EventModal({
                 Cancel
               </Button>
               {canEdit && (
-                  <Button 
-                    type="submit" 
-                    className="bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    {event ? "Save Changes" : "Gather it"}
-                  </Button>
-                )}
+                <Button 
+                  type="submit" 
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {event ? "Save Changes" : "Gather it"}
+                </Button>
+              )}
             </div>
           </div>
         </form>

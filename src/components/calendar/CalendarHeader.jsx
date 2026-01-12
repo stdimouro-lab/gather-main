@@ -93,7 +93,7 @@ export default function CalendarHeader({
           title="Add it once. Share it where it belongs."
         >
           <Plus className="h-4 w-4 mr-2" />
-          "+ New Event"
+          + New Event
         </Button>
       </div>
     </div>
