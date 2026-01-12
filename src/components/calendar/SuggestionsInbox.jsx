@@ -5,16 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MailOpen, 
+  Mail, 
   Check, 
   X, 
   Edit2, 
-  AlertCircle,
   Inbox,
   Sparkles,
   Calendar as CalendarIcon,
   MapPin,
-  Clock
+  Clock,
+  Settings
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import EventTypeTag, { getEventTypeInfo } from './EventTypeTag';
@@ -29,6 +29,7 @@ export default function SuggestionsInbox({
   onAccept,
   onReject,
   onEdit,
+  onOpenSettings,
   isLoading = false
 }) {
   const [editingSuggestion, setEditingSuggestion] = useState(null);
@@ -45,31 +46,50 @@ export default function SuggestionsInbox({
     return tab ? getTabColors(tab.color) : getTabColors('indigo');
   };
 
+  const getSourceLabel = (source) => {
+    if (source?.includes('@gmail')) return 'Gmail';
+    if (source?.includes('@outlook') || source?.includes('@hotmail')) return 'Outlook';
+    return 'Email';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-500" />
-            Smart Suggestions
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              "Suggested Gatherings"
+            </DialogTitle>
+            {onOpenSettings && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:text-slate-600"
+                onClick={onOpenSettings}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 mt-1">"Events we found in your messages"</p>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto">
           {pendingSuggestions.length === 0 ? (
             <div className="p-8 text-center">
               <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <h3 className="font-medium text-slate-600 mb-2">All caught up!</h3>
+              <h3 className="font-medium text-slate-600 mb-2">"No new gatherings suggested today."</h3>
               <p className="text-sm text-slate-400">
-                No new event suggestions. They'll appear here when we detect events in your emails.
+                "We'll let you know when something comes in."
               </p>
             </div>
           ) : (
             <div className="space-y-3 p-4">
               <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-4 h-4 text-blue-500" />
-                <p className="text-sm text-blue-600 font-medium">
-                  {pendingSuggestions.length} {pendingSuggestions.length === 1 ? 'suggestion' : 'suggestions'} from your emails
+                <Mail className="w-4 h-4 text-indigo-500" />
+                <p className="text-sm text-indigo-600 font-medium">
+                  {pendingSuggestions.length} {pendingSuggestions.length === 1 ? 'gathering' : 'gatherings'} "ready to add"
                 </p>
               </div>
 
@@ -99,9 +119,10 @@ export default function SuggestionsInbox({
                                     {suggestion.title}
                                   </h3>
                                 </div>
-                                <p className="text-xs text-slate-500">
-                                  From: <span className="font-medium">{suggestion.source_email}</span>
-                                </p>
+                                <p className="text-xs text-slate-500 flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                "From" {getSourceLabel(suggestion.source_email)}
+                              </p>
                               </div>
                               <Badge 
                                 className={tabColors.light + ' ' + tabColors.text}
@@ -136,14 +157,12 @@ export default function SuggestionsInbox({
                             {/* Confidence indicator */}
                             {suggestion.confidence !== undefined && (
                               <div className="flex items-center gap-2 text-xs">
-                                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-all"
-                                    style={{ width: `${suggestion.confidence * 100}%` }}
-                                  />
-                                </div>
-                                <span className="text-slate-500 text-xs">
-                                  {Math.round(suggestion.confidence * 100)}% match
+                                <span className="text-slate-400">
+                                  {suggestion.confidence >= 0.8 
+                                    ? `"Looks like a ${suggestion.event_type || 'calendar'} event"` 
+                                    : suggestion.confidence >= 0.5 
+                                      ? `"Might be a ${suggestion.event_type || 'calendar'} event"` 
+                                      : `"Possible event detected"`}
                                 </span>
                               </div>
                             )}
@@ -160,7 +179,7 @@ export default function SuggestionsInbox({
                                 className="flex-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                               >
                                 <Edit2 className="w-3 h-3 mr-1" />
-                                Edit & Add
+                                "Edit before adding"
                               </Button>
                               <Button
                                 size="sm"
@@ -168,13 +187,14 @@ export default function SuggestionsInbox({
                                 className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
                               >
                                 <Check className="w-3 h-3 mr-1" />
-                                Add
+                                "Add to Table"
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onReject(suggestion)}
                                 className="px-2 text-slate-400 hover:text-slate-600"
+                                title="Ignore"
                               >
                                 <X className="w-4 h-4" />
                               </Button>
@@ -192,13 +212,13 @@ export default function SuggestionsInbox({
           {/* Recent processed */}
           {recentProcessed.length > 0 && (
             <div className="px-4 py-4 border-t border-slate-100">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase mb-3">Recently processed</h3>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase mb-3">"Recently processed"</h3>
               <div className="space-y-1">
                 {recentProcessed.map((s) => (
                   <div key={s.id} className="text-xs text-slate-500 p-2 rounded hover:bg-slate-50">
-                    <span className="line-through">{s.title}</span>
+                    <span className={s.status === 'accepted' ? '' : 'line-through'}>{s.title}</span>
                     <span className="ml-2 text-slate-400">
-                      {s.status === 'accepted' ? '✓ Added' : '✗ Ignored'}
+                      {s.status === 'accepted' ? '"✓ Gathered"' : '"✗ Ignored"'}
                     </span>
                   </div>
                 ))}

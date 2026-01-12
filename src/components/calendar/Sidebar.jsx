@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, Menu, X, ChevronLeft } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Plus, Menu, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import TabFilter from './TabFilter';
@@ -16,6 +17,8 @@ export default function Sidebar({
   onShareTab,
   onManageTab,
   sharedTabs,
+  pendingSuggestionsCount = 0,
+  onOpenSuggestions,
   isMobile = false
 }) {
   const [isOpen, setIsOpen] = useState(!isMobile);
@@ -71,6 +74,25 @@ export default function Sidebar({
                       className="rounded-xl border-0"
                     />
                     
+                    {/* Suggested Gatherings */}
+                    {pendingSuggestionsCount > 0 && onOpenSuggestions && (
+                      <button
+                        onClick={() => {
+                          onOpenSuggestions();
+                          setIsOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-medium text-amber-800">"Suggested"</span>
+                        </div>
+                        <Badge className="bg-amber-500 text-white text-xs">
+                          {pendingSuggestionsCount}
+                        </Badge>
+                      </button>
+                    )}
+
                     <TabFilter
                       tabs={tabs}
                       activeTabs={activeTabs}
@@ -110,6 +132,22 @@ export default function Sidebar({
           className="rounded-xl border-0"
         />
         
+        {/* Suggested Gatherings */}
+        {pendingSuggestionsCount > 0 && onOpenSuggestions && (
+          <button
+            onClick={onOpenSuggestions}
+            className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium text-amber-800">"Suggested"</span>
+            </div>
+            <Badge className="bg-amber-500 text-white text-xs">
+              {pendingSuggestionsCount}
+            </Badge>
+          </button>
+        )}
+
         <TabFilter
           tabs={tabs}
           activeTabs={activeTabs}
