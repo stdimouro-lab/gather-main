@@ -85,7 +85,7 @@ export default function Sidebar({
                       >
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-amber-500" />
-                          <span className="text-sm font-medium text-amber-800">"Suggested"</span>
+                          <span className="text-sm font-medium text-amber-800">Suggested</span>
                         </div>
                         <Badge className="bg-amber-500 text-white text-xs">
                           {pendingSuggestionsCount}
@@ -108,7 +108,7 @@ export default function Sidebar({
                       className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      "+ New Table"
+                      + New Table
                     </Button>
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export default function Sidebar({
           >
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-medium text-amber-800">"Suggested"</span>
+              <span className="text-sm font-medium text-amber-800">Suggested</span>
             </div>
             <Badge className="bg-amber-500 text-white text-xs">
               {pendingSuggestionsCount}
@@ -163,7 +163,7 @@ export default function Sidebar({
           className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
         >
           <Plus className="h-4 w-4 mr-2" />
-          "+ New Table"
+          + New Table
         </Button>
       </div>
     </div>
