@@ -447,7 +447,7 @@ export default function CalendarPage() {
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
-          <p className="mt-2 text-slate-500">"Loading your tables..."</p>
+          <p className="mt-2 text-slate-500">Loading your tables...</p>
         </div>
       </div>
     );

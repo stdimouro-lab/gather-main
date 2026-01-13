@@ -117,8 +117,8 @@ export default function SharedWithMePage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">"Invited Tables"</h1>
-            <p className="text-slate-500">"Manage tables you've been invited to"</p>
+            <h1 className="text-2xl font-semibold text-slate-900">Invited Tables</h1>
+            <p className="text-slate-500">Manage tables you've been invited to</p>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ Pending Invites
                               <div>
                                 <h3 className="font-medium text-slate-900">{tab?.name || "Table"}</h3>
                                 <p className="text-sm text-slate-500">
-                                  "From" {invite.shared_by_email}
+                                  From {invite.shared_by_email}
                                 </p>
                               </div>
                             </div>
@@ -193,16 +193,16 @@ Pending Invites
         <div>
           <h2 className="text-lg font-medium text-slate-800 mb-4 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-indigo-500" />
-            "Active Tables"
+            Active Tables
           </h2>
           
           {acceptedShares.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <Share2 className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <h3 className="font-medium text-slate-600 mb-2">"No tables yet."</h3>
+                <h3 className="font-medium text-slate-600 mb-2">No tables shared with you yet.</h3>
                 <p className="text-sm text-slate-400">
-                  "When someone invites you to a table, it will appear here."
+                  When someone invites you to a table, it will appear here.
                 </p>
               </CardContent>
             </Card>
@@ -230,7 +230,7 @@ Pending Invites
                               <div>
                                 <h3 className="font-medium text-slate-900">{tab?.name || "Table"}</h3>
                                 <p className="text-sm text-slate-500">
-                                  "Invited by" {share.shared_by_email}
+                                  Invited by {share.shared_by_email}
                                 </p>
                               </div>
                             </div>

@@ -41,8 +41,8 @@ export default function TodayAtTheTable({
     >
       {/* Header */}
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-900">"Today at the Table"</h2>
-        <p className="text-sm text-slate-500">"Here's what today looks like."</p>
+        <h2 className="text-lg font-semibold text-slate-900">Today at the Table</h2>
+        <p className="text-sm text-slate-500">{format(new Date(), 'EEEE, MMMM d')}</p>
       </div>
 
       {isEmpty ? (
@@ -55,8 +55,8 @@ export default function TodayAtTheTable({
           <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <Coffee className="w-6 h-6 text-slate-400" />
           </div>
-          <p className="text-slate-700 font-medium">"A clear table today."</p>
-          <p className="text-sm text-slate-400 mt-1">"Enjoy the quiet."</p>
+          <p className="text-slate-700 font-medium">Nothing happening today</p>
+          <p className="text-sm text-slate-400 mt-1">Enjoy the space.</p>
         </motion.div>
       ) : (
         /* Events grouped by table */

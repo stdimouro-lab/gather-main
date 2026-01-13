@@ -131,26 +131,18 @@ export default function Layout({ children }) {
             <span>Where life meets.</span>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <a 
-              href="#privacy" 
+            <Link 
+              to={createPageUrl('Privacy')} 
               className="text-slate-500 hover:text-slate-700 transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
-                window.open('/privacy', '_blank');
-              }}
             >
               Privacy Policy
-            </a>
-            <a 
-              href="#terms" 
+            </Link>
+            <Link 
+              to={createPageUrl('Terms')} 
               className="text-slate-500 hover:text-slate-700 transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
-                window.open('/terms', '_blank');
-              }}
             >
               Terms of Service
-            </a>
+            </Link>
           </div>
         </div>
       </footer>
