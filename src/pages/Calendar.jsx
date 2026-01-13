@@ -147,7 +147,7 @@ export default function CalendarPage() {
       if (prefs.length === 0) {
         const newPrefs = await base44.entities.UserPreferences.create({
           user_email: user.email,
-          email_suggestions_enabled: true,
+          email_suggestions_enabled: false,
           default_visibility: 'busy_only',
           has_completed_onboarding: false
         });

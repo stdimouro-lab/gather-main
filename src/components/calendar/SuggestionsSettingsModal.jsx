@@ -75,7 +75,7 @@ export default function SuggestionsSettingsModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5 text-slate-500" />
-            "Suggested Gatherings Settings"
+            Smart Event Suggestions (Beta)
           </DialogTitle>
         </DialogHeader>
 
@@ -86,9 +86,9 @@ export default function SuggestionsSettingsModal({
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <h3 className="font-medium text-sm text-slate-900">"Your privacy matters"</h3>
+                  <h3 className="font-medium text-sm text-slate-900">Your privacy matters</h3>
                   <p className="text-xs text-slate-500">
-                    "We scan for dates and event keywords only. Email content is never shared with other users or stored beyond detection."
+                    Gather can suggest events from your emails. Nothing is added without your approval. Email content is never shared with other users.
                   </p>
                 </div>
               </div>
@@ -98,8 +98,8 @@ export default function SuggestionsSettingsModal({
           {/* Master toggle */}
           <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl">
             <div>
-              <Label className="font-medium text-slate-900">"Enable auto-detection"</Label>
-              <p className="text-xs text-slate-500">"Scan emails for event suggestions"</p>
+              <Label className="font-medium text-slate-900">Enable Smart Suggestions</Label>
+              <p className="text-xs text-slate-500">Scan emails for event suggestions</p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
@@ -107,7 +107,7 @@ export default function SuggestionsSettingsModal({
           {/* Categories */}
           {enabled && (
             <div className="space-y-3">
-              <Label className="text-xs font-semibold text-slate-400 uppercase">"Detect these event types"</Label>
+              <Label className="text-xs font-semibold text-slate-400 uppercase">Detect these event types</Label>
               <div className="grid grid-cols-2 gap-2">
                 {CATEGORIES.map((cat) => {
                   const Icon = cat.icon;
@@ -137,7 +137,7 @@ export default function SuggestionsSettingsModal({
           {/* Notification digest */}
           {enabled && (
             <div className="space-y-3">
-              <Label className="text-xs font-semibold text-slate-400 uppercase">"Notification digest"</Label>
+              <Label className="text-xs font-semibold text-slate-400 uppercase">Notification digest</Label>
               <div className="flex gap-2">
                 {[
                   { id: 'off', label: 'Off' },
@@ -159,9 +159,9 @@ export default function SuggestionsSettingsModal({
                 ))}
               </div>
               <p className="text-xs text-slate-400">
-                {digestFrequency === 'daily' && '"Get a daily summary of new suggestions"'}
-                {digestFrequency === 'weekly' && '"Get a weekly summary of new suggestions"'}
-                {digestFrequency === 'off' && '"No notification emails"'}
+                {digestFrequency === 'daily' && 'Get a daily summary of new suggestions'}
+                {digestFrequency === 'weekly' && 'Get a weekly summary of new suggestions'}
+                {digestFrequency === 'off' && 'No notification emails'}
               </p>
             </div>
           )}
@@ -172,16 +172,16 @@ export default function SuggestionsSettingsModal({
             className="w-full text-slate-500 hover:text-red-600 hover:border-red-200"
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            "Clear suggestion history"
+            Clear suggestion history
           </Button>
         </div>
 
         <div className="flex gap-3 pt-4 border-t border-slate-100">
           <Button variant="outline" onClick={onClose} className="flex-1">
-            "Cancel"
+            Cancel
           </Button>
           <Button onClick={handleSave} className="flex-1 bg-indigo-600 hover:bg-indigo-700">
-            "Save Settings"
+            Save Settings
           </Button>
         </div>
       </DialogContent>
