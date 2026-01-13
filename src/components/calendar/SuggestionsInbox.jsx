@@ -59,7 +59,7 @@ export default function SuggestionsInbox({
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
-              "Suggested Gatherings"
+              Suggested Gatherings
             </DialogTitle>
             {onOpenSettings && (
               <Button
@@ -72,16 +72,16 @@ export default function SuggestionsInbox({
               </Button>
             )}
           </div>
-          <p className="text-sm text-slate-500 mt-1">"Events we found in your messages"</p>
+          <p className="text-sm text-slate-500 mt-1">Events we found in your messages</p>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto">
           {pendingSuggestions.length === 0 ? (
             <div className="p-8 text-center">
               <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-              <h3 className="font-medium text-slate-600 mb-2">"No new gatherings suggested today."</h3>
+              <h3 className="font-medium text-slate-600 mb-2">No new gatherings suggested today.</h3>
               <p className="text-sm text-slate-400">
-                "We'll let you know when something comes in."
+                We'll let you know when something comes in.
               </p>
             </div>
           ) : (
@@ -89,7 +89,7 @@ export default function SuggestionsInbox({
               <div className="flex items-center gap-2 mb-4">
                 <Mail className="w-4 h-4 text-indigo-500" />
                 <p className="text-sm text-indigo-600 font-medium">
-                  {pendingSuggestions.length} {pendingSuggestions.length === 1 ? 'gathering' : 'gatherings'} "ready to add"
+                  {pendingSuggestions.length} {pendingSuggestions.length === 1 ? 'gathering' : 'gatherings'} ready to add
                 </p>
               </div>
 
@@ -121,7 +121,7 @@ export default function SuggestionsInbox({
                                 </div>
                                 <p className="text-xs text-slate-500 flex items-center gap-1">
                                 <Mail className="w-3 h-3" />
-                                "From" {getSourceLabel(suggestion.source_email)}
+                                From {getSourceLabel(suggestion.source_email)}
                               </p>
                               </div>
                               <Badge 
@@ -159,10 +159,10 @@ export default function SuggestionsInbox({
                               <div className="flex items-center gap-2 text-xs">
                                 <span className="text-slate-400">
                                   {suggestion.confidence >= 0.8 
-                                    ? `"Looks like a ${suggestion.event_type || 'calendar'} event"` 
+                                    ? `Looks like a ${suggestion.event_type || 'calendar'} event` 
                                     : suggestion.confidence >= 0.5 
-                                      ? `"Might be a ${suggestion.event_type || 'calendar'} event"` 
-                                      : `"Possible event detected"`}
+                                      ? `Might be a ${suggestion.event_type || 'calendar'} event` 
+                                      : `Possible event detected`}
                                 </span>
                               </div>
                             )}
@@ -179,7 +179,7 @@ export default function SuggestionsInbox({
                                 className="flex-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                               >
                                 <Edit2 className="w-3 h-3 mr-1" />
-                                "Edit before adding"
+                                Edit before adding
                               </Button>
                               <Button
                                 size="sm"
@@ -187,7 +187,7 @@ export default function SuggestionsInbox({
                                 className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-xs"
                               >
                                 <Check className="w-3 h-3 mr-1" />
-                                "Add to Table"
+                                Add to Table
                               </Button>
                               <Button
                                 size="sm"
@@ -212,13 +212,13 @@ export default function SuggestionsInbox({
           {/* Recent processed */}
           {recentProcessed.length > 0 && (
             <div className="px-4 py-4 border-t border-slate-100">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase mb-3">"Recently processed"</h3>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase mb-3">Recently processed</h3>
               <div className="space-y-1">
                 {recentProcessed.map((s) => (
                   <div key={s.id} className="text-xs text-slate-500 p-2 rounded hover:bg-slate-50">
                     <span className={s.status === 'accepted' ? '' : 'line-through'}>{s.title}</span>
                     <span className="ml-2 text-slate-400">
-                      {s.status === 'accepted' ? '"✓ Gathered"' : '"✗ Ignored"'}
+                      {s.status === 'accepted' ? '✓ Gathered' : '✗ Ignored'}
                     </span>
                   </div>
                 ))}
