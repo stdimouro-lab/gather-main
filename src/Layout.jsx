@@ -118,9 +118,42 @@ export default function Layout({ children }) {
       </nav>
       
       {/* Main Content */}
-      <main>
+      <main className="min-h-[calc(100vh-120px)]">
         {children}
       </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-slate-200 py-6 px-4">
+        <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span>© {new Date().getFullYear()} Gather</span>
+            <span className="text-slate-300">·</span>
+            <span>Where life meets.</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <a 
+              href="#privacy" 
+              className="text-slate-500 hover:text-slate-700 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                window.open('/privacy', '_blank');
+              }}
+            >
+              Privacy Policy
+            </a>
+            <a 
+              href="#terms" 
+              className="text-slate-500 hover:text-slate-700 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                window.open('/terms', '_blank');
+              }}
+            >
+              Terms of Service
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -19,20 +19,26 @@ import { cn } from "@/lib/utils";
 const STEPS = [
   {
     id: 'welcome',
-    title: "Life happens in groups.",
-    subtitle: "Gather helps you keep each one organized.",
+    title: "Welcome to Gather",
+    subtitle: "Where life meets.",
     icon: Heart
   },
   {
     id: 'tables',
-    title: "Tables keep things separate — but connected.",
-    subtitle: "Create different tables for family, work, and everything in between.",
+    title: "Create Tables for your life",
+    subtitle: "Family, Kids, Work, or anything you need — each one stays organized.",
     icon: Layers
   },
   {
-    id: 'privacy',
-    title: "Share only what matters.",
-    subtitle: "Family doesn't need your work calendar.",
+    id: 'sharing',
+    title: "Share individual tables",
+    subtitle: "Share specific tables without sharing your entire calendar.",
+    icon: Users
+  },
+  {
+    id: 'sync',
+    title: "Stay in sync",
+    subtitle: "Gather helps keep everyone in sync, without the chaos.",
     icon: Shield
   }
 ];
@@ -72,16 +78,16 @@ export default function OnboardingFlow({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center space-y-4"
+            className="text-center space-y-6"
           >
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto">
-              <StepIcon className="w-8 h-8 text-white" />
+            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+              <StepIcon className="w-10 h-10 text-white" />
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-slate-500">{Step.subtitle}</p>
+              <p className="text-lg text-slate-500">{Step.subtitle}</p>
             </div>
-            <p className="text-sm text-slate-400 pt-4">"Gather — where life meets."</p>
+            <p className="text-sm text-slate-400">Life happens in groups. Gather helps you keep each one organized.</p>
           </motion.div>
         );
 
@@ -95,19 +101,47 @@ export default function OnboardingFlow({
             <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
               <StepIcon className="w-7 h-7 text-blue-600" />
             </div>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-4">
               <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
               <p className="text-sm text-slate-500">{Step.subtitle}</p>
             </div>
-            <Card className="bg-blue-50 border-blue-200">
+            <div className="grid grid-cols-3 gap-2">
+              {['Family', 'Kids', 'Work'].map((name, i) => (
+                <div key={name} className="p-3 bg-slate-50 rounded-xl text-center">
+                  <div className={cn(
+                    "w-3 h-3 rounded-full mx-auto mb-2",
+                    i === 0 ? "bg-emerald-500" : i === 1 ? "bg-amber-500" : "bg-indigo-500"
+                  )} />
+                  <p className="text-xs font-medium text-slate-600">{name}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        );
+
+      case 2: // Sharing
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center">
+              <StepIcon className="w-7 h-7 text-emerald-600" />
+            </div>
+            <div className="space-y-2 mb-4">
+              <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
+              <p className="text-sm text-slate-500">{Step.subtitle}</p>
+            </div>
+            <Card className="bg-emerald-50 border-emerald-200">
               <CardContent className="pt-4">
-                <p className="text-xs text-blue-700">
-                  "✨ We'll create a Kids table for you. Invite your co-parent to stay in sync on schedules, pickups, and activities."
+                <p className="text-xs text-emerald-700">
+                  ✨ We'll create a Kids table for you. Invite your co-parent to stay in sync on schedules, pickups, and activities.
                 </p>
               </CardContent>
             </Card>
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-600">"Co-parent email (optional)"</Label>
+              <Label className="text-sm font-medium text-slate-600">Co-parent email (optional)</Label>
               <Input
                 type="email"
                 placeholder="parent@example.com"
@@ -115,12 +149,12 @@ export default function OnboardingFlow({
                 onChange={(e) => setCoparentEmail(e.target.value)}
                 className="rounded-xl"
               />
-              <p className="text-xs text-slate-400">"You can invite them later too"</p>
+              <p className="text-xs text-slate-400">You can invite them later too</p>
             </div>
           </motion.div>
         );
 
-      case 2: // Privacy
+      case 3: // Sync & Privacy
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -130,32 +164,22 @@ export default function OnboardingFlow({
             <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
               <StepIcon className="w-7 h-7 text-purple-600" />
             </div>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-4">
               <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
               <p className="text-sm text-slate-500">{Step.subtitle}</p>
             </div>
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-sm text-slate-900">"Busy only mode for shared tables"</h3>
-                      <p className="text-xs text-slate-500">
-                        "They see when you're busy, not what you're doing. Perfect for co-parenting."
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <span className="text-sm font-medium text-slate-700">"Default to busy only when inviting people"</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Default to "busy only" when sharing</p>
+                  <p className="text-xs text-slate-500">Others see when you're busy, not what you're doing</p>
+                </div>
                 <Switch checked={busyByDefault} onCheckedChange={setBusyByDefault} />
               </div>
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                 <div>
-                  <p className="text-sm font-medium text-slate-700">"Enable smart suggestions"</p>
-                  <p className="text-xs text-slate-500">"Scan emails for events"</p>
+                  <p className="text-sm font-medium text-slate-700">Smart Event Suggestions (Beta)</p>
+                  <p className="text-xs text-slate-500">Suggest events from emails — nothing added without approval</p>
                 </div>
                 <Switch checked={emailSuggestions} onCheckedChange={setEmailSuggestions} />
               </div>
@@ -194,7 +218,7 @@ export default function OnboardingFlow({
               onClick={() => setCurrentStep(currentStep - 1)}
               className="flex-1"
             >
-              "Back"
+              Back
             </Button>
           )}
           {currentStep < STEPS.length - 1 ? (
@@ -202,7 +226,7 @@ export default function OnboardingFlow({
               onClick={handleNext}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
-              "Next"
+              Next
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
@@ -211,13 +235,13 @@ export default function OnboardingFlow({
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              "Set the table"
+              Create my first table
             </Button>
           )}
         </div>
 
         <p className="text-xs text-center text-slate-400 mt-4">
-          "Step" {currentStep + 1} "of" {STEPS.length}
+          Step {currentStep + 1} of {STEPS.length}
         </p>
       </DialogContent>
     </Dialog>

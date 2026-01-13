@@ -61,14 +61,18 @@ export default function ShareModal({
         </DialogHeader>
         
         <div className="px-6 pb-6 space-y-6">
-          <p className="text-sm text-slate-500">"Everyone at the table sees the same plans — in real time."</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+            <p className="text-xs text-blue-700">
+              Sharing a table lets others see events here — not your entire calendar.
+            </p>
+          </div>
           {/* Invite form */}
           <form onSubmit={handleInvite} className="space-y-4">
             <div className="flex gap-2">
               <div className="flex-1 space-y-1">
                 <Label className="text-xs font-medium text-slate-500">
-                   "Invite by email"
-                 </Label>
+                  Invite by email
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     type="email"
@@ -82,9 +86,9 @@ export default function ShareModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="viewer">"View only"</SelectItem>
-                      <SelectItem value="editor">"Can add events"</SelectItem>
-                      <SelectItem value="admin">"Can edit events"</SelectItem>
+                      <SelectItem value="viewer">View only</SelectItem>
+                      <SelectItem value="editor">Can add events</SelectItem>
+                      <SelectItem value="admin">Can edit events</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -103,19 +107,19 @@ export default function ShareModal({
           
           {/* Role descriptions */}
           <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-            <p className="text-xs font-medium text-slate-500">"Permission levels"</p>
+            <p className="text-xs font-medium text-slate-500">Permission levels</p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="space-y-1">
                 <Badge className={roleColors.viewer}>Viewer</Badge>
-                <p className="text-slate-500">"Can see events"</p>
+                <p className="text-slate-500">Can see events</p>
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.editor}>Editor</Badge>
-                <p className="text-slate-500">"Can add & edit"</p>
+                <p className="text-slate-500">Can add & edit</p>
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.admin}>Admin</Badge>
-                <p className="text-slate-500">"Full control"</p>
+                <p className="text-slate-500">Full control</p>
               </div>
             </div>
           </div>
@@ -124,8 +128,8 @@ export default function ShareModal({
           {shares && shares.length > 0 && (
             <div className="space-y-3">
               <Label className="text-xs font-medium text-slate-500">
-                 "People at this table"
-               </Label>
+                People at this table
+              </Label>
               <div className="space-y-2">
                 <AnimatePresence>
                   {shares.map((share) => (
@@ -147,7 +151,7 @@ export default function ShareModal({
                             {share.shared_with_email}
                           </p>
                           {!share.accepted && (
-                            <p className="text-xs text-amber-600">"Pending invite"</p>
+                            <p className="text-xs text-amber-600">Pending invite</p>
                           )}
                         </div>
                       </div>
@@ -161,9 +165,9 @@ export default function ShareModal({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="viewer">"View only"</SelectItem>
-                            <SelectItem value="editor">"Can add events"</SelectItem>
-                            <SelectItem value="admin">"Can edit events"</SelectItem>
+                            <SelectItem value="viewer">View only</SelectItem>
+                            <SelectItem value="editor">Can add events</SelectItem>
+                            <SelectItem value="admin">Can edit events</SelectItem>
                           </SelectContent>
                         </Select>
                         
