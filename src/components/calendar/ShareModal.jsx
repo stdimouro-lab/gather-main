@@ -106,7 +106,7 @@ export default function ShareModal({
           </form>
           
           {/* Role descriptions */}
-          <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
             <p className="text-xs font-medium text-slate-500">Permission levels</p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="space-y-1">
@@ -115,13 +115,16 @@ export default function ShareModal({
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.editor}>Editor</Badge>
-                <p className="text-slate-500">Can add & edit</p>
+                <p className="text-slate-500">Can add and edit events</p>
               </div>
               <div className="space-y-1">
                 <Badge className={roleColors.admin}>Admin</Badge>
                 <p className="text-slate-500">Full control</p>
               </div>
             </div>
+            <p className="text-xs text-slate-400 pt-2 border-t border-slate-200">
+              Access can be changed or removed at any time.
+            </p>
           </div>
           
           {/* Current shares */}

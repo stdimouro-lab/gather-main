@@ -88,7 +88,7 @@ export default function SuggestionsSettingsModal({
                 <div className="space-y-1">
                   <h3 className="font-medium text-sm text-slate-900">Your privacy matters</h3>
                   <p className="text-xs text-slate-500">
-                    Gather can suggest events from your emails. Nothing is added without your approval. Email content is never shared with other users.
+                    Gather can suggest events from your emails. Nothing is added without your approval.
                   </p>
                 </div>
               </div>

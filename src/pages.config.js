@@ -1,14 +1,14 @@
 import Calendar from './pages/Calendar';
-import SharedWithMe from './pages/SharedWithMe';
 import Privacy from './pages/Privacy';
+import SharedWithMe from './pages/SharedWithMe';
 import Terms from './pages/Terms';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Calendar": Calendar,
-    "SharedWithMe": SharedWithMe,
     "Privacy": Privacy,
+    "SharedWithMe": SharedWithMe,
     "Terms": Terms,
 }
 

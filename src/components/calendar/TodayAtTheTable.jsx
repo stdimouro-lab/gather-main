@@ -56,7 +56,7 @@ export default function TodayAtTheTable({
             <Coffee className="w-6 h-6 text-slate-400" />
           </div>
           <p className="text-slate-700 font-medium">Nothing happening today</p>
-          <p className="text-sm text-slate-400 mt-1">Enjoy the space.</p>
+          <p className="text-sm text-slate-400 mt-1">Enjoy the calm.</p>
         </motion.div>
       ) : (
         /* Events grouped by table */

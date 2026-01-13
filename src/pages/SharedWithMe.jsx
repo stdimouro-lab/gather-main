@@ -200,9 +200,9 @@ Pending Invites
             <Card>
               <CardContent className="p-12 text-center">
                 <Share2 className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                <h3 className="font-medium text-slate-600 mb-2">No tables shared with you yet.</h3>
+                <h3 className="font-medium text-slate-600 mb-2">No tables shared with you yet</h3>
                 <p className="text-sm text-slate-400">
-                  When someone invites you to a table, it will appear here.
+                  When someone invites you, they'll appear here.
                 </p>
               </CardContent>
             </Card>

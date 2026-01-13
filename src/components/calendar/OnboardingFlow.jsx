@@ -20,25 +20,25 @@ const STEPS = [
   {
     id: 'welcome',
     title: "Welcome to Gather",
-    subtitle: "Where life meets.",
+    subtitle: "Where life meets. Gather helps you organize plans around the people who matter most.",
     icon: Heart
   },
   {
     id: 'tables',
-    title: "Create Tables for your life",
-    subtitle: "Family, Kids, Work, or anything you need — each one stays organized.",
+    title: "Create Tables",
+    subtitle: "Tables help you organize life by group — Family, Kids, Work, or anything you need.",
     icon: Layers
   },
   {
     id: 'sharing',
-    title: "Share individual tables",
-    subtitle: "Share specific tables without sharing your entire calendar.",
+    title: "Share What Matters",
+    subtitle: "Share individual tables with others without sharing your entire calendar.",
     icon: Users
   },
   {
     id: 'sync',
-    title: "Stay in sync",
-    subtitle: "Gather helps keep everyone in sync, without the chaos.",
+    title: "Stay in Sync",
+    subtitle: "Add events, invite others, and keep everyone aligned — without the chaos.",
     icon: Shield
   }
 ];
@@ -85,9 +85,8 @@ export default function OnboardingFlow({
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-lg text-slate-500">{Step.subtitle}</p>
+              <p className="text-slate-500">{Step.subtitle}</p>
             </div>
-            <p className="text-sm text-slate-400">Life happens in groups. Gather helps you keep each one organized.</p>
           </motion.div>
         );
 
@@ -230,13 +229,24 @@ export default function OnboardingFlow({
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
-            <Button
-              onClick={handleComplete}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Create my first table
-            </Button>
+            <div className="flex-1 flex flex-col gap-2">
+              <Button
+                onClick={handleComplete}
+                className="w-full bg-indigo-600 hover:bg-indigo-700"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Create my first table
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  onComplete({ coparentEmail: null, emailSuggestions: false, busyByDefault: true });
+                }}
+                className="w-full text-slate-500"
+              >
+                Skip for now
+              </Button>
+            </div>
           )}
         </div>
 
