@@ -50,7 +50,7 @@ export default function OnboardingFlow({
 }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [coparentEmail, setCoparentEmail] = useState('');
-  const [emailSuggestions, setEmailSuggestions] = useState(true);
+  const [emailSuggestions, setEmailSuggestions] = useState(false);
   const [busyByDefault, setBusyByDefault] = useState(true);
 
   const handleNext = () => {
