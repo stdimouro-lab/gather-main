@@ -354,28 +354,36 @@ export default function CalendarPage() {
 
   // Complete onboarding
   const handleOnboardingComplete = async (data) => {
-    await base44.entities.UserPreferences.update(userPreferences?.id, {
-      has_completed_onboarding: true,
-      default_visibility: data.busyByDefault ? 'busy_only' : 'full',
-      email_suggestions_enabled: data.emailSuggestions
+    // Create the new table
+    const newTab = await base44.entities.CalendarTab.create({
+      name: data.tableName || 'My Table',
+      color: data.tableColor || 'indigo',
+      is_default: true,
+      owner_email: user.email,
+      notification_settings: { on_create: true, on_update: true, on_delete: true }
     });
 
-    if (data.coparentEmail) {
-      const kidsTab = ownedTabs.find(t => t.name === 'Kids');
-      if (kidsTab) {
-        await base44.entities.TabShare.create({
-          tab_id: kidsTab.id,
-          shared_with_email: data.coparentEmail,
-          role: 'editor',
-          shared_by_email: user.email,
-          accepted: true
-        });
-        toast.success('Invite sent to co-parent');
-      }
+    // If invite email provided, share the table
+    if (data.inviteEmail) {
+      await base44.entities.TabShare.create({
+        tab_id: newTab.id,
+        shared_with_email: data.inviteEmail,
+        role: data.inviteRole || 'viewer',
+        shared_by_email: user.email,
+        accepted: true
+      });
+      toast.success('Invite sent');
     }
 
+    // Mark onboarding as complete
+    await base44.entities.UserPreferences.update(userPreferences?.id, {
+      has_completed_onboarding: true
+    });
+
     setIsOnboardingOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['tabs'] });
     queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
+    toast.success('Table created');
   };
 
   // Get user role for a tab
