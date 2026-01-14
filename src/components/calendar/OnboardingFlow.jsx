@@ -3,44 +3,31 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from 'framer-motion';
 import { 
-  Heart, 
   Users, 
-  Shield, 
   ChevronRight,
   CheckCircle,
-  Layers
+  Layers,
+  Plus
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
+const TAB_COLORS = [
+  { id: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
+  { id: 'violet', label: 'Violet', class: 'bg-violet-500' },
+  { id: 'emerald', label: 'Emerald', class: 'bg-emerald-500' },
+  { id: 'amber', label: 'Amber', class: 'bg-amber-500' },
+  { id: 'rose', label: 'Rose', class: 'bg-rose-500' },
+  { id: 'cyan', label: 'Cyan', class: 'bg-cyan-500' },
+];
+
 const STEPS = [
-  {
-    id: 'welcome',
-    title: "Welcome to Gather",
-    subtitle: "Where life meets. Gather helps you organize plans around the people who matter most.",
-    icon: Heart
-  },
-  {
-    id: 'tables',
-    title: "Create Tables",
-    subtitle: "Tables help you organize life by group — Family, Kids, Work, or anything you need.",
-    icon: Layers
-  },
-  {
-    id: 'sharing',
-    title: "Share What Matters",
-    subtitle: "Share individual tables with others without sharing your entire calendar.",
-    icon: Users
-  },
-  {
-    id: 'sync',
-    title: "Stay in Sync",
-    subtitle: "Add events, invite others, and keep everyone aligned — without the chaos.",
-    icon: Shield
-  }
+  { id: 'what', title: "Create a Table" },
+  { id: 'name', title: "Name Your Table" },
+  { id: 'share', title: "Share This Table" },
+  { id: 'done', title: "Table Created" }
 ];
 
 export default function OnboardingFlow({
@@ -49,9 +36,10 @@ export default function OnboardingFlow({
   onComplete
 }) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [coparentEmail, setCoparentEmail] = useState('');
-  const [emailSuggestions, setEmailSuggestions] = useState(false);
-  const [busyByDefault, setBusyByDefault] = useState(true);
+  const [tableName, setTableName] = useState('');
+  const [tableColor, setTableColor] = useState('indigo');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('viewer');
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
@@ -61,19 +49,17 @@ export default function OnboardingFlow({
 
   const handleComplete = async () => {
     const data = {
-      coparentEmail: coparentEmail || null,
-      emailSuggestions,
-      busyByDefault
+      tableName: tableName || 'My Table',
+      tableColor,
+      inviteEmail: inviteEmail || null,
+      inviteRole
     };
     await onComplete(data);
   };
 
-  const Step = STEPS[currentStep];
-  const StepIcon = Step.icon;
-
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: // Welcome
+      case 0: // What is a Table
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -81,107 +67,132 @@ export default function OnboardingFlow({
             className="text-center space-y-6"
           >
             <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-              <StepIcon className="w-10 h-10 text-white" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-slate-500">{Step.subtitle}</p>
-            </div>
-          </motion.div>
-        );
-
-      case 1: // Tables
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
-              <StepIcon className="w-7 h-7 text-blue-600" />
-            </div>
-            <div className="space-y-2 mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-sm text-slate-500">{Step.subtitle}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {['Family', 'Kids', 'Work'].map((name, i) => (
-                <div key={name} className="p-3 bg-slate-50 rounded-xl text-center">
-                  <div className={cn(
-                    "w-3 h-3 rounded-full mx-auto mb-2",
-                    i === 0 ? "bg-emerald-500" : i === 1 ? "bg-amber-500" : "bg-indigo-500"
-                  )} />
-                  <p className="text-xs font-medium text-slate-600">{name}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        );
-
-      case 2: // Sharing
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center">
-              <StepIcon className="w-7 h-7 text-emerald-600" />
-            </div>
-            <div className="space-y-2 mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-sm text-slate-500">{Step.subtitle}</p>
-            </div>
-            <Card className="bg-emerald-50 border-emerald-200">
-              <CardContent className="pt-4">
-                <p className="text-xs text-emerald-700">
-                  ✨ We'll create a Kids table for you. Invite your co-parent to stay in sync on schedules, pickups, and activities.
-                </p>
-              </CardContent>
-            </Card>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-slate-600">Co-parent email (optional)</Label>
-              <Input
-                type="email"
-                placeholder="parent@example.com"
-                value={coparentEmail}
-                onChange={(e) => setCoparentEmail(e.target.value)}
-                className="rounded-xl"
-              />
-              <p className="text-xs text-slate-400">You can invite them later too</p>
-            </div>
-          </motion.div>
-        );
-
-      case 3: // Sync & Privacy
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
-              <StepIcon className="w-7 h-7 text-purple-600" />
-            </div>
-            <div className="space-y-2 mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">{Step.title}</h2>
-              <p className="text-sm text-slate-500">{Step.subtitle}</p>
+              <Layers className="w-10 h-10 text-white" />
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <div>
-                  <p className="text-sm font-medium text-slate-700">Default to "busy only" when sharing</p>
-                  <p className="text-xs text-slate-500">Others see when you're busy, not what you're doing</p>
-                </div>
-                <Switch checked={busyByDefault} onCheckedChange={setBusyByDefault} />
+              <h2 className="text-2xl font-semibold text-slate-900">Create a Table</h2>
+              <p className="text-slate-500">
+                A Table is a shared space for plans and events — like Family, Kids, or Work.
+              </p>
+            </div>
+          </motion.div>
+        );
+
+      case 1: // Name the Table
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center">
+              <Plus className="w-7 h-7 text-indigo-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">Name Your Table</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Table name</Label>
+                <Input
+                  type="text"
+                  placeholder="Family, Kids, Work, etc."
+                  value={tableName}
+                  onChange={(e) => setTableName(e.target.value)}
+                  className="rounded-xl"
+                  autoFocus
+                />
               </div>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                <div>
-                  <p className="text-sm font-medium text-slate-700">Smart Event Suggestions (Beta)</p>
-                  <p className="text-xs text-slate-500">Suggest events from emails — nothing added without approval</p>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Color</Label>
+                <div className="flex gap-2">
+                  {TAB_COLORS.map((color) => (
+                    <button
+                      key={color.id}
+                      onClick={() => setTableColor(color.id)}
+                      className={cn(
+                        "w-8 h-8 rounded-full transition-all",
+                        color.class,
+                        tableColor === color.id 
+                          ? "ring-2 ring-offset-2 ring-slate-400 scale-110" 
+                          : "hover:scale-105"
+                      )}
+                    />
+                  ))}
                 </div>
-                <Switch checked={emailSuggestions} onCheckedChange={setEmailSuggestions} />
               </div>
+            </div>
+          </motion.div>
+        );
+
+      case 2: // Share This Table
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center">
+              <Users className="w-7 h-7 text-emerald-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">Share This Table</h2>
+              <p className="text-sm text-slate-500">
+                Invite others to view or help manage events at this table.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Email address</Label>
+                <Input
+                  type="email"
+                  placeholder="name@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-slate-700">Permission</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer — Can see events</SelectItem>
+                    <SelectItem value="editor">Editor — Can add and edit events</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl">
+                Sharing a table does not share your other tables.
+              </p>
+            </div>
+          </motion.div>
+        );
+
+      case 3: // Confirmation
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center space-y-6"
+          >
+            <div className="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
+              <CheckCircle className="w-10 h-10 text-emerald-600" />
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-2xl font-semibold text-slate-900">Table Created</h2>
+              <p className="text-slate-500">
+                Your table is ready. Add events or invite people anytime.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 py-4">
+              <div className={cn(
+                "w-4 h-4 rounded-full",
+                TAB_COLORS.find(c => c.id === tableColor)?.class || 'bg-indigo-500'
+              )} />
+              <span className="font-medium text-slate-700">{tableName || 'My Table'}</span>
             </div>
           </motion.div>
         );
@@ -193,7 +204,7 @@ export default function OnboardingFlow({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] p-6">
+      <DialogContent className="sm:max-w-[450px] p-6">
         {renderStepContent()}
 
         <div className="mt-8 flex items-center justify-between gap-3">
@@ -211,7 +222,7 @@ export default function OnboardingFlow({
         </div>
 
         <div className="mt-6 flex gap-3">
-          {currentStep > 0 && (
+          {currentStep > 0 && currentStep < 3 && (
             <Button
               variant="outline"
               onClick={() => setCurrentStep(currentStep - 1)}
@@ -220,33 +231,55 @@ export default function OnboardingFlow({
               Back
             </Button>
           )}
-          {currentStep < STEPS.length - 1 ? (
+          
+          {currentStep === 0 && (
             <Button
               onClick={handleNext}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
-              Next
+              Continue
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
-          ) : (
+          )}
+          
+          {currentStep === 1 && (
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              disabled={!tableName.trim()}
+            >
+              Create Table
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          
+          {currentStep === 2 && (
             <div className="flex-1 flex flex-col gap-2">
+              {inviteEmail && (
+                <Button
+                  onClick={handleNext}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Invite
+                </Button>
+              )}
               <Button
-                onClick={handleComplete}
-                className="w-full bg-indigo-600 hover:bg-indigo-700"
+                variant={inviteEmail ? "ghost" : "default"}
+                onClick={handleNext}
+                className={inviteEmail ? "w-full text-slate-500" : "w-full bg-indigo-600 hover:bg-indigo-700"}
               >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Create my first table
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  onComplete({ coparentEmail: null, emailSuggestions: false, busyByDefault: true });
-                }}
-                className="w-full text-slate-500"
-              >
-                Skip for now
+                {inviteEmail ? "Skip for now" : "Skip for now"}
               </Button>
             </div>
+          )}
+          
+          {currentStep === 3 && (
+            <Button
+              onClick={handleComplete}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            >
+              Go to Table
+            </Button>
           )}
         </div>
 
