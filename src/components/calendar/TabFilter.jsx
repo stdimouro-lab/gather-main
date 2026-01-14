@@ -65,9 +65,18 @@ export default function TabFilter({
                 </span>
                 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {isShared && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShareTab(tab);
+                    }}
+                    title="Share table"
+                  >
                     <Share2 className="h-3.5 w-3.5 text-slate-400" />
-                  )}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -76,6 +85,7 @@ export default function TabFilter({
                       e.stopPropagation();
                       onManageTab(tab);
                     }}
+                    title="Table settings"
                   >
                     <Settings className="h-3.5 w-3.5 text-slate-400" />
                   </Button>

@@ -72,7 +72,8 @@ export default function OnboardingFlow({
             <div className="space-y-3">
               <h2 className="text-2xl font-semibold text-slate-900">Create a Table</h2>
               <p className="text-slate-500">
-                A Table is a shared space for plans and events — like Family, Kids, or Work.
+                Create Tables for different parts of your life.
+                Share a table with others without sharing everything.
               </p>
             </div>
           </motion.div>

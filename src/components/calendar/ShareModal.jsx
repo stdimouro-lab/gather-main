@@ -56,14 +56,14 @@ export default function ShareModal({
         <DialogHeader className="px-6 pt-4 pb-2">
           <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <Share2 className="w-5 h-5 text-slate-500" />
-            "Invite to the table"
+            Share "{tab?.name}" Table
           </DialogTitle>
         </DialogHeader>
         
         <div className="px-6 pb-6 space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
             <p className="text-xs text-blue-700">
-              Sharing a table lets others see events here — not your entire calendar.
+              Only this table will be shared.
             </p>
           </div>
           {/* Invite form */}
