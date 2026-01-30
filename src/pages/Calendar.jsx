@@ -16,7 +16,8 @@ import SuggestionsComingSoon from '@/components/calendar/SuggestionsComingSoon';
 import OnboardingFlow from '@/components/calendar/OnboardingFlow';
 import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Sparkles } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Loader2, Sparkles, Calendar } from 'lucide-react';
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -491,7 +492,7 @@ export default function CalendarPage() {
             }}
             sharedTabs={sharedWithMe}
             pendingSuggestionsCount={pendingSuggestions}
-            onOpenSuggestions={() => setIsSuggestionsOpen(true)}
+            onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
         
@@ -731,6 +732,6 @@ export default function CalendarPage() {
           <SuggestionsComingSoon />
         </DialogContent>
       </Dialog>
-      </div>
-      );
-      }
+    </div>
+  );
+}

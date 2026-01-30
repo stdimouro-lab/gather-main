@@ -10,7 +10,8 @@ import {
   ChevronRight,
   CheckCircle,
   Layers,
-  Plus
+  Plus,
+  Sparkles
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
