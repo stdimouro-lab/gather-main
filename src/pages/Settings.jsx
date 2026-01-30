@@ -174,23 +174,32 @@ export default function SettingsPage() {
                 }
               />
             </div>
-            <div className="flex items-center justify-between py-2 border-t border-slate-100">
+          </CardContent>
+        </Card>
+
+        {/* Integrations */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-slate-500" />
+              Integrations
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl">
               <div className="flex-1">
-                <Label className="text-sm font-medium text-slate-700">
-                  Smart Event Suggestions
-                </Label>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label className="text-sm font-medium text-slate-700">
+                    Email Event Suggestions
+                  </Label>
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                    Coming Soon
+                  </Badge>
+                </div>
                 <p className="text-xs text-slate-500">
-                  AI-powered event detection from messages (Beta)
+                  When available, this feature will require your permission and will only suggest events for review. You'll always stay in control.
                 </p>
               </div>
-              <Switch
-                checked={userPreferences?.email_suggestions_enabled || false}
-                onCheckedChange={(checked) => 
-                  updatePreferencesMutation.mutate({ 
-                    email_suggestions_enabled: checked 
-                  })
-                }
-              />
             </div>
           </CardContent>
         </Card>

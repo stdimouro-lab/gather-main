@@ -27,6 +27,7 @@ const STEPS = [
   { id: 'what', title: "Create a Table" },
   { id: 'name', title: "Name Your Table" },
   { id: 'share', title: "Share This Table" },
+  { id: 'smart', title: "Smart Features" },
   { id: 'done', title: "Table Created" }
 ];
 
@@ -172,7 +173,46 @@ export default function OnboardingFlow({
           </motion.div>
         );
 
-      case 3: // Confirmation
+      case 3: // Smart Features
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center">
+              <Sparkles className="w-7 h-7 text-amber-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">Smart Event Suggestions</h2>
+              <p className="text-sm text-slate-500">
+                Soon, Gather will be able to suggest events from your email — like school updates, reservations, and invitations.
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-slate-600">
+                  This feature will always be opt-in and will never add events automatically
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-slate-600">
+                  You'll review and approve each suggestion before it's added
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-slate-600">
+                  Email access can be disconnected at any time
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        );
+
+      case 4: // Confirmation
         return (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -275,6 +315,16 @@ export default function OnboardingFlow({
           )}
           
           {currentStep === 3 && (
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            >
+              Continue
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+          
+          {currentStep === 4 && (
             <Button
               onClick={handleComplete}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"

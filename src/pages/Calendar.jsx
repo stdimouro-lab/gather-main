@@ -12,8 +12,10 @@ import ShareModal from '@/components/calendar/ShareModal';
 import EventHistoryPanel from '@/components/calendar/EventHistoryPanel';
 import SuggestionsInbox from '@/components/calendar/SuggestionsInbox';
 import SuggestionsSettingsModal from '@/components/calendar/SuggestionsSettingsModal';
+import SuggestionsComingSoon from '@/components/calendar/SuggestionsComingSoon';
 import OnboardingFlow from '@/components/calendar/OnboardingFlow';
 import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Sparkles } from 'lucide-react';
 
 export default function CalendarPage() {
@@ -32,6 +34,7 @@ export default function CalendarPage() {
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [isSuggestionsSettingsOpen, setIsSuggestionsSettingsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isSuggestionsInfoOpen, setIsSuggestionsInfoOpen] = useState(false);
   const [user, setUser] = useState(null);
   
   const queryClient = useQueryClient();
@@ -718,6 +721,16 @@ export default function CalendarPage() {
           </button>
         </div>
       )}
-    </div>
-  );
-}
+
+      {/* Suggestions Info Modal */}
+      <Dialog open={isSuggestionsInfoOpen} onOpenChange={setIsSuggestionsInfoOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Smart Event Suggestions</DialogTitle>
+          </DialogHeader>
+          <SuggestionsComingSoon />
+        </DialogContent>
+      </Dialog>
+      </div>
+      );
+      }
