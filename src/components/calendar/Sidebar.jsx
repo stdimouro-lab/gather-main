@@ -75,23 +75,21 @@ export default function Sidebar({
                     />
                     
                     {/* Suggested Gatherings */}
-                    {pendingSuggestionsCount > 0 && onOpenSuggestions && (
-                      <button
-                        onClick={() => {
-                          onOpenSuggestions();
-                          setIsOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-amber-500" />
-                          <span className="text-sm font-medium text-amber-800">Suggested</span>
-                        </div>
-                        <Badge className="bg-amber-500 text-white text-xs">
-                          {pendingSuggestionsCount}
-                        </Badge>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        onOpenSuggestions();
+                        setIsOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                        <span className="text-sm font-medium text-amber-900">Suggested Gatherings</span>
+                      </div>
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                        Coming Soon
+                      </Badge>
+                    </button>
 
                     <TabFilter
                       tabs={tabs}
@@ -133,20 +131,18 @@ export default function Sidebar({
         />
         
         {/* Suggested Gatherings */}
-        {pendingSuggestionsCount > 0 && onOpenSuggestions && (
-          <button
-            onClick={onOpenSuggestions}
-            className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-medium text-amber-800">Suggested</span>
-            </div>
-            <Badge className="bg-amber-500 text-white text-xs">
-              {pendingSuggestionsCount}
-            </Badge>
-          </button>
-        )}
+        <button
+          onClick={onOpenSuggestions}
+          className="w-full flex items-center justify-between p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-900">Suggested Gatherings</span>
+          </div>
+          <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+            Coming Soon
+          </Badge>
+        </button>
 
         <TabFilter
           tabs={tabs}
