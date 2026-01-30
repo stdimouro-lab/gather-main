@@ -89,11 +89,12 @@ export default function CalendarHeader({
         
         <Button 
           onClick={onAddEvent}
-          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-indigo-200/50 transition-all hover:shadow-xl hover:shadow-indigo-200/70"
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium shadow-lg shadow-indigo-200/50 transition-all hover:shadow-xl hover:shadow-indigo-200/70 h-11"
           title="Add it once. Share it where it belongs."
         >
           <Plus className="h-4 w-4 mr-2" />
-          + New Event
+          <span className="hidden sm:inline">+ New Event</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
     </div>

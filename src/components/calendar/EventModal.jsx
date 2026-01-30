@@ -98,23 +98,24 @@ export default function EventModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden max-h-[90vh]">
         <div className={cn("h-2", colors.bg)} />
         
-        <form onSubmit={handleSubmit}>
-          <DialogHeader className="px-6 pt-4 pb-2">
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 pt-4 pb-2 flex-shrink-0">
             <DialogTitle className="text-xl font-semibold text-slate-900">
               {event ? "Edit Event" : "Add to the table"}
             </DialogTitle>
           </DialogHeader>
           
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
-            <TabsList className="bg-slate-100 mb-4">
-              <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
-              <TabsTrigger value="memories" className="text-xs">Memories</TabsTrigger>
-              <TabsTrigger value="recurrence" className="text-xs">Recurrence</TabsTrigger>
-              <TabsTrigger value="privacy" className="text-xs">Privacy</TabsTrigger>
-            </TabsList>
+          <div className="px-6 overflow-y-auto flex-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="bg-slate-100 mb-4">
+                <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+                <TabsTrigger value="memories" className="text-xs">Memories</TabsTrigger>
+                <TabsTrigger value="recurrence" className="text-xs">Recurrence</TabsTrigger>
+                <TabsTrigger value="privacy" className="text-xs">Privacy</TabsTrigger>
+              </TabsList>
             
             <TabsContent value="details" className="space-y-4 mt-0">
               <div className="space-y-2">
@@ -351,9 +352,11 @@ export default function EventModal({
                 </div>
               )}
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
           
-          <div className="flex items-center justify-between px-6 py-4 mt-4 border-t border-slate-100 bg-slate-50">
+          {/* Desktop Footer */}
+          <div className="hidden sm:flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
             {event && canDelete ? (
               <Button
                 type="button"
@@ -381,6 +384,28 @@ export default function EventModal({
                 </Button>
               )}
             </div>
+          </div>
+          
+          {/* Mobile Sticky Footer */}
+          <div className="sm:hidden sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 space-y-2 flex-shrink-0">
+            {canEdit && (
+              <Button 
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base"
+              >
+                {event ? "Save Changes" : "Gather it"}
+              </Button>
+            )}
+            {event && canDelete && (
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={() => onDelete(event)}
+                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 h-12"
+              >
+                Delete Event
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>
