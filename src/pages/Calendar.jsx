@@ -18,7 +18,8 @@ import { Loader2, Sparkles } from 'lucide-react';
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState('month');
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [view, setView] = useState(isMobile ? 'week' : 'month');
   const [activeTabs, setActiveTabs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -34,7 +35,6 @@ export default function CalendarPage() {
   const [user, setUser] = useState(null);
   
   const queryClient = useQueryClient();
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // Fetch user
   useEffect(() => {
@@ -466,7 +466,7 @@ export default function CalendarPage() {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Desktop */}
+        {/* Sidebar - Desktop Only */}
         {!isMobile && (
           <Sidebar
             currentDate={currentDate}
@@ -496,7 +496,7 @@ export default function CalendarPage() {
         <div className="flex-1 overflow-auto">
           <div className="p-4 sm:p-6">
             {/* Today at the Table */}
-            {!isLoadingEvents && (
+            {!isLoadingEvents && events.length > 0 && (
               <TodayAtTheTable
                 events={events}
                 tabs={allTabs}
@@ -527,10 +527,30 @@ export default function CalendarPage() {
               view={view}
               onViewChange={setView}
             />
-            
+
             {isLoadingEvents ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+              </div>
+            ) : events.length === 0 && allTabs.length > 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Calendar className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No events yet</h3>
+                <p className="text-slate-500 mb-6 max-w-sm">
+                  Start adding events to your tables to see them here
+                </p>
+                <Button
+                  onClick={() => {
+                    setSelectedEvent(null);
+                    setSelectedDate(new Date());
+                    setIsEventModalOpen(true);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Create Your First Event
+                </Button>
               </div>
             ) : view === 'month' ? (
               <MonthView

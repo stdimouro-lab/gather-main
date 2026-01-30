@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, Share2, LogOut, Settings, User } from 'lucide-react';
+import { Calendar, Share2, LogOut, Settings } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Toaster } from 'sonner';
 
@@ -71,6 +71,16 @@ export default function Layout({ children }) {
                   Invited Tables
                 </Button>
               </Link>
+              <Link to={createPageUrl('Settings')}>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`text-sm ${isActive('Settings') ? 'bg-slate-100 text-slate-900' : 'text-slate-600'}`}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
             </div>
           </div>
           
@@ -104,6 +114,13 @@ export default function Layout({ children }) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="md:hidden" />
+                <DropdownMenuItem asChild>
+                  <Link to={createPageUrl('Settings')} className="flex items-center">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={() => base44.auth.logout()}
                   className="text-red-600"
