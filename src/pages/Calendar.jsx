@@ -614,7 +614,7 @@ export default function CalendarPage() {
             }}
             sharedTabs={sharedWithMe}
             pendingSuggestionsCount={pendingSuggestions}
-            onOpenSuggestions={() => setIsSuggestionsOpen(true)}
+            onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
       </div>
