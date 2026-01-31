@@ -52,8 +52,8 @@ import Plans from './pages/Plans';
 import Privacy from './pages/Privacy';
 import Settings from './pages/Settings';
 import SharedWithMe from './pages/SharedWithMe';
-import Terms from './pages/Terms';
 import Support from './pages/Support';
+import Terms from './pages/Terms';
 import __Layout from './Layout.jsx';
 
 
@@ -63,8 +63,8 @@ export const PAGES = {
     "Privacy": Privacy,
     "Settings": Settings,
     "SharedWithMe": SharedWithMe,
-    "Terms": Terms,
     "Support": Support,
+    "Terms": Terms,
 }
 
 export const pagesConfig = {

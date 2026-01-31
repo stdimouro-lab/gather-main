@@ -14,17 +14,29 @@ import { Calendar, Share2, LogOut, Settings } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Toaster } from 'sonner';
 
+const PUBLIC_ROUTES = ['/support', '/privacy', '/terms'];
+
 export default function Layout({ children }) {
   const location = useLocation();
   const [user, setUser] = React.useState(null);
 
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    location.pathname.toLowerCase().includes(route)
+  );
+
   React.useEffect(() => {
+    if (isPublicRoute) return;
+    
     const fetchUser = async () => {
-      const userData = await base44.auth.me();
-      setUser(userData);
+      try {
+        const userData = await base44.auth.me();
+        setUser(userData);
+      } catch (error) {
+        // User not authenticated on protected route
+      }
     };
     fetchUser();
-  }, []);
+  }, [isPublicRoute]);
 
   const getInitials = (name) => {
     if (!name) return 'U';
@@ -34,6 +46,50 @@ export default function Layout({ children }) {
   const isActive = (path) => {
     return location.pathname.includes(path);
   };
+
+  // For public routes, render minimal layout
+  if (isPublicRoute) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Toaster position="top-right" richColors />
+        
+        <main className="min-h-[calc(100vh-80px)]">
+          {children}
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-slate-200 py-6 px-4">
+          <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span>© {new Date().getFullYear()} Gather</span>
+              <span className="text-slate-300">·</span>
+              <span>Where life meets.</span>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <Link 
+                to={createPageUrl('Privacy')} 
+                className="text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <Link 
+                to={createPageUrl('Terms')} 
+                className="text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Terms of Service
+              </Link>
+              <Link 
+                to={createPageUrl('Support')} 
+                className="text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Support
+              </Link>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
