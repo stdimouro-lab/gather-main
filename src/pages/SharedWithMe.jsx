@@ -19,8 +19,17 @@ import {
 import { format, parseISO } from 'date-fns';
 import { getTabColors } from '@/components/calendar/TabFilter';
 import { toast } from 'sonner';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function SharedWithMePage() {
+  return (
+    <ProtectedRoute>
+      <SharedWithMePageContent />
+    </ProtectedRoute>
+  );
+}
+
+function SharedWithMePageContent() {
   const [user, setUser] = useState(null);
   const queryClient = useQueryClient();
 
@@ -253,5 +262,4 @@ Pending Invites
       </div>
     </div>
   );
-}
 }
