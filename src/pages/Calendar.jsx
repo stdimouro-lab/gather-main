@@ -744,4 +744,3 @@ function CalendarPageContent() {
     </div>
   );
 }
-}
