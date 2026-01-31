@@ -2,11 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Loader2 } from 'lucide-react';
 
+const PUBLIC_ROUTES = ['/support', '/privacy', '/terms'];
+
 export default function ProtectedRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Check if current path is a public route
+      const currentPath = window.location.pathname.toLowerCase();
+      const isPublicRoute = PUBLIC_ROUTES.some(route => currentPath.includes(route));
+      
+      if (isPublicRoute) {
+        setIsAuthenticated(true);
+        return;
+      }
+
       const authenticated = await base44.auth.isAuthenticated();
       setIsAuthenticated(authenticated);
       
