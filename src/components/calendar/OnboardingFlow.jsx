@@ -236,6 +236,17 @@ export default function OnboardingFlow({
               )} />
               <span className="font-medium text-slate-700">{tableName || 'My Table'}</span>
             </div>
+            <p className="text-sm text-slate-500">
+              Need help?{' '}
+              <a
+                href="https://support.gatherapp.me"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-700 underline"
+              >
+                Visit our support page
+              </a>
+            </p>
           </motion.div>
         );
 

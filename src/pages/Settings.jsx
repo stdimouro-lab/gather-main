@@ -236,6 +236,21 @@ function SettingsPageContent() {
               </div>
               <ChevronRight className="w-5 h-5 text-slate-400" />
             </button>
+            <a
+              href="https://support.gatherapp.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between py-3 px-4 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <HelpCircle className="w-5 h-5 text-slate-600" />
+                <div className="text-left">
+                  <p className="text-sm font-medium text-slate-700">Help & Support</p>
+                  <p className="text-xs text-slate-500">Get help, contact support, or report an issue</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            </a>
           </CardContent>
         </Card>
 
