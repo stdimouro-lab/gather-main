@@ -160,6 +160,12 @@ export default function Layout({ children }) {
             >
               Terms of Service
             </Link>
+            <Link 
+              to={createPageUrl('Support')} 
+              className="text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Support
+            </Link>
           </div>
         </div>
       </footer>

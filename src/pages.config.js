@@ -48,21 +48,23 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Calendar from './pages/Calendar';
+import Plans from './pages/Plans';
 import Privacy from './pages/Privacy';
+import Settings from './pages/Settings';
 import SharedWithMe from './pages/SharedWithMe';
 import Terms from './pages/Terms';
-import Settings from './pages/Settings';
-import Plans from './pages/Plans';
+import Support from './pages/Support';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Calendar": Calendar,
+    "Plans": Plans,
     "Privacy": Privacy,
+    "Settings": Settings,
     "SharedWithMe": SharedWithMe,
     "Terms": Terms,
-    "Settings": Settings,
-    "Plans": Plans,
+    "Support": Support,
 }
 
 export const pagesConfig = {
