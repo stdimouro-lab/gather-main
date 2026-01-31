@@ -18,8 +18,17 @@ import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, Calendar } from 'lucide-react';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function CalendarPage() {
+  return (
+    <ProtectedRoute>
+      <CalendarPageContent />
+    </ProtectedRoute>
+  );
+}
+
+function CalendarPageContent() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [view, setView] = useState(isMobile ? 'week' : 'month');
@@ -734,4 +743,5 @@ export default function CalendarPage() {
       </Dialog>
     </div>
   );
+}
 }

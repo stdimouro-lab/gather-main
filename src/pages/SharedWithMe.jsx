@@ -254,3 +254,4 @@ Pending Invites
     </div>
   );
 }
+}

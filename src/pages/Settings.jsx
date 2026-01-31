@@ -21,8 +21,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import OnboardingFlow from '@/components/calendar/OnboardingFlow';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function SettingsPage() {
+  return (
+    <ProtectedRoute>
+      <SettingsPageContent />
+    </ProtectedRoute>
+  );
+}
+
+function SettingsPageContent() {
   const [user, setUser] = useState(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -288,4 +297,5 @@ export default function SettingsPage() {
       />
     </div>
   );
+}
 }

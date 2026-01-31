@@ -16,8 +16,17 @@ import {
   Zap
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function PlansPage() {
+  return (
+    <ProtectedRoute>
+      <PlansPageContent />
+    </ProtectedRoute>
+  );
+}
+
+function PlansPageContent() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -242,4 +251,5 @@ export default function PlansPage() {
       </div>
     </div>
   );
+}
 }
