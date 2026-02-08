@@ -10,6 +10,7 @@
  * Example file structure:
  * 
  *   import HomePage from './pages/HomePage';
+ *   import login from "./pages/login"; 
  *   import Dashboard from './pages/Dashboard';
  *   import Settings from './pages/Settings';
  *   
@@ -48,6 +49,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Calendar from './pages/Calendar';
+import login from "./pages/login";
 import Plans from './pages/Plans';
 import Privacy from './pages/Privacy';
 import Settings from './pages/Settings';
@@ -58,6 +60,7 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Login": Login,
     "Calendar": Calendar,
     "Plans": Plans,
     "Privacy": Privacy,
