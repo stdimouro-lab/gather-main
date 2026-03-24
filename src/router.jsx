@@ -19,21 +19,21 @@ import ResetPassword from "./pages/ResetPassword";
 export default function AppRouter() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        {/* Default */}
-        <Route path="/" element={<Navigate to="/calendar" replace />} />
+      {/* Public auth routes - NO app layout */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Public */}
-        <Route path="/login" element={<Login />} />
+      {/* Public content routes - with layout if you want shared site chrome */}
+      <Route element={<Layout />}>
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/support" element={<Support />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Protected */}
+        {/* Protected app routes */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Navigate to="/calendar" replace />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/settings" element={<Settings />} />
@@ -41,7 +41,7 @@ export default function AppRouter() {
         </Route>
 
         {/* Catch-all */}
-        <Route path="*" element={<div className="p-6">Not Found</div>} />
+        <Route path="*" element={<Navigate to="/calendar" replace />} />
       </Route>
     </Routes>
   );

@@ -85,9 +85,9 @@
   body {
     @apply bg-background text-foreground;
   }
-  body { border: 12px solid red !important; }
-
 }
-html, body {
+
+html,
+body {
   overflow-x: hidden;
 }

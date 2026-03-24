@@ -2,15 +2,54 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
+function GoogleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+    >
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c6.9 0 9.2-4.8 9.2-7.3 0-.5-.1-.9-.1-1.3H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M3.5 7.4l3.2 2.4C7.6 8 9.6 6.6 12 6.6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 8.3 2.4 5.1 4.5 3.5 7.4z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12 21.6c2.6 0 4.8-.9 6.4-2.5l-3-2.4c-.8.6-1.9 1-3.4 1-3.9 0-5.3-2.6-5.5-3.8l-3.2 2.5c1.6 3 4.7 5.2 8.7 5.2z"
+      />
+      <path
+        fill="#4285F4"
+        d="M21.2 14.3c0-.5-.1-.9-.1-1.3H12v3.9h5.5c-.3 1.3-1.1 2.3-2.1 3l3 2.4c1.8-1.6 2.8-4 2.8-8z"
+      />
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5 fill-current"
+    >
+      <path d="M16.7 12.8c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.8 0-1.9-.9-3.1-.9-1.6 0-3.1.9-4 2.2-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 2.9 2.4 1.1 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.2-2.6 1.2-2.7 0 0-2.3-.9-2.3-3.8zM14.4 5.9c.7-.8 1.2-1.9 1.1-3-.9 0-2 .6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2-.5 2.6-1.3z" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState(null); // "google" | "apple" | null
+  const [oauthLoading, setOauthLoading] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -91,10 +130,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold text-slate-900">Gather</h1>
+          <h1 className="text-3xl font-semibold text-slate-900">Gather</h1>
           <p className="mt-2 text-sm text-slate-600">
             Sign in to your calendar, family, and shared tables.
           </p>
@@ -138,18 +177,28 @@ export default function LoginPage() {
             type="button"
             onClick={() => handleOAuth("google")}
             disabled={oauthLoading !== null || loading}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60 flex items-center justify-center gap-3"
           >
-            {oauthLoading === "google" ? "Starting Google…" : "Continue with Google"}
+            <GoogleIcon />
+            <span>
+              {oauthLoading === "google"
+                ? "Starting Google…"
+                : "Continue with Google"}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => handleOAuth("apple")}
             disabled={oauthLoading !== null || loading}
-            className="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
+            className="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-3"
           >
-            {oauthLoading === "apple" ? "Starting Apple…" : "Continue with Apple"}
+            <AppleIcon />
+            <span>
+              {oauthLoading === "apple"
+                ? "Starting Apple…"
+                : "Continue with Apple"}
+            </span>
           </button>
         </div>
 
@@ -173,7 +222,7 @@ export default function LoginPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-                placeholder="Stephen Dimouro"
+                placeholder="Your name"
                 autoComplete="name"
               />
             </div>
@@ -237,7 +286,10 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-4 text-center text-sm">
-          <Link to="/forgot-password" className="text-slate-700 hover:text-slate-900 underline">
+          <Link
+            to="/forgot-password"
+            className="text-slate-700 hover:text-slate-900 underline"
+          >
             Forgot password?
           </Link>
         </div>
