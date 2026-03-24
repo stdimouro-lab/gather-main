@@ -1,35 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Loader2 } from 'lucide-react';
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "../context/AuthProvider";
 
-const PUBLIC_ROUTES = ['/support', '/privacy', '/terms'];
+export default function ProtectedRoute() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-export default function ProtectedRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  console.log("ProtectedRoute:", {
+    loading,
+    hasUser: !!user,
+    path: location.pathname,
+  });
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      // Check if current path is a public route
-      const currentPath = window.location.pathname.toLowerCase();
-      const isPublicRoute = PUBLIC_ROUTES.some(route => currentPath.includes(route));
-      
-      if (isPublicRoute) {
-        setIsAuthenticated(true);
-        return;
-      }
-
-      const authenticated = await base44.auth.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      
-      if (!authenticated) {
-        base44.auth.redirectToLogin(window.location.pathname);
-      }
-    };
-    
-    checkAuth();
-  }, []);
-
-  if (isAuthenticated === null) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
@@ -40,9 +23,9 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return children;
+  return <Outlet />;
 }

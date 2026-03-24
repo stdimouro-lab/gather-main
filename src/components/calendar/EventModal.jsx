@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,59 +7,134 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, parseISO } from 'date-fns';
-import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2, Image as ImageIcon } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getTabColors } from './TabFilter';
-import EventTypeTag, { getEventTypeInfo } from './EventTypeTag';
-import EventMemories from './EventMemories';
+import { format, parseISO } from "date-fns";
+import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2, Lightbulb } from "lucide-react";
+import { motion } from "framer-motion";
+import { getTabColors } from "./TabFilter";
+import { getEventTypeInfo } from "./EventTypeTag";
+import EventMemories from "./EventMemories";
 import { cn } from "@/lib/utils";
+import { DateTime } from "luxon";
 
-export default function EventModal({ 
-  isOpen, 
-  onClose, 
-  event, 
-  tabs, 
+const WEEKDAYS = [
+  { key: "SU", label: "S" },
+  { key: "MO", label: "M" },
+  { key: "TU", label: "T" },
+  { key: "WE", label: "W" },
+  { key: "TH", label: "T" },
+  { key: "FR", label: "F" },
+  { key: "SA", label: "S" },
+];
+
+function coerceRecurrenceType(recurrence) {
+  if (!recurrence) return "none";
+  if (typeof recurrence === "string") return recurrence;
+  if (typeof recurrence === "object" && recurrence.type) return recurrence.type;
+  return "none";
+}
+
+export default function EventModal({
+  isOpen,
+  onClose,
+  event,
+  tabs = [],
   defaultTab,
   defaultDate,
-  onSave, 
+  onSave,
   onDelete,
   isSharedEvent = false,
-  userRole = 'owner'
+  userRole = "owner",
+  hideDetails = false,
 }) {
   const [formData, setFormData] = useState({
-    title: '',
-    tab_id: '',
-    start_date: '',
-    end_date: '',
+    title: "",
+    tab_id: "",
+    start_date: "",
+    end_date: "",
     all_day: false,
-    location: '',
-    notes: '',
-    private_notes: '',
-    visibility: 'full',
-    event_type: 'other',
-    recurrence: { type: 'none' }
+    location: "",
+    notes: "",
+    private_notes: "",
+    visibility: "full",
+    event_type: "other",
+    recurrence: "none",
+    recurrenceByDay: [],
+    recurrenceEndDate: "",
   });
-  
-  const [activeTab, setActiveTab] = useState('details');
-  
-  const canEdit = userRole === 'owner' || userRole === 'editor' || userRole === 'admin';
-  const canDelete = userRole === 'owner' || userRole === 'admin';
+
+  const [activeTab, setActiveTab] = useState("details");
+
+  const canEdit = userRole === "owner" || userRole === "editor" || userRole === "admin";
+  const canDelete = userRole === "owner" || userRole === "admin";
+
+  // If this is a shared tab and the user is only a viewer, new submissions become suggestions.
+  const isSuggestionMode = !event && !canEdit && !!defaultTab?.is_shared && defaultTab?.share_role === "viewer";
+
+  const dialogTitle = useMemo(() => {
+    if (event) return "Edit Event";
+    if (isSuggestionMode) return "Suggest Event";
+    return "Add Event";
+  }, [event, isSuggestionMode]);
+
+  const submitLabel = useMemo(() => {
+    if (event) return "Save Changes";
+    if (isSuggestionMode) return "Send Suggestion";
+    return "Gather it";
+  }, [event, isSuggestionMode]);
 
   useEffect(() => {
+    const toLocalInputValue = (value, isAllDay = false) => {
+      if (!value) return "";
+
+      try {
+        if (isAllDay) {
+          return DateTime.fromISO(value, { zone: "utc" }).toFormat("yyyy-LL-dd'T'HH:mm");
+        }
+
+        return format(parseISO(value), "yyyy-MM-dd'T'HH:mm");
+      } catch (err) {
+        console.error("toLocalInputValue error:", { value, isAllDay, err });
+        return "";
+      }
+    };
+
     if (event) {
+      const recurrenceType = coerceRecurrenceType(
+        event.recurrence ?? event.recurrenceRule ?? event.recurrence_rule
+      );
+
+      const fallbackByDay =
+        Array.isArray(event.recurrenceByDay) ? event.recurrenceByDay : [];
+
+      const startValue =
+        event?.start_date ??
+        event?.start_at ??
+        event?.originalStartAt ??
+        event?.start ??
+        "";
+
+      const endValue =
+        event?.end_date ??
+        event?.end_at ??
+        event?.end ??
+        "";
+
+      const isAllDay = event?.all_day ?? event?.allDay ?? false;
+
       setFormData({
-        title: event.title || '',
-        tab_id: event.tab_id || '',
-        start_date: event.start_date ? format(parseISO(event.start_date), "yyyy-MM-dd'T'HH:mm") : '',
-        end_date: event.end_date ? format(parseISO(event.end_date), "yyyy-MM-dd'T'HH:mm") : '',
-        all_day: event.all_day || false,
-        location: event.location || '',
-        notes: event.notes || '',
-        private_notes: event.private_notes || '',
-        visibility: event.visibility || 'full',
-        event_type: event.event_type || 'other',
-        recurrence: event.recurrence || { type: 'none' }
+        title: event.title || "",
+        tab_id: event.tab_id || defaultTab?.id || tabs[0]?.id || "",
+        start_date: toLocalInputValue(startValue, isAllDay),
+        end_date: toLocalInputValue(endValue, isAllDay),
+        all_day: isAllDay,
+        location: event.location || "",
+        notes: event.notes || "",
+        private_notes: event.private_notes || "",
+        visibility: event.visibility || "full",
+        event_type: event.event_type || "other",
+        recurrence: recurrenceType || "none",
+        recurrenceByDay: fallbackByDay,
+        recurrenceEndDate: event?.recurrence?.end_date || "",
       });
     } else {
       const defaultDateTime = defaultDate || new Date();
@@ -67,297 +142,426 @@ export default function EventModal({
       const endDateTime = new Date(defaultDateTime);
       endDateTime.setHours(endDateTime.getHours() + 1);
       const endStr = format(endDateTime, "yyyy-MM-dd'T'HH:mm");
-      
+
       setFormData({
-        title: '',
-        tab_id: defaultTab?.id || tabs[0]?.id || '',
+        title: "",
+        tab_id: defaultTab?.id || tabs[0]?.id || "",
         start_date: startStr,
         end_date: endStr,
         all_day: false,
-        location: '',
-        notes: '',
-        private_notes: '',
-        visibility: 'full',
-        event_type: 'other',
-        recurrence: { type: 'none' }
+        location: "",
+        notes: "",
+        private_notes: "",
+        visibility: "full",
+        event_type: "other",
+        recurrence: "none",
+        recurrenceByDay: [],
+        recurrenceEndDate: "",
       });
     }
+
+    setActiveTab("details");
   }, [event, tabs, defaultTab, defaultDate, isOpen]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = DateTime.fromISO(formData.start_date, { zone: "local" });
+    const end = DateTime.fromISO(formData.end_date, { zone: "local" });
+
+    const basePayload = {
       ...formData,
-      start_date: new Date(formData.start_date).toISOString(),
-      end_date: new Date(formData.end_date).toISOString()
+      start_date: start.toUTC().toISO(),
+      end_date: end.toUTC().toISO(),
+      recurrenceTimezone:
+        formData.recurrence && formData.recurrence !== "none" ? tz : null,
+    };
+
+    if (isSuggestionMode) {
+      onSave({
+        ...basePayload,
+        mode: "suggestion",
+      });
+      return;
+    }
+
+    onSave({
+      ...basePayload,
+      mode: "event",
     });
   };
 
-  const selectedTab = tabs.find(t => t.id === formData.tab_id);
-  const colors = selectedTab ? getTabColors(selectedTab.color) : getTabColors('indigo');
+  const selectedTab = tabs.find((t) => t.id === formData.tab_id);
+  const colors = selectedTab ? getTabColors(selectedTab.color) : getTabColors("indigo");
+
+  const showReadOnlyBanner = !!event && !canEdit;
+  const disableFields = !!event && !canEdit;
+  const showMemories = !!event && !isSuggestionMode;
+  const showPrivacyTab = !isSuggestionMode;
+  const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
+  const showDelete = !!event && canDelete;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden max-h-[90vh]">
-        <div className={cn("h-2", colors.bg)} />
-        
-        <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
-          <DialogHeader className="px-6 pt-4 pb-2 flex-shrink-0">
-            <DialogTitle className="text-xl font-semibold text-slate-900">
-              {event ? "Edit Event" : "Add to the table"}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="px-6 overflow-y-auto flex-1">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="bg-slate-100 mb-4">
-                <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
-                <TabsTrigger value="memories" className="text-xs">Memories</TabsTrigger>
-                <TabsTrigger value="recurrence" className="text-xs">Recurrence</TabsTrigger>
-                <TabsTrigger value="privacy" className="text-xs">Privacy</TabsTrigger>
-              </TabsList>
-            
-            <TabsContent value="details" className="space-y-4 mt-0">
-              <div className="space-y-2">
-                <Input
-                  placeholder="What's happening?"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="text-lg font-medium border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-indigo-500"
-                  disabled={!canEdit}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500">"Which table does this belong to?"</Label>
-                <Select 
-                  value={formData.tab_id} 
-                  onValueChange={(value) => setFormData({ ...formData, tab_id: value })}
-                  disabled={!canEdit || isSharedEvent}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tabs.map((tab) => {
-                      const tabColors = getTabColors(tab.color);
-                      return (
-                        <SelectItem key={tab.id} value={tab.id}>
-                          <div className="flex items-center gap-2">
-                            <div className={cn("w-3 h-3 rounded-full", tabColors.bg)} />
-                            {tab.name}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center gap-2 mb-2">
-                <Switch
-                  checked={formData.all_day}
-                  onCheckedChange={(checked) => setFormData({ ...formData, all_day: checked })}
-                  disabled={!canEdit}
-                />
-                <Label className="text-sm text-slate-600">All day</Label>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> "When?"
-                  </Label>
-                  <Input
-                    type={formData.all_day ? "date" : "datetime-local"}
-                    value={formData.all_day ? formData.start_date.split('T')[0] : formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: formData.all_day ? `${e.target.value}T00:00` : e.target.value })}
-                    disabled={!canEdit}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> "Until"
-                  </Label>
-                  <Input
-                    type={formData.all_day ? "date" : "datetime-local"}
-                    value={formData.all_day ? formData.end_date.split('T')[0] : formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: formData.all_day ? `${e.target.value}T23:59` : e.target.value })}
-                    disabled={!canEdit}
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500">Event Type</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['school', 'sports', 'appointment', 'reservation', 'family', 'work'].map((type) => {
-                    const typeInfo = getEventTypeInfo(type);
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, event_type: type })}
-                        disabled={!canEdit}
-                        className={cn(
-                          'p-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 justify-center',
-                          formData.event_type === type
-                            ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        )}
-                      >
-                        <span>{typeInfo.emoji}</span>
-                        <span className="hidden sm:inline">{typeInfo.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+  <DialogContent className="w-[95vw] max-w-lg p-0 overflow-hidden max-h-[92dvh] overflow-x-hidden">
+    <div className={cn("h-2", colors.bg)} />
 
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> Location
-                </Label>
-                <Input
-                  placeholder="Add location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  disabled={!canEdit}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <FileText className="w-3 h-3" /> Notes
-                </Label>
-                <Textarea
-                  placeholder="Anything to remember?"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="min-h-[80px] resize-none"
-                  disabled={!canEdit}
-                />
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="memories" className="space-y-4 mt-0">
-              {event && (
-                <EventMemories
-                  eventId={event.id}
-                  isEditable={canEdit}
-                  userEmail={event.owner_email}
-                  visibility={formData.visibility}
-                />
-              )}
-              {!event && (
-                <p className="text-sm text-slate-400">Create the event first to add memories</p>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="recurrence" className="space-y-4 mt-0">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <Repeat className="w-3 h-3" /> Repeat
-                </Label>
-                <Select 
-                  value={formData.recurrence?.type || 'none'} 
-                  onValueChange={(value) => setFormData({ 
-                    ...formData, 
-                    recurrence: { ...formData.recurrence, type: value } 
-                  })}
-                  disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Does not repeat</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {formData.recurrence?.type !== 'none' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-4"
-                >
+    <form onSubmit={handleSubmit} className="flex min-w-0 flex-col max-h-[92dvh] overflow-x-hidden">
+      <DialogHeader className="flex-shrink-0 px-4 pb-2 pt-4 sm:px-6">
+        <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900">
+          {isSuggestionMode && <Lightbulb className="w-5 h-5 text-amber-500" />}
+          {dialogTitle}
+        </DialogTitle>
+
+        {showReadOnlyBanner && (
+          <div className="mt-1 text-xs text-slate-500">
+            View only — you can see this table but cannot make changes.
+          </div>
+        )}
+
+        {isSuggestionMode && (
+          <div className="mt-1 text-xs text-slate-500">
+            You are a viewer on this shared table, so this will be sent as a suggestion for the owner to review.
+          </div>
+        )}
+      </DialogHeader>
+
+      <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 bg-slate-100 p-1 sm:flex sm:w-auto sm:flex-wrap">
+                <TabsTrigger value="details" className="min-w-0 px-2 text-[11px] sm:text-xs">
+                  Details
+                </TabsTrigger>
+
+                {showMemories && (
+                  <TabsTrigger value="memories" className="text-xs">
+                    Memories
+                  </TabsTrigger>
+                )}
+
+                <TabsTrigger value="recurrence" className="text-xs">
+                  Recurrence
+                </TabsTrigger>
+
+                {showPrivacyTab && (
+                  <TabsTrigger value="privacy" className="text-xs">
+                    Privacy
+                  </TabsTrigger>
+                )}
+              </TabsList>
+
+              <TabsContent value="details" className="space-y-4 mt-0">
+                <div className="space-y-2">
+                  <Input
+                    placeholder={isSuggestionMode ? "What would you like to suggest?" : "What's happening?"}
+                    value={hideDetails ? "Busy" : formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full min-w-0 rounded-none border-0 border-b px-0 text-base sm:text-lg font-medium focus-visible:ring-0 focus-visible:border-indigo-500"
+                    disabled={disableFields || hideDetails}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-slate-500">
+                    Which table does this belong to?
+                  </Label>
+                  <Select
+  value={formData.tab_id}
+  onValueChange={(value) => setFormData({ ...formData, tab_id: value })}
+  disabled={disableFields || isSharedEvent}
+>
+  <SelectTrigger className="w-full min-w-0">
+    <SelectValue placeholder="Select a table" />
+  </SelectTrigger>
+
+  <SelectContent>
+    {tabs.map((tab) => {
+      const tabColors = getTabColors(tab.color);
+
+      return (
+        <SelectItem key={tab.id} value={tab.id}>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className={cn("h-3 w-3 rounded-full", tabColors.bg)} />
+            <span className="truncate">{tab.name}</span>
+
+            {tab.is_shared && (
+              <span className="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                {tab.share_role === "editor" ? "Editor" : "Viewer"}
+              </span>
+            )}
+          </div>
+        </SelectItem>
+      );
+    })}
+  </SelectContent>
+</Select>
+                </div>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <Switch
+                    checked={formData.all_day}
+                    onCheckedChange={(checked) => setFormData({ ...formData, all_day: checked })}
+                    disabled={disableFields}
+                  />
+                  <Label className="text-sm text-slate-600">All day</Label>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500">End repeat</Label>
+                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> When?
+                    </Label>
                     <Input
-                      type="date"
-                      value={formData.recurrence?.end_date || ''}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        recurrence: { ...formData.recurrence, end_date: e.target.value } 
-                      })}
-                      disabled={!canEdit}
+                      type={formData.all_day ? "date" : "datetime-local"}
+                      value={formData.all_day ? formData.start_date.split("T")[0] : formData.start_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          start_date: formData.all_day ? `${e.target.value}T00:00` : e.target.value,
+                        })
+                      }
+                      disabled={disableFields}
+                      required
                     />
                   </div>
-                </motion.div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> Until
+                    </Label>
+                    <Input
+                      type={formData.all_day ? "date" : "datetime-local"}
+                      value={formData.all_day ? formData.end_date.split("T")[0] : formData.end_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          end_date: formData.all_day ? `${e.target.value}T23:59` : e.target.value,
+                        })
+                      }
+                      disabled={disableFields}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-slate-500">Event Type</Label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {["school", "sports", "appointment", "reservation", "family", "work"].map((type) => {
+                      const typeInfo = getEventTypeInfo(type);
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, event_type: type })}
+                          disabled={disableFields}
+                          className={cn(
+                            "p-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 justify-center",
+                            formData.event_type === type
+                              ? "bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          )}
+                        >
+                          <span>{typeInfo.emoji}</span>
+                          <span className="hidden sm:inline">{typeInfo.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {!hideDetails && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> Location
+                    </Label>
+                    <Input
+                      placeholder="Add location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      disabled={disableFields}
+                    />
+                  </div>
+                )}
+
+                {!hideDetails && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> {isSuggestionMode ? "Why suggest this?" : "Notes"}
+                    </Label>
+                    <Textarea
+                      placeholder={isSuggestionMode ? "Add context for the owner..." : "Anything to remember?"}
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="w-full min-w-0 min-h-[80px] resize-none"
+                      disabled={disableFields}
+                    />
+                  </div>
+                )}
+              </TabsContent>
+
+              {showMemories && (
+                <TabsContent value="memories" className="space-y-4 mt-0">
+                  {event ? (
+                    <EventMemories
+                      eventId={event.id}
+                      isEditable={canEdit}
+                      userEmail={event.owner_email}
+                      visibility={formData.visibility}
+                    />
+                  ) : (
+                    <p className="text-sm text-slate-400">Create the event first to add memories</p>
+                  )}
+                </TabsContent>
               )}
-            </TabsContent>
-            
-            <TabsContent value="privacy" className="space-y-4 mt-0">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> Visibility for shared users
-                </Label>
-                <Select 
-                  value={formData.visibility} 
-                  onValueChange={(value) => setFormData({ ...formData, visibility: value })}
-                  disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-4 h-4" />
-                        Full details visible
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="busy_only">
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4" />
-                        Busy only (hide details)
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-400">
-                  Controls what shared users can see about this event
-                </p>
-              </div>
-              
-              {!isSharedEvent && (
+
+              <TabsContent value="recurrence" className="space-y-4 mt-0">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> Private notes (only you can see)
+                    <Repeat className="w-3 h-3" /> Repeat
                   </Label>
-                  <Textarea
-                    placeholder="Add private notes..."
-                    value={formData.private_notes}
-                    onChange={(e) => setFormData({ ...formData, private_notes: e.target.value })}
-                    className="min-h-[80px] resize-none bg-slate-50"
-                  />
+
+                  <Select
+                    value={formData.recurrence || "none"}
+                    onValueChange={(value) => {
+                      const next = { ...formData, recurrence: value };
+                      if (value !== "weekly") next.recurrenceByDay = [];
+                      setFormData(next);
+                    }}
+                    disabled={disableFields}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Does not repeat</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {formData.recurrence === "weekly" && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-500">Repeat on</Label>
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                      {WEEKDAYS.map((d) => {
+                        const selected = (formData.recurrenceByDay || []).includes(d.key);
+                        return (
+                          <button
+                            key={d.key}
+                            type="button"
+                            disabled={disableFields}
+                            onClick={() => {
+                              const prev = formData.recurrenceByDay || [];
+                              const next = selected ? prev.filter((x) => x !== d.key) : [...prev, d.key];
+                              setFormData({ ...formData, recurrenceByDay: next });
+                            }}
+                            className={cn(
+  "h-8 rounded-lg text-xs font-semibold transition-all sm:h-9 sm:text-sm",
+                              selected
+                                ? "bg-indigo-600 text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            )}
+                            title={d.key}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Tip: If you don’t select days, it repeats weekly based on the start date.
+                    </p>
+                  </div>
+                )}
+
+                {formData.recurrence !== "none" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="space-y-2"
+                  >
+                    <Label className="text-xs font-medium text-slate-500">
+                      End repeat (optional)
+                    </Label>
+                    <Input
+                      type="date"
+                      value={formData.recurrenceEndDate || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          recurrenceEndDate: e.target.value,
+                        })
+                      }
+                      disabled={disableFields}
+                    />
+                    <p className="text-xs text-slate-400">
+                      This field won’t limit repeats until RRULE UNTIL support is added in events.js.
+                    </p>
+                  </motion.div>
+                )}
+              </TabsContent>
+
+              {showPrivacyTab && (
+                <TabsContent value="privacy" className="space-y-4 mt-0">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Visibility for shared users
+                    </Label>
+                    <Select
+                      value={formData.visibility}
+                      onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+                      disabled={disableFields}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full">
+                          <div className="flex items-center gap-2">
+                            <Eye className="w-4 h-4" />
+                            Full details visible
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="busy_only">
+                          <div className="flex items-center gap-2">
+                            <Lock className="w-4 h-4" />
+                            Busy only (hide details)
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-400">
+                      Controls what shared users can see about this event
+                    </p>
+                  </div>
+
+                  {showPrivateNotes && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Private notes (only you can see)
+                      </Label>
+                      <Textarea
+                        placeholder="Add private notes..."
+                        value={formData.private_notes}
+                        onChange={(e) => setFormData({ ...formData, private_notes: e.target.value })}
+                        className="w-full min-w-0 min-h-[80px] resize-none bg-slate-50"
+                        disabled={disableFields}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
               )}
-            </TabsContent>
             </Tabs>
           </div>
-          
-          {/* Desktop Footer */}
+
           <div className="hidden sm:flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-            {event && canDelete ? (
+            {showDelete ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -370,36 +574,31 @@ export default function EventModal({
             ) : (
               <div />
             )}
-            
+
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              {canEdit && (
-                <Button 
-                  type="submit" 
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  {event ? "Save Changes" : "Gather it"}
+
+              {(canEdit || isSuggestionMode) && (
+                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
+                  {submitLabel}
                 </Button>
               )}
             </div>
           </div>
-          
-          {/* Mobile Sticky Footer */}
+
           <div className="sm:hidden sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 space-y-2 flex-shrink-0">
-            {canEdit && (
-              <Button 
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base"
-              >
-                {event ? "Save Changes" : "Gather it"}
+            {(canEdit || isSuggestionMode) && (
+              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base">
+                {submitLabel}
               </Button>
             )}
-            {event && canDelete && (
-              <Button 
+
+            {showDelete && (
+              <Button
                 type="button"
-                variant="outline" 
+                variant="outline"
                 onClick={() => onDelete(event)}
                 className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 h-12"
               >

@@ -1,469 +1,1508 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import CalendarHeader from '@/components/calendar/CalendarHeader';
-import MonthView from '@/components/calendar/MonthView';
-import WeekView from '@/components/calendar/WeekView';
-import Sidebar from '@/components/calendar/Sidebar';
-import EventModal from '@/components/calendar/EventModal';
-import TabModal from '@/components/calendar/TabModal';
-import ShareModal from '@/components/calendar/ShareModal';
-import EventHistoryPanel from '@/components/calendar/EventHistoryPanel';
-import SuggestionsInbox from '@/components/calendar/SuggestionsInbox';
-import SuggestionsSettingsModal from '@/components/calendar/SuggestionsSettingsModal';
-import SuggestionsComingSoon from '@/components/calendar/SuggestionsComingSoon';
-import OnboardingFlow from '@/components/calendar/OnboardingFlow';
-import TodayAtTheTable from '@/components/calendar/TodayAtTheTable';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, Calendar } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+// src/pages/calendar.jsx
+import { generateSuggestions } from "@/lib/ai/suggestions";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/components/ui/use-toast";
+import { inviteToTab, updateTabShare, removeTabShare, fetchSharedTabsForMe } from "../lib/tabShares";
+import { fetchTabs, createTab, updateTab, deleteTab } from "../lib/tabs";
+import {
+  fetchEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  editSingleOccurrence,
+  deleteSingleOccurrence,
+} from "../lib/events";
+import { fetchNotes, createNote, updateNote, deleteNote } from "../lib/notes";
+import CalendarHeader from "../components/calendar/CalendarHeader";
+import MonthView from "../components/calendar/MonthView";
+import WeekView from "../components/calendar/WeekView";
+import Sidebar from "../components/calendar/Sidebar";
+import EventModal from "../components/calendar/EventModal";
+import TabModal from "../components/calendar/TabModal";
+import ShareModal from "../components/calendar/ShareModal";
+import EventHistoryPanel from "../components/calendar/EventHistoryPanel";
+import SuggestionsInbox from "../components/calendar/SuggestionsInbox";
+import SuggestionsSettingsModal from "../components/calendar/SuggestionsSettingsModal";
+import SuggestionsComingSoon from "../components/calendar/SuggestionsComingSoon";
+import OnboardingFlow from "../components/calendar/OnboardingFlow";
+import TodayAtTheTable from "../components/calendar/TodayAtTheTable";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
+import { Loader2, Sparkles, Calendar } from "lucide-react";
+
+import { useAuth } from "../context/AuthProvider";
+import { supabase } from "../lib/supabase"; 
+import { ruleWithUntilBefore, ruleWithoutUntil } from "@/lib/recurrence_ops";
+import RecurrenceScopeModal from "../components/calendar/RecurrenceScopeModal";
+
+import {
+  getRealEventId,
+  getOccurrenceStartAt,
+  isRecurringInstance,
+  assertRealDbId,
+} from "@/lib/recurrenceUtils";
 
 export default function CalendarPage() {
-  return (
-    <ProtectedRoute>
-      <CalendarPageContent />
-    </ProtectedRoute>
-  );
-}
 
-function CalendarPageContent() {
+const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState(() => {
+  try {
+    return JSON.parse(localStorage.getItem("gather_dismissed_suggestions") || "[]");
+  } catch {
+    return [];
+  }
+});
+
+const [snoozedSuggestions, setSnoozedSuggestions] = useState(() => {
+  try {
+    return JSON.parse(localStorage.getItem("gather_snoozed_suggestions") || "{}");
+  } catch {
+    return {};
+  }
+});
+
+  const { user, loading } = useAuth();
+  const queryClient = useQueryClient();
+
   const [currentDate, setCurrentDate] = useState(new Date());
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const [view, setView] = useState(isMobile ? 'week' : 'month');
-  const [activeTabs, setActiveTabs] = useState([]);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const [view, setView] = useState(isMobile ? "week" : "month");
+
+  const [activeTabs, setActiveTabs] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("gather_active_tabs") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+
+  const [editingNote, setEditingNote] = useState(null);
+const [noteDraft, setNoteDraft] = useState({ title: "", body: "" });
+
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState(null);
+
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareTab, setShareTab] = useState(null);
+
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [isSuggestionsSettingsOpen, setIsSuggestionsSettingsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isSuggestionsInfoOpen, setIsSuggestionsInfoOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  
-  const queryClient = useQueryClient();
 
-  // Fetch user
-  useEffect(() => {
-    const fetchUser = async () => {
-      const userData = await base44.auth.me();
-      setUser(userData);
-    };
-    fetchUser();
-  }, []);
+  const [editScopePromptOpen, setEditScopePromptOpen] = useState(false);
+  const [pendingRecurringClick, setPendingRecurringClick] = useState(null);
+  const [recurrenceScopeModal, setRecurrenceScopeModal] = useState(null);
 
-  // Fetch tabs (owned by user)
-  const { data: ownedTabs = [], isLoading: isLoadingTabs } = useQuery({
-    queryKey: ['tabs', user?.email],
-    queryFn: async () => {
-      const tabs = await base44.entities.CalendarTab.filter({ owner_email: user?.email });
-      // If no tabs exist for this user, create default ones
-      if (tabs.length === 0) {
-        const defaultTabs = [
-          { name: 'Work', color: 'indigo', is_default: true, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
-          { name: 'Personal', color: 'violet', is_default: false, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
-          { name: 'Family', color: 'emerald', is_default: false, owner_email: user.email, notification_settings: { on_create: true, on_update: true, on_delete: true } },
-        ];
-        const created = await base44.entities.CalendarTab.bulkCreate(defaultTabs);
-        return created;
-      }
-      return tabs;
-    },
-    enabled: !!user?.email,
+  const invalidateEvents = () =>
+  queryClient.invalidateQueries({
+    predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === "events",
   });
 
-  // Fetch shared tabs
-  const { data: sharedWithMe = [] } = useQuery({
-    queryKey: ['shared-tabs', user?.email],
-    queryFn: () => base44.entities.TabShare.filter({ shared_with_email: user?.email }),
-    enabled: !!user?.email,
-  });
+const normalizeEventForModal = (ev) => {
+  if (!ev) return ev;
 
-  // Fetch shared tab details
-  const { data: sharedTabDetails = [] } = useQuery({
-    queryKey: ['shared-tab-details', sharedWithMe],
-    queryFn: async () => {
-      const tabIds = sharedWithMe.filter(s => s.accepted).map(s => s.tab_id);
-      if (tabIds.length === 0) return [];
-      const results = await Promise.all(
-        tabIds.map(id => base44.entities.CalendarTab.filter({ id }))
-      );
-      return results.flat();
-    },
-    enabled: sharedWithMe.length > 0,
-  });
+  const start =
+    ev?.start_date ??
+    ev?.start_at ??
+    ev?.originalStartAt ??
+    ev?.start ??
+    "";
 
-  // Combined tabs
-  const allTabs = useMemo(() => {
-    const combined = [...ownedTabs];
-    sharedTabDetails.forEach(tab => {
-      if (!combined.some(t => t.id === tab.id)) {
-        combined.push(tab);
-      }
+  const end =
+    ev?.end_date ??
+    ev?.end_at ??
+    ev?.end ??
+    "";
+
+  return {
+    ...ev,
+    start_date: start,
+    end_date: end,
+    start_at: ev?.start_at ?? start,
+    end_at: ev?.end_at ?? end,
+    allDay: ev?.allDay ?? ev?.all_day ?? false,
+    all_day: ev?.all_day ?? ev?.allDay ?? false,
+  };
+};
+
+const normalizeDraggedEvent = (input) => {
+  if (!input) return null;
+
+  const ev =
+    input?.event && !input?.start_date && !input?.start_at
+      ? input.event
+      : input;
+
+  return {
+    ...ev,
+    id: ev?.id ?? ev?.event_id ?? ev?.eventId ?? null,
+    recurringInstanceOf:
+      ev?.recurringInstanceOf ?? ev?.recurrence_parent_id ?? null,
+
+    // IMPORTANT:
+    // Only keep true occurrence markers here.
+    // Do NOT fall back to start_date/start_at for normal events.
+    originalStartAt:
+      ev?.originalStartAt ??
+      ev?.original_start_at ??
+      null,
+
+    start_date: ev?.start_date ?? ev?.start_at ?? null,
+    end_date: ev?.end_date ?? ev?.end_at ?? null,
+    start_at: ev?.start_at ?? ev?.start_date ?? null,
+    end_at: ev?.end_at ?? ev?.end_date ?? null,
+    all_day: ev?.all_day ?? ev?.allDay ?? false,
+    allDay: ev?.allDay ?? ev?.all_day ?? false,
+  };
+};
+
+const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+const getByDayFromISO = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return WEEKDAY_CODES[d.getUTCDay()];
+};
+
+const rewriteRRuleByDay = (rule, newStartISO, originalStartISO) => {
+  if (!rule || !newStartISO || !originalStartISO) return rule;
+
+  const oldDay = getByDayFromISO(originalStartISO);
+  const newDay = getByDayFromISO(newStartISO);
+
+  if (!oldDay || !newDay || oldDay === newDay) return rule;
+
+  const parts = String(rule).split(";");
+  const byDayIndex = parts.findIndex((p) => p.startsWith("BYDAY="));
+
+  if (byDayIndex === -1) {
+    return `${rule};BYDAY=${newDay}`;
+  }
+
+  const currentDays = parts[byDayIndex]
+    .replace("BYDAY=", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const nextDays = currentDays.map((d) => (d === oldDay ? newDay : d));
+
+  parts[byDayIndex] = `BYDAY=${nextDays.join(",")}`;
+  return parts.join(";");
+};
+
+const buildShiftedSeriesRule = (masterRule, newStartISO, originalOccurrenceISO) => {
+  if (!masterRule) return null;
+  return rewriteRRuleByDay(masterRule, newStartISO, originalOccurrenceISO);
+};
+
+const openScopeChoice = (action, ev, payload = {}) => {
+  const normalizedBase = normalizeEventForModal(ev);
+  const realId = getRealEventId(ev);
+  const occurrenceStartAt = getOccurrenceStartAt(ev);
+  const recurring = isRecurringInstance(ev);
+
+  const normalizedEvent = {
+    ...normalizedBase,
+    recurringInstanceOf: recurring ? realId : null,
+    originalStartAt: recurring ? occurrenceStartAt : null,
+  };
+
+  const normalizedPayload = {
+    ...payload,
+    newStartISO:
+      payload?.newStartISO ??
+      payload?.start_date ??
+      payload?.start_at ??
+      null,
+    newEndISO:
+      payload?.newEndISO ??
+      payload?.end_date ??
+      payload?.end_at ??
+      null,
+    start_date:
+      payload?.start_date ??
+      payload?.newStartISO ??
+      payload?.start_at ??
+      null,
+    end_date:
+      payload?.end_date ??
+      payload?.newEndISO ??
+      payload?.end_at ??
+      null,
+    start_at:
+      payload?.start_at ??
+      payload?.newStartISO ??
+      payload?.start_date ??
+      null,
+    end_at:
+      payload?.end_at ??
+      payload?.newEndISO ??
+      payload?.end_date ??
+      null,
+  };
+
+  setRecurrenceScopeModal({
+    action,
+    event: normalizedEvent,
+    payload: normalizedPayload,
+  });
+};
+
+const getMasterEventById = async (input) => {
+  const resolvedId = assertRealDbId(input);
+
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("id", resolvedId)
+    .single();
+
+  if (error) {
+    console.error("getMasterEventById error:", {
+      input,
+      resolvedId,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
     });
-    return combined;
-  }, [ownedTabs, sharedTabDetails]);
+    throw error;
+  }
+
+  return data;
+};
+
+const applyRecurrenceScope = async (scope) => {
+  try {
+    if (!recurrenceScopeModal) return;
+
+    const { action, event: ev, payload = {} } = recurrenceScopeModal;
+
+    const masterId = assertRealDbId(ev);
+    const occurrenceStartISO = getOccurrenceStartAt(ev);
+    const master = await getMasterEventById(masterId);
+
+    if (!master) {
+      throw new Error("Could not resolve recurring master event.");
+    }
+
+    const masterStart = master.start_date ?? master.start_at ?? null;
+    const masterEnd = master.end_date ?? master.end_at ?? null;
+
+    const draggedStart =
+      payload?.newStartISO ??
+      payload?.start_date ??
+      payload?.start_at ??
+      null;
+
+    const draggedEnd =
+      payload?.newEndISO ??
+      payload?.end_date ??
+      payload?.end_at ??
+      null;
+
+    const updateSource = payload?.updates ?? {};
+
+    const editStart =
+      updateSource?.start_date ??
+      updateSource?.start_at ??
+      draggedStart ??
+      occurrenceStartISO ??
+      masterStart;
+
+    const editEnd =
+      updateSource?.end_date ??
+      updateSource?.end_at ??
+      draggedEnd ??
+      masterEnd;
+
+    const durationMs =
+      masterStart && masterEnd
+        ? Math.max(
+            15 * 60 * 1000,
+            new Date(masterEnd).getTime() - new Date(masterStart).getTime()
+          )
+        : 60 * 60 * 1000;
+
+    const buildMergedSeriesUpdate = () => ({
+      title: updateSource?.title ?? master.title,
+      tab_id: updateSource?.tab_id ?? master.tab_id,
+      location: updateSource?.location ?? master.location ?? "",
+      event_type: updateSource?.event_type ?? master.event_type ?? null,
+      visibility: updateSource?.visibility ?? master.visibility ?? "private",
+      notes: updateSource?.notes ?? master.notes ?? "",
+      private_notes:
+        updateSource?.private_notes ??
+        updateSource?.privateNotes ??
+        master.private_notes ??
+        "",
+      all_day:
+        updateSource?.all_day ??
+        updateSource?.allDay ??
+        master.all_day ??
+        master.allDay ??
+        false,
+      start_date: editStart,
+      end_date: editEnd,
+      start_at: editStart,
+      end_at: editEnd,
+    });
+
+    // ======================
+    // ONE OCCURRENCE
+    // ======================
+    if (scope === "one") {
+      if (!occurrenceStartISO) {
+        throw new Error("Missing occurrence start time.");
+      }
+
+      if (action === "move" || action === "resize") {
+        if (!draggedStart || !draggedEnd) {
+          throw new Error("Missing dragged start or end time.");
+        }
+
+        await editSingleOccurrence({
+          master,
+          occurrenceStartISO,
+          updates: {
+            title: master.title,
+            tab_id: master.tab_id,
+            location: master.location ?? "",
+            event_type: master.event_type ?? null,
+            visibility: master.visibility ?? "private",
+            notes: master.notes ?? "",
+            private_notes: master.private_notes ?? "",
+            all_day: payload?.all_day ?? payload?.allDay ?? master.all_day ?? false,
+            start_date: draggedStart,
+            end_date: draggedEnd,
+            start_at: draggedStart,
+            end_at: draggedEnd,
+          },
+        });
+      } else if (action === "edit") {
+        if (!editStart || !editEnd) {
+          throw new Error("Missing edited start or end date.");
+        }
+
+        await editSingleOccurrence({
+          master,
+          occurrenceStartISO,
+          updates: {
+            title: updateSource?.title ?? master.title,
+            tab_id: updateSource?.tab_id ?? master.tab_id,
+            location: updateSource?.location ?? master.location ?? "",
+            event_type: updateSource?.event_type ?? master.event_type ?? null,
+            visibility: updateSource?.visibility ?? master.visibility ?? "private",
+            notes: updateSource?.notes ?? master.notes ?? "",
+            private_notes:
+              updateSource?.private_notes ??
+              updateSource?.privateNotes ??
+              master.private_notes ??
+              "",
+            all_day:
+              updateSource?.all_day ??
+              updateSource?.allDay ??
+              master.all_day ??
+              false,
+            start_date: editStart,
+            end_date: editEnd,
+            start_at: editStart,
+            end_at: editEnd,
+          },
+        });
+      } else if (action === "delete") {
+        await deleteSingleOccurrence({
+          master,
+          occurrenceStartISO,
+        });
+      } else {
+        throw new Error(`Unsupported recurrence action: ${action}`);
+      }
+
+      await invalidateEvents();
+      setRecurrenceScopeModal(null);
+      setSelectedEvent(null);
+      return;
+    }
+
+    // ======================
+    // ENTIRE SERIES
+    // ======================
+     if (scope === "series") {
+  if (action === "delete") {
+    await deleteEvent(masterId);
+  } else if (action === "move" || action === "resize" || action === "edit") {
+    const merged = buildMergedSeriesUpdate();
+
+    if (!merged.start_date || !merged.end_date) {
+      throw new Error("Missing updated series start or end date.");
+    }
+
+    const oldRule = master.recurrenceRule ?? master.recurrence_rule ?? null;
+    const shiftedRule =
+      action === "move" || action === "resize"
+        ? buildShiftedSeriesRule(
+            oldRule,
+            merged.start_date,
+            occurrenceStartISO ?? masterStart
+          )
+        : oldRule;
+
+    await updateEvent(masterId, {
+      ...merged,
+      recurrenceRule: shiftedRule,
+    });
+  } else {
+    throw new Error(`Unsupported recurrence action: ${action}`);
+  }
+
+  await invalidateEvents();
+  setRecurrenceScopeModal(null);
+  setSelectedEvent(null);
+  return;
+}
+
+    // ======================
+    // THIS AND FOLLOWING
+    // ======================
+    if (scope === "following") {
+  if (!occurrenceStartISO) {
+    throw new Error("Missing occurrence start time.");
+  }
+
+  const oldRule = master.recurrenceRule ?? master.recurrence_rule;
+  if (!oldRule) {
+    throw new Error("This event does not have a recurrence rule.");
+  }
+
+  const endedRule = ruleWithUntilBefore(oldRule, occurrenceStartISO);
+
+  await updateEvent(masterId, {
+    recurrenceRule: endedRule,
+  });
+
+  if (action === "delete") {
+    await invalidateEvents();
+    setRecurrenceScopeModal(null);
+    setSelectedEvent(null);
+    return;
+  }
+
+  let newSeriesStart = null;
+  let newSeriesEnd = null;
+
+  if (action === "move" || action === "resize") {
+    newSeriesStart = draggedStart;
+    newSeriesEnd = draggedEnd;
+  } else if (action === "edit") {
+    newSeriesStart = editStart;
+    newSeriesEnd = editEnd;
+  }
+
+  if (!newSeriesStart) {
+    throw new Error("Missing new series start date.");
+  }
+
+  if (!newSeriesEnd) {
+    newSeriesEnd = new Date(
+      new Date(newSeriesStart).getTime() + durationMs
+    ).toISOString();
+  }
+
+  const continuedRule = buildShiftedSeriesRule(
+    ruleWithoutUntil(oldRule),
+    newSeriesStart,
+    occurrenceStartISO
+  );
+
+  await createEvent({
+    owner_id: master.owner_id,
+    tab_id: updateSource?.tab_id ?? master.tab_id,
+    title: updateSource?.title ?? master.title ?? "Untitled event",
+    location: updateSource?.location ?? master.location ?? "",
+    event_type: updateSource?.event_type ?? master.event_type ?? null,
+    visibility: updateSource?.visibility ?? master.visibility ?? "private",
+    allDay:
+      updateSource?.allDay ??
+      updateSource?.all_day ??
+      master.all_day ??
+      master.allDay ??
+      false,
+    notes: updateSource?.notes ?? master.notes ?? "",
+    privateNotes:
+      updateSource?.privateNotes ??
+      updateSource?.private_notes ??
+      master.private_notes ??
+      "",
+    start_date: newSeriesStart,
+    end_date: newSeriesEnd,
+    recurrenceRule: continuedRule,
+    recurrenceTimezone:
+      master.recurrenceTimezone ?? master.recurrence_timezone ?? null,
+    recurrenceExdates: [],
+    recurrenceRdates: [],
+  });
+
+  await invalidateEvents();
+  setRecurrenceScopeModal(null);
+  setSelectedEvent(null);
+  return;
+}
+
+    throw new Error(`Unknown recurrence scope: ${scope}`);
+  } catch (err) {
+    console.error("applyRecurrenceScope error:", err);
+    toast({
+      title: "Error",
+      description: err?.message ?? "Could not apply recurrence change.",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleDeleteEvent = async (ev = selectedEvent) => {
+  try {
+    if (!ev) return;
+
+    if (ev?.recurrenceParentId) {
+      await deleteEventMutation.mutateAsync(ev);
+      return;
+    }
+
+    const isRecurring =
+      ev?.recurrenceRule ||
+      ev?.recurrence_rule ||
+      ev?.recurringInstanceOf ||
+      (typeof ev?.id === "string" && ev.id.includes("__"));
+
+    const occurrenceStartISO =
+      ev?.originalStartAt ??
+      ev?.start_date ??
+      ev?.start_at ??
+      null;
+
+    if (isRecurring && occurrenceStartISO) {
+      openScopeChoice("delete", ev, {});
+      return;
+    }
+
+    await deleteEventMutation.mutateAsync(ev);
+  } catch (err) {
+    console.error("handleDeleteEvent error:", err);
+    toast({
+      title: "Error",
+      description: "Could not delete event.",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleMoveEvent = async ({ event, nextStart, nextEnd, nextAllDay = false }) => {
+  try {
+    const ev = normalizeDraggedEvent(event);
+
+    if (!ev) {
+      throw new Error("Missing event payload for move.");
+    }
+
+    const movePayload = {
+      newStartISO: nextStart,
+      newEndISO: nextEnd,
+      start_date: nextStart,
+      end_date: nextEnd,
+      start_at: nextStart,
+      end_at: nextEnd,
+      all_day: nextAllDay,
+      allDay: nextAllDay,
+    };
+
+    // 🔴 ALWAYS route recurring through scope modal
+    if (isRecurringInstance(ev)) {
+      openScopeChoice("move", ev, movePayload);
+      return;
+    }
+
+    // 🔒 GUARANTEE REAL DB ID
+    const realId = assertRealDbId(ev);
+
+    await updateEvent(realId, {
+      start_date: nextStart,
+      end_date: nextEnd,
+      start_at: nextStart,
+      end_at: nextEnd,
+      all_day: nextAllDay,
+    });
+
+    await invalidateEvents();
+  } catch (error) {
+    console.error("handleMoveEvent error:", error);
+    toast({
+      title: "Could not move event",
+      description: error?.message || "Something went wrong.",
+      variant: "destructive",
+    });
+  }
+};
+  // ---------- TABS (Supabase) ----------
+  const {
+  data: ownedTabs = [],
+  isLoading: isLoadingTabs,
+  error: tabsError,
+  isError: isTabsError,
+} = useQuery({
+  queryKey: ["tabs", user?.id],
+  queryFn: () => fetchTabs(user.id),
+  enabled: !!user?.id,
+});
+
+console.log("tabs query:", {
+  isLoadingTabs,
+  ownedTabsCount: ownedTabs.length,
+  isTabsError,
+  tabsError,
+});
+
+  useEffect(() => {
+    localStorage.setItem("gather_active_tabs", JSON.stringify(activeTabs));
+  }, [activeTabs]);
+
+
+const {
+  data: sharedTabs = [],
+  isLoading: isLoadingSharedTabs,
+  error: sharedTabsError,
+  isError: isSharedTabsError,
+} = useQuery({
+  queryKey: ["sharedTabs", user?.id, user?.email],
+  queryFn: () =>
+    fetchSharedTabsForMe({
+      userId: user.id,
+      email: user.email,
+    }),
+  enabled: !!user?.id && !!user?.email,
+});
+
+const sharedWithMe = sharedTabs;
+const allTabs = useMemo(() => [...ownedTabs, ...sharedTabs], [ownedTabs, sharedTabs]);
+
+const visibleTabIds = useMemo(() => {
+  return new Set(allTabs.map((t) => t.id));
+}, [allTabs]);
+
+// real time update
+useEffect(() => {
+  if (!user?.id) return;
+  if (!allTabs.length) return;
+
+  const channel = supabase
+    .channel(`events-realtime-${user.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "events",
+      },
+      (payload) => {
+        const changedRow = payload.new ?? payload.old;
+        const changedTabId = changedRow?.tab_id;
+
+        if (!changedTabId) return;
+        if (!visibleTabIds.has(changedTabId)) return;
+
+        queryClient.invalidateQueries({
+          predicate: (q) =>
+            Array.isArray(q.queryKey) && q.queryKey[0] === "events",
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user?.id, allTabs.length, visibleTabIds, queryClient]);
+
+useEffect(() => {
+  if (!user?.id) return;
+
+  const channel = supabase
+    .channel(`tab-shares-realtime-${user.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "tab_shares",
+      },
+      () => {
+        queryClient.invalidateQueries({
+          predicate: (q) =>
+            Array.isArray(q.queryKey) &&
+            (q.queryKey[0] === "sharedTabs" || q.queryKey[0] === "tabs"),
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user?.id, queryClient]);
 
   // Initialize active tabs
   useEffect(() => {
     if (allTabs.length > 0 && activeTabs.length === 0) {
-      setActiveTabs(allTabs.map(t => t.id));
+      setActiveTabs(allTabs.map((t) => t.id));
     }
-  }, [allTabs]);
+  }, [allTabs, activeTabs.length]);
 
-  // Fetch events
-  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
-    queryKey: ['events', user?.email, allTabs],
-    queryFn: async () => {
-      const tabIds = allTabs.map(t => t.id);
-      if (tabIds.length === 0) return [];
-      const results = await Promise.all(
-        tabIds.map(id => base44.entities.Event.filter({ tab_id: id }))
-      );
-      return results.flat();
-    },
-    enabled: allTabs.length > 0,
-  });
+ // Auto-create default tabs for new users (first run)
+useEffect(() => {
+if (!user || isLoadingTabs) return;
+  if (ownedTabs.length > 0) return;
 
-  // Fetch shares for a specific tab
-  const { data: tabShares = [] } = useQuery({
-    queryKey: ['tab-shares', shareTab?.id],
-    queryFn: () => base44.entities.TabShare.filter({ tab_id: shareTab?.id }),
-    enabled: !!shareTab?.id,
-  });
+  const defaults = [
+    { name: "Work", color: "indigo", is_default: true },
+    { name: "Personal", color: "violet", is_default: false },
+    { name: "Family", color: "emerald", is_default: false },
+  ];
 
-  // Fetch event history
-  const { data: eventHistory = [] } = useQuery({
-    queryKey: ['event-history', selectedEvent?.id],
-    queryFn: () => base44.entities.EventHistory.filter({ event_id: selectedEvent?.id }, '-created_date'),
-    enabled: !!selectedEvent?.id && isHistoryOpen,
-  });
-
-  // Fetch suggestions
-  const { data: suggestions = [] } = useQuery({
-    queryKey: ['suggestions', user?.email],
-    queryFn: () => base44.entities.EventSuggestion.filter({ user_email: user?.email }, '-created_date'),
-    enabled: !!user?.email,
-  });
-
-  // Fetch user preferences
-  const { data: userPreferences } = useQuery({
-    queryKey: ['user-preferences', user?.email],
-    queryFn: async () => {
-      const prefs = await base44.entities.UserPreferences.filter({ user_email: user?.email });
-      if (prefs.length === 0) {
-        const newPrefs = await base44.entities.UserPreferences.create({
-          user_email: user.email,
-          email_suggestions_enabled: false,
-          default_visibility: 'busy_only',
-          has_completed_onboarding: false
+  (async () => {
+    try {
+      for (const tab of defaults) {
+        await createTab({
+          owner_id: user.id,
+          ...tab,
+          notification_settings: {
+            on_create: true,
+            on_update: true,
+            on_delete: true,
+          },
         });
-        return newPrefs;
       }
-      return prefs[0];
-    },
-    enabled: !!user?.email,
+
+      queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
+
+      toast({
+        title: "Table created",
+        description: "Default tabs were added.",
+      });
+    } catch (e) {
+      toast({
+        title: "Couldn’t create default tabs",
+        description: e?.message ?? "Something went wrong.",
+        variant: "destructive",
+      });
+    }
+  })();
+}, [user, isLoadingTabs, ownedTabs.length, queryClient]);
+
+  // ---------- EVENTS (Supabase) ----------
+  const range = useMemo(() => {
+    // MonthView needs a calendar grid range; WeekView needs week range.
+    // We'll just fetch a safe window around currentDate:
+    const start = new Date(currentDate);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(currentDate);
+    end.setMonth(end.getMonth() + 1);
+    end.setDate(0);
+    end.setHours(23, 59, 59, 999);
+
+    return { startISO: start.toISOString(), endISO: end.toISOString() };
+  }, [currentDate]);
+
+  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
+    queryKey: ["events", user?.id, activeTabs, range.startISO, range.endISO],
+    queryFn: () =>
+      fetchEvents({
+        ownerId: user.id,
+        tabIds: activeTabs,
+        startISO: range.startISO,
+        endISO: range.endISO,
+      }),
+    enabled: !!user?.id && !isLoadingTabs,
   });
 
-  // Create tab mutation
-  const createTabMutation = useMutation({
-    mutationFn: (data) => base44.entities.CalendarTab.create({
-      ...data,
-      owner_email: user.email
+  console.log("events query:", {
+  isLoadingEvents,
+  eventsCount: events.length,
+  activeTabsCount: activeTabs.length,
+  range,
+});
+
+  // ---------- NOTES (Supabase) ----------
+  const { data: notes = [], isLoading: isLoadingNotes } = useQuery({
+    queryKey: ["notes", user?.id, activeTabs],
+    queryFn: () => fetchNotes({ ownerId: user.id, tabIds: activeTabs }),
+    enabled: !!user?.id && !isLoadingTabs,
+  });
+
+  console.log("notes query:", {
+  isLoadingNotes,
+  notesCount: notes.length,
+});
+
+  const tabShares = [];
+const eventHistory = [];
+
+const suggestions = useMemo(() => {
+  const rawSuggestions = generateSuggestions(events);
+  const now = Date.now();
+
+  return rawSuggestions.filter((suggestion) => {
+    if (dismissedSuggestionIds.includes(suggestion.id)) return false;
+
+    const snoozedUntil = snoozedSuggestions[suggestion.id];
+    if (snoozedUntil && snoozedUntil > now) return false;
+
+    return true;
+  });
+}, [events, dismissedSuggestionIds, snoozedSuggestions]);
+
+const userPreferences = { has_completed_onboarding: true };
+
+const handleMakeRecurring = async (suggestion) => {
+  try {
+    const title = suggestion.message.match(/"(.*?)"/)?.[1];
+    if (!title) {
+      toast({
+        title: "Couldn’t detect event title",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const matchingEvents = events
+      .filter((e) => (e.title || "").trim() === title)
+      .sort(
+        (a, b) =>
+          new Date(a.start_date ?? a.start_at).getTime() -
+          new Date(b.start_date ?? b.start_at).getTime()
+      );
+
+    if (matchingEvents.length < 2) {
+      toast({
+        title: "Not enough events",
+        description: "Need at least 2 matching events to create a recurring pattern.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const first = matchingEvents[0];
+    const firstStart = first.start_date ?? first.start_at;
+    const firstEnd = first.end_date ?? first.end_at;
+
+    if (!firstStart || !firstEnd) {
+      toast({
+        title: "Missing event dates",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // v1: simple weekly recurrence
+    const recurrenceRule = "FREQ=WEEKLY";
+
+    await createEvent({
+      owner_id: user.id,
+      tab_id: first.tab_id,
+      title: first.title,
+      location: first.location ?? "",
+      event_type: first.event_type ?? null,
+      visibility: first.visibility ?? "private",
+      allDay: first.all_day ?? first.allDay ?? false,
+      notes: first.notes ?? "",
+      privateNotes: first.private_notes ?? first.privateNotes ?? "",
+      start_date: firstStart,
+      end_date: firstEnd,
+      recurrenceRule,
+      recurrenceTimezone: first.recurrence_timezone ?? first.recurrenceTimezone ?? null,
+      recurrenceExdates: [],
+      recurrenceRdates: [],
+    });
+
+    // delete the duplicate single events after creating recurring master
+    for (const ev of matchingEvents) {
+      await deleteEvent(ev.id);
+    }
+
+    await invalidateEvents();
+
+    toast({
+      title: "Recurring event created",
+      description: `"${title}" is now set up as a weekly recurring event.`,
+    });
+
+    dismissSuggestion(suggestion.id);
+  } catch (err) {
+    console.error("handleMakeRecurring error:", err);
+    toast({
+      title: "Failed to create recurring event",
+      description: err?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  }
+};
+
+  // ---------- TAB mutations ----------
+const createTabMutation = useMutation({
+  mutationFn: (data) => createTab({ owner_id: user.id, ...data }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
+    toast({ title: "Table created", description: "Your tab is ready." });
+
+    setIsTabModalOpen(false);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t create tab",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const updateTabMutation = useMutation({
+  mutationFn: ({ id, data }) => updateTab(id, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
+    toast({ title: "Table updated" });
+
+    setIsTabModalOpen(false);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t update tab",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const deleteTabMutation = useMutation({
+  mutationFn: (id) => deleteTab(id),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
+    toast({ title: "table deleted" });
+    setIsTabModalOpen(false);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t delete tab",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+// ---------- EVENT mutations ----------
+const createEventMutation = useMutation({
+  mutationFn: (data) => createEvent({ owner_id: user.id, ...data }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["events", user.id] });
+    toast({ title: "Event created" });
+
+    setIsEventModalOpen(false);
+setSelectedEvent(null);
+setSelectedDate(null);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t create event",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const updateEventMutation = useMutation({
+  mutationFn: ({ id, data }) => updateEvent(id, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["events", user.id] });
+    toast({ title: "Event updated" });
+
+    setIsEventModalOpen(false);
+setSelectedEvent(null);
+setSelectedDate(null);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t update event",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const deleteEventMutation = useMutation({
+  mutationFn: (event) => deleteEvent(event.id),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["events", user.id] });
+    toast({ title: "Event deleted" });
+    setIsEventModalOpen(false);
+setSelectedEvent(null);
+setSelectedDate(null);
+setSelectedTab(null);
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t delete event",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+// ---------- NOTES mutations ----------
+const createNoteMutation = useMutation({
+  mutationFn: (data) => createNote({ owner_id: user.id, ...data }),
+  onSuccess: (created) => {
+    queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
+
+    toast({
+      title: "Note created",
+      description: "Opened the new note for editing.",
+    });
+
+    // ✅ immediately open editor on the new note
+    if (created?.id) {
+      setEditingNote(created);
+      setNoteDraft({ title: created.title ?? "", body: created.body ?? "" });
+    }
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t create note",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const updateNoteMutation = useMutation({
+  mutationFn: ({ id, data }) => updateNote(id, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
+    toast({ title: "Note updated" });
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t update note",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+const deleteNoteMutation = useMutation({
+  mutationFn: (note) => deleteNote(note.id),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
+    toast({ title: "Note deleted" });
+  },
+  onError: (e) => {
+    toast({
+      title: "Couldn’t delete note",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  },
+});
+
+// ---------- Bridge placeholders ----------
+const bridgeNotConnected = (msg = "Not connected yet (coming next).") => {
+  toast({ title: "Coming soon", description: msg });
+};
+
+const shareTabMutation = useMutation({
+  mutationFn: ({ tabId, email, role }) =>
+    inviteToTab({ tabId, ownerId: user.id, email, role }),
+  onSuccess: () => {
+    toast({ title: "Invite sent" });
+    // optional: refresh shared tabs list
+    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+  },
+  onError: (e) =>
+    toast({
+      title: "Invite failed",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tabs'] });
-      setIsTabModalOpen(false);
-      setSelectedTab(null);
-      toast.success("Table created");
-    },
-  });
+});
 
-  // Update tab mutation
-  const updateTabMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.CalendarTab.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tabs'] });
-      setIsTabModalOpen(false);
-      setSelectedTab(null);
-      toast.success("Table updated");
-    },
-  });
+const updateShareMutation = useMutation({
+  mutationFn: ({ shareId, role }) => updateTabShare({ shareId, role }),
+  onSuccess: () => toast({ title: "Access updated" }),
+  onError: (e) =>
+    toast({
+      title: "Update failed",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    }),
+});
 
-  // Delete tab mutation
-  const deleteTabMutation = useMutation({
-    mutationFn: (id) => base44.entities.CalendarTab.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tabs'] });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      setIsTabModalOpen(false);
-      setSelectedTab(null);
-      toast.success("Table deleted");
-    },
-  });
+const removeShareMutation = useMutation({
+  mutationFn: ({ shareId }) => removeTabShare({ shareId }),
+  onSuccess: () => toast({ title: "Access removed" }),
+  onError: (e) =>
+    toast({
+      title: "Remove failed",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    }),
+});
 
-  // Create event mutation
-  const createEventMutation = useMutation({
-    mutationFn: async (data) => {
-      const event = await base44.entities.Event.create({
+const acceptSuggestionMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
+
+const rejectSuggestionMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
+
+const updateSuggestionsSettingsMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
+
+  // helpers preserved
+  const getUserRole = () => "owner";
+  
+  const isOwnedTab = (tab) => !!tab && tab.owner_id === user?.id;
+
+const canManageTab = (tab) => isOwnedTab(tab);
+const canShareTab = (tab) => isOwnedTab(tab);
+
+const getTabAccess = (tab) => {
+  if (!tab) return "none";
+  if (tab.owner_id === user?.id) return "owner";
+  return tab.share_role || "viewer";
+};
+
+const canEditTabContent = (tab) => {
+  const access = getTabAccess(tab);
+  return access === "owner" || access === "editor";
+};
+
+  const defaultTab = useMemo(() => ownedTabs.find((t) => t.is_default) || ownedTabs[0], [ownedTabs]);
+
+  const handleToggleTab = (tabId) => {
+    setActiveTabs((prev) => (prev.includes(tabId) ? prev.filter((id) => id !== tabId) : [...prev, tabId]));
+  };
+
+  const dismissSuggestion = (suggestionId) => {
+  setDismissedSuggestionIds((prev) => {
+    if (prev.includes(suggestionId)) return prev;
+    return [...prev, suggestionId];
+  });
+};
+
+const snoozeSuggestion = (suggestionId, minutes = 60) => {
+  const until = Date.now() + minutes * 60 * 1000;
+
+  setSnoozedSuggestions((prev) => ({
+    ...prev,
+    [suggestionId]: until,
+  }));
+};
+
+  // Notes editor helpers
+  const openNoteEditor = (note) => {
+    setEditingNote(note);
+    setNoteDraft({ title: note?.title ?? "", body: note?.body ?? "" });
+  };
+
+  const closeNoteEditor = () => {
+    setEditingNote(null);
+    setNoteDraft({ title: "", body: "" });
+  };
+
+  const saveNoteDraft = () => {
+    if (!editingNote) return;
+    updateNoteMutation.mutate({
+      id: editingNote.id,
+      data: { title: noteDraft.title, body: noteDraft.body },
+    });
+    closeNoteEditor();
+  };
+
+// ---------- Recurrence: click handler (single source of truth) ----------
+const handleSelectEvent = (event) => {
+  // If it's a recurring instance, ask scope first
+  if (event?.recurringInstanceOf && event?.originalStartAt) {
+    setPendingRecurringClick({
+      instanceEvent: normalizeEventForModal(event),
+    });
+    setEditScopePromptOpen(true);
+    return;
+  }
+
+  setSelectedEvent(normalizeEventForModal(event));
+  setIsEventModalOpen(true);
+};
+
+  // When user clicks a recurring instance, we ask if they want single or series.
+// If they pick "series", we open the master (parent) instead of the instance.
+const openRecurringScope = async (scope) => {
+  const instanceEvent = pendingRecurringClick?.instanceEvent;
+  if (!instanceEvent) return;
+
+  setEditScopePromptOpen(false);
+
+  if (scope === "series") {
+    try {
+      const masterId = getRealEventId(instanceEvent);
+      const master = await getMasterEventById(masterId);
+
+      if (!master) {
+        toast({
+          title: "Error",
+          description: "Could not find the series master event.",
+          variant: "destructive",
+        });
+        setPendingRecurringClick(null);
+        return;
+      }
+
+      setSelectedEvent(normalizeEventForModal(master));
+      setIsEventModalOpen(true);
+      setPendingRecurringClick(null);
+      return;
+    } catch (e) {
+      toast({
+        title: "Could not load series",
+        description: e?.message ?? "Could not load series master event.",
+        variant: "destructive",
+      });
+      setPendingRecurringClick(null);
+      return;
+    }
+  }
+
+  setSelectedEvent(normalizeEventForModal(instanceEvent));
+  setIsEventModalOpen(true);
+  setPendingRecurringClick(null);
+};
+
+  // Save handler that understands:
+  // - normal event create/update
+  // - editing ONE occurrence of a recurring series (creates override)
+  const handleEventSaveSmart = async (data) => {
+    const targetTabId = data?.tab_id ?? selectedEvent?.tab_id ?? selectedTab?.id;
+const targetTab = allTabs.find((t) => t.id === targetTabId);
+
+if (targetTab && !canEditTabContent(targetTab)) {
+  toast({
+    title: "View only",
+    description: "You do not have permission to edit events in this table.",
+    variant: "destructive",
+  });
+  return;
+}
+  try {
+    // Editing an existing event
+   if (selectedEvent) {
+  // Expanded recurring instance: edit only this occurrence
+  if (selectedEvent.recurringInstanceOf && selectedEvent.originalStartAt) {
+    const masterId = getRealEventId(selectedEvent);
+    const master = await getMasterEventById(masterId);
+
+    if (!master) {
+      toast({
+        title: "Error",
+        description: "Could not find the series master event.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const resolvedStart =
+      data?.start_date ??
+      data?.start_at ??
+      selectedEvent.originalStartAt;
+
+    const resolvedEnd =
+      data?.end_date ??
+      data?.end_at ??
+      selectedEvent.end_date ??
+      selectedEvent.end_at ??
+      master.end_date ??
+      master.end_at;
+
+    await editSingleOccurrence({
+      master,
+      occurrenceStartISO: selectedEvent.originalStartAt,
+      updates: {
         ...data,
-        owner_email: user.email,
-        version: 1,
-        last_modified_by: user.email
+        start_date: resolvedStart,
+        end_date: resolvedEnd,
+        start_at: resolvedStart,
+        end_at: resolvedEnd,
+      },
+    });
+
+    await invalidateEvents();
+    toast({ title: "Occurrence updated" });
+    setIsEventModalOpen(false);
+    setSelectedEvent(null);
+    setSelectedDate(null);
+    setSelectedTab(null);
+    return;
+  }
+
+  // Normal DB event update
+  updateEventMutation.mutate({
+    id: getRealEventId(selectedEvent) ?? selectedEvent.id,
+    data,
+    previousData: selectedEvent,
+  });
+  return;
+}
+
+// Create new event
+createEventMutation.mutate(data);
+  } catch (e) {
+    toast({
+      title: "Failed to save event",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    });
+  }
+};
+
+  // Delete handler that understands:
+  // - normal delete
+  // - delete single occurrence (EXDATE)
+ const handleEventDeleteSmart = async (eventToDelete) => {
+  const ev = eventToDelete || selectedEvent;
+  if (!ev) return;
+
+  const targetTab = allTabs.find((t) => t.id === ev.tab_id);
+
+  if (targetTab && !canEditTabContent(targetTab)) {
+    toast({
+      title: "View only",
+      description: "You do not have permission to delete events in this table.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    // Expanded recurring instance: delete only this occurrence
+    if (ev.recurringInstanceOf && ev.originalStartAt) {
+      const masterId = getRealEventId(ev);
+      const master = await getMasterEventById(masterId);
+
+      if (!master) {
+        toast({
+          title: "Error",
+          description: "Could not find the series master event.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await deleteSingleOccurrence({
+        master,
+        occurrenceStartISO: ev.originalStartAt,
       });
-      await base44.entities.EventHistory.create({
-        event_id: event.id,
-        action: 'created',
-        changed_by_email: user.email
-      });
-      return event;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+
+      await invalidateEvents();
+      toast({ title: "Occurrence deleted" });
       setIsEventModalOpen(false);
       setSelectedEvent(null);
       setSelectedDate(null);
-      toast.success('Event created');
-    },
-  });
-
-  // Update event mutation
-  const updateEventMutation = useMutation({
-    mutationFn: async ({ id, data, previousData }) => {
-      const changes = {};
-      Object.keys(data).forEach(key => {
-        if (JSON.stringify(data[key]) !== JSON.stringify(previousData[key])) {
-          changes[key] = data[key];
-        }
-      });
-      
-      await base44.entities.Event.update(id, {
-        ...data,
-        version: (previousData.version || 0) + 1,
-        last_modified_by: user.email
-      });
-      
-      await base44.entities.EventHistory.create({
-        event_id: id,
-        action: 'updated',
-        changed_by_email: user.email,
-        previous_data: previousData,
-        changes
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['event-history'] });
-      setIsEventModalOpen(false);
-      setSelectedEvent(null);
-      toast.success('Event updated');
-    },
-  });
-
-  // Delete event mutation
-  const deleteEventMutation = useMutation({
-    mutationFn: async (event) => {
-      await base44.entities.EventHistory.create({
-        event_id: event.id,
-        action: 'deleted',
-        changed_by_email: user.email,
-        previous_data: event
-      });
-      await base44.entities.Event.delete(event.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      setIsEventModalOpen(false);
-      setSelectedEvent(null);
-      toast.success('Event deleted');
-    },
-  });
-
-  // Share tab mutation
-  const shareTabMutation = useMutation({
-    mutationFn: ({ email, role }) => base44.entities.TabShare.create({
-      tab_id: shareTab.id,
-      shared_with_email: email,
-      role,
-      shared_by_email: user.email,
-      accepted: true // Auto-accept for MVP
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tab-shares'] });
-      toast.success('Invite sent');
-    },
-  });
-
-  // Update share mutation
-  const updateShareMutation = useMutation({
-    mutationFn: ({ id, role }) => base44.entities.TabShare.update(id, { role }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tab-shares'] });
-      toast.success('Permission updated');
-    },
-  });
-
-  // Remove share mutation
-  const removeShareMutation = useMutation({
-    mutationFn: (id) => base44.entities.TabShare.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tab-shares'] });
-      toast.success('Access removed');
-    },
-  });
-
-  // Accept suggestion mutation
-  const acceptSuggestionMutation = useMutation({
-    mutationFn: async (suggestion) => {
-      const event = await base44.entities.Event.create({
-        title: suggestion.title,
-        tab_id: suggestion.suggested_tab_id,
-        start_date: suggestion.suggested_date + 'T' + (suggestion.suggested_time || '09:00') + ':00Z',
-        end_date: suggestion.suggested_date + 'T' + (suggestion.suggested_time ? (parseInt(suggestion.suggested_time.split(':')[0]) + 1) : '10') + ':00:00Z',
-        location: suggestion.location || '',
-        event_type: suggestion.event_type,
-        visibility: 'full',
-        owner_email: user.email,
-        version: 1,
-        last_modified_by: user.email
-      });
-      
-      await base44.entities.EventSuggestion.update(suggestion.id, { 
-        status: 'accepted',
-        accepted_as_event_id: event.id
-      });
-      
-      return event;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      toast.success('Event added from suggestion');
-    },
-  });
-
-  // Reject suggestion mutation
-  const rejectSuggestionMutation = useMutation({
-    mutationFn: (id) => base44.entities.EventSuggestion.update(id, { status: 'ignored' }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
-    },
-  });
-
-  // Update suggestions settings mutation
-  const updateSuggestionsSettingsMutation = useMutation({
-    mutationFn: (data) => base44.entities.UserPreferences.update(userPreferences?.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
-      toast.success('Settings updated');
-    },
-  });
-
-  // Complete onboarding
-  const handleOnboardingComplete = async (data) => {
-    // Create the new table
-    const newTab = await base44.entities.CalendarTab.create({
-      name: data.tableName || 'My Table',
-      color: data.tableColor || 'indigo',
-      is_default: true,
-      owner_email: user.email,
-      notification_settings: { on_create: true, on_update: true, on_delete: true }
-    });
-
-    // If invite email provided, share the table
-    if (data.inviteEmail) {
-      await base44.entities.TabShare.create({
-        tab_id: newTab.id,
-        shared_with_email: data.inviteEmail,
-        role: data.inviteRole || 'viewer',
-        shared_by_email: user.email,
-        accepted: true
-      });
-      toast.success('Invite sent');
+      setSelectedTab(null);
+      return;
     }
 
-    // Mark onboarding as complete
-    await base44.entities.UserPreferences.update(userPreferences?.id, {
-      has_completed_onboarding: true
+    // Normal DB delete
+    deleteEventMutation.mutate(ev);
+  } catch (e) {
+    toast({
+      title: "Failed to delete event",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
     });
+  }
+};
 
-    setIsOnboardingOpen(false);
-    queryClient.invalidateQueries({ queryKey: ['tabs'] });
-    queryClient.invalidateQueries({ queryKey: ['user-preferences'] });
-    toast.success('Table created');
-  };
-
-  // Get user role for a tab
-  const getUserRole = (tabId) => {
-    const tab = ownedTabs.find(t => t.id === tabId);
-    if (tab) return 'owner';
-    
-    const share = sharedWithMe.find(s => s.tab_id === tabId);
-    return share?.role || 'viewer';
-  };
-
-  // Get default tab
-  const defaultTab = useMemo(() => {
-    return ownedTabs.find(t => t.is_default) || ownedTabs[0];
-  }, [ownedTabs]);
-
-  // Handle tab toggle
-  const handleToggleTab = (tabId) => {
-    setActiveTabs(prev => 
-      prev.includes(tabId) 
-        ? prev.filter(id => id !== tabId)
-        : [...prev, tabId]
-    );
-  };
-
-  // Handle event save
-  const handleEventSave = (data) => {
-    if (selectedEvent) {
-      updateEventMutation.mutate({ 
-        id: selectedEvent.id, 
-        data, 
-        previousData: selectedEvent 
-      });
-    } else {
-      createEventMutation.mutate(data);
-    }
-  };
-
-  // Handle tab save
   const handleTabSave = (data) => {
-    if (selectedTab) {
-      updateTabMutation.mutate({ id: selectedTab.id, data });
-    } else {
-      createTabMutation.mutate(data);
-    }
-  };
+  if (selectedTab && !isOwnedTab(selectedTab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can edit this table.",
+      variant: "destructive",
+    });
+  }
 
-  // Handle revert
-  const handleRevert = async (historyEntry) => {
-    if (historyEntry.previous_data) {
-      const { id, created_date, updated_date, created_by, ...data } = historyEntry.previous_data;
-      updateEventMutation.mutate({ 
-        id: historyEntry.event_id, 
-        data, 
-        previousData: selectedEvent 
-      });
-    }
-  };
+  if (selectedTab) updateTabMutation.mutate({ id: selectedTab.id, data });
+  else createTabMutation.mutate(data);
+};
 
-  // Show onboarding if not completed
+  const handleRevert = async () =>
+  toast({
+    title: "Coming soon",
+    description: "Bridge mode: History not connected yet.",
+  });
+
+  // onboarding gate (kept)
   useEffect(() => {
     if (userPreferences && !userPreferences.has_completed_onboarding) {
       setIsOnboardingOpen(true);
     }
   }, [userPreferences?.has_completed_onboarding]);
 
-  if (!user || isLoadingTabs) {
+useEffect(() => {
+  localStorage.setItem(
+    "gather_dismissed_suggestions",
+    JSON.stringify(dismissedSuggestionIds)
+  );
+}, [dismissedSuggestionIds]);
+
+useEffect(() => {
+  localStorage.setItem(
+    "gather_snoozed_suggestions",
+    JSON.stringify(snoozedSuggestions)
+  );
+}, [snoozedSuggestions]);
+
+
+  // Loading gate (real auth)
+  if (loading || !user || isLoadingTabs) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="text-center">
@@ -474,12 +1513,37 @@ function CalendarPageContent() {
     );
   }
 
-  const pendingSuggestions = suggestions.filter(s => s.status === 'pending').length;
+  const pendingSuggestions = suggestions.length;
+
+  const activeEventTab = selectedEvent?.tab_id
+  ? allTabs.find((t) => t.id === selectedEvent.tab_id)
+  : selectedTab || defaultTab;
+
+const activeEventUserRole = !activeEventTab
+  ? "owner"
+  : isOwnedTab(activeEventTab)
+    ? "owner"
+    : activeEventTab.share_role ?? "viewer";
+
+const activeEventIsShared = !!activeEventTab?.is_shared;
+
+const shouldHideEventDetails = (event) => {
+  if (!event) return false;
+
+  const eventTab = allTabs.find((t) => t.id === event.tab_id);
+  if (!eventTab) return false;
+
+  const isOwnerViewing = isOwnedTab(eventTab);
+  if (isOwnerViewing) return false;
+
+  return event.visibility === "busy_only";
+};
+
+const activeEventHideDetails = shouldHideEventDetails(selectedEvent);
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Desktop Only */}
+    <div className="min-h-[100dvh] w-full overflow-x-hidden flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex flex-1 overflow-hidden">
         {!isMobile && (
           <Sidebar
             currentDate={currentDate}
@@ -492,116 +1556,332 @@ function CalendarPageContent() {
               setIsTabModalOpen(true);
             }}
             onShareTab={(tab) => {
-              setShareTab(tab);
-              setIsShareModalOpen(true);
-            }}
-            onManageTab={(tab) => {
-              setSelectedTab(tab);
-              setIsTabModalOpen(true);
-            }}
+  if (!canShareTab(tab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can manage sharing.",
+      variant: "destructive",
+    });
+  }
+
+  setShareTab(tab);
+  setIsShareModalOpen(true);
+}}
+onManageTab={(tab) => {
+  if (!canManageTab(tab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can edit table settings.",
+      variant: "destructive",
+    });
+  }
+
+  setSelectedTab(tab);
+  setIsTabModalOpen(true);
+}}
             sharedTabs={sharedWithMe}
             pendingSuggestionsCount={pendingSuggestions}
             onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
-        
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="p-4 sm:p-6">
-            {/* Today at the Table */}
+
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-2 sm:p-4 lg:p-6">
+            
+            {/* Notes (Supabase) */}
+            <div className="mb-4 hidden rounded-xl border bg-white/70 p-3 backdrop-blur lg:block">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Notes</div>
+                  <div className="text-xs text-slate-500">Across your active tables</div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const tabId = (selectedTab || defaultTab)?.id;
+                    if (!tabId)
+  return toast({
+    title: "No tab selected",
+    description: "Choose a tab first, then create a note.",
+    variant: "destructive",
+  });
+
+                    createNoteMutation.mutate({
+                      tab_id: tabId,
+                      title: "New note",
+                      body: "",
+                      pinned: false,
+                      visibility: "table",
+                    });
+                  }}
+                  className="px-3 py-2 rounded bg-indigo-600 text-white"
+                >
+                  + Note
+                </button>
+              </div>
+
+              {isLoadingNotes ? (
+                <div className="text-sm text-slate-500">Loading notes…</div>
+              ) : notes.length === 0 ? (
+                <div className="text-sm text-slate-500">No notes yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
+                  {notes.slice(0, 30).map((n) => (
+                    <div
+                      key={n.id}
+                      className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 cursor-pointer"
+                      onClick={() => openNoteEditor(n)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-900 truncate">
+                            {n.pinned ? "📌 " : ""}
+                            {n.title || "Untitled"}
+                          </div>
+                          <div className="text-xs text-slate-500 line-clamp-2">{n.body || ""}</div>
+                        </div>
+
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateNoteMutation.mutate({
+                                id: n.id,
+                                data: { pinned: !n.pinned },
+                              });
+                            }}
+                            title={n.pinned ? "Unpin" : "Pin"}
+                          >
+                            📌
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNoteMutation.mutate(n);
+                              // If you delete the note currently being edited, close editor
+                              if (editingNote?.id === n.id) closeNoteEditor();
+                            }}
+                            title="Delete"
+                          >
+                            🗑️
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {editingNote && (
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-semibold text-slate-900">Edit Note</div>
+                    <Button variant="ghost" onClick={closeNoteEditor}>
+                      Close
+                    </Button>
+                  </div>
+
+                  <input
+                    className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm mb-2"
+                    value={noteDraft.title}
+                    onChange={(e) => setNoteDraft((d) => ({ ...d, title: e.target.value }))}
+                    placeholder="Title"
+                  />
+
+                  <textarea
+                    className="w-full min-h-[140px] rounded-md border border-slate-200 px-2 py-1 text-sm"
+                    value={noteDraft.body}
+                    onChange={(e) => setNoteDraft((d) => ({ ...d, body: e.target.value }))}
+                    placeholder="Write your note..."
+                  />
+
+                  <div className="mt-3 flex gap-2 justify-end">
+                    <Button variant="ghost" onClick={closeNoteEditor}>
+                      Cancel
+                    </Button>
+                    <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={saveNoteDraft}>
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {!isLoadingEvents && events.length > 0 && (
               <TodayAtTheTable
                 events={events}
                 tabs={allTabs}
-                onSelectEvent={(event) => {
-                  setSelectedEvent(event);
-                  setIsEventModalOpen(true);
-                }}
+                onSelectEvent={handleSelectEvent}
                 onAddEvent={(tab) => {
-                  setSelectedEvent(null);
-                  setSelectedDate(new Date());
-                  setSelectedTab(tab);
-                  setIsEventModalOpen(true);
-                }}
-                onFilterToTab={(tabId) => {
-                  setActiveTabs([tabId]);
-                }}
+  if (!canEditTabContent(tab)) {
+    return toast({
+      title: "View only",
+      description: "You can view this table but cannot add events to it.",
+      variant: "destructive",
+    });
+  }
+
+  setSelectedEvent(null);
+  setSelectedDate(new Date());
+  setSelectedTab(tab);
+  setIsEventModalOpen(true);
+}}
+                onFilterToTab={(tabId) => setActiveTabs([tabId])}
               />
             )}
+            <RecurrenceScopeModal
+  isOpen={!!recurrenceScopeModal}
+  onClose={() => setRecurrenceScopeModal(null)}
+  action={recurrenceScopeModal?.action}
+  onChoose={applyRecurrenceScope}
+/>
 
-            <CalendarHeader
+<div className="mb-4 hidden rounded-xl border bg-white/70 p-3 backdrop-blur lg:block">
+  <div className="mb-2 flex items-center justify-between">
+    <div>
+      <div className="text-sm font-semibold text-slate-900">Smart Suggestions</div>
+      <div className="text-xs text-slate-500">
+        Helpful patterns based on your current events
+      </div>
+    </div>
+  </div>
+
+  {suggestions.length === 0 ? (
+    <div className="text-sm text-slate-500">No suggestions right now.</div>
+  ) : (
+    <div className="space-y-2">
+      {suggestions.map((s) => (
+        <div
+          key={s.id}
+          className={`rounded-lg border p-3 text-sm ${
+            s.severity === "high"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : s.severity === "medium"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-indigo-200 bg-indigo-50 text-indigo-700"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{s.title}</div>
+              <div className="mt-1">{s.message}</div>
+            </div>
+
+            <div className="flex shrink-0 gap-2">
+  {s.type === "recurring" && (
+    <button
+      type="button"
+      onClick={() => handleMakeRecurring(s)}
+      className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+    >
+      Make Recurring
+    </button>
+  )}
+
+  <button
+    type="button"
+    onClick={() => snoozeSuggestion(s.id, 60)}
+    className="rounded-md border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white/40"
+  >
+    Snooze
+  </button>
+
+  <button
+    type="button"
+    onClick={() => dismissSuggestion(s.id)}
+    className="rounded-md border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white/40"
+  >
+    Dismiss
+  </button>
+</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+<CalendarHeader
               currentDate={currentDate}
               onDateChange={setCurrentDate}
               onAddEvent={() => {
-                setSelectedEvent(null);
-                setSelectedDate(new Date());
-                setIsEventModalOpen(true);
-              }}
+  const baseTab = selectedTab || defaultTab;
+
+  if (baseTab && !canEditTabContent(baseTab)) {
+    return toast({
+      title: "View only",
+      description: "You can view this table but cannot add events to it.",
+      variant: "destructive",
+    });
+  }
+
+  setSelectedEvent(null);
+  setSelectedDate(new Date());
+  setIsEventModalOpen(true);
+}}
               view={view}
               onViewChange={setView}
             />
 
-            {isLoadingEvents ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-              </div>
-            ) : events.length === 0 && allTabs.length > 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                  <Calendar className="w-8 h-8 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No events yet</h3>
-                <p className="text-slate-500 mb-6 max-w-sm">
-                  Start adding events to your tables to see them here
-                </p>
-                <Button
-                  onClick={() => {
-                    setSelectedEvent(null);
-                    setSelectedDate(new Date());
-                    setIsEventModalOpen(true);
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  Create Your First Event
-                </Button>
-              </div>
-            ) : view === 'month' ? (
-              <MonthView
-                currentDate={currentDate}
-                events={events}
-                tabs={allTabs}
-                activeTabs={activeTabs}
-                onSelectDate={(date) => {
-                  setSelectedDate(date);
-                  setSelectedEvent(null);
-                  setIsEventModalOpen(true);
-                }}
-                onSelectEvent={(event) => {
-                  setSelectedEvent(event);
-                  setIsEventModalOpen(true);
-                }}
-              />
-            ) : (
-              <WeekView
-                currentDate={currentDate}
-                events={events}
-                tabs={allTabs}
-                activeTabs={activeTabs}
-                onSelectDate={(date) => {
-                  setSelectedDate(date);
-                  setSelectedEvent(null);
-                  setIsEventModalOpen(true);
-                }}
-                onSelectEvent={(event) => {
-                  setSelectedEvent(event);
-                  setIsEventModalOpen(true);
-                }}
-              />
-            )}
+            {view === "month" ? (
+  <MonthView
+  currentDate={currentDate}
+  events={events}
+  tabs={allTabs}
+  activeTabs={activeTabs}
+  shouldHideEventDetails={shouldHideEventDetails}
+  onSelectDate={(date) => {
+    const baseTab = selectedTab || defaultTab;
+
+    if (baseTab && !canEditTabContent(baseTab)) {
+      return toast({
+        title: "View only",
+        description: "You can view this table but cannot add events to it.",
+        variant: "destructive",
+      });
+    }
+
+    setSelectedDate(date);
+    setSelectedEvent(null);
+    setIsEventModalOpen(true);
+  }}
+  onSelectEvent={handleSelectEvent}
+  onMoveEvent={handleMoveEvent}
+/>
+) : (
+  <WeekView
+  currentDate={currentDate}
+  events={events}
+  tabs={allTabs}
+  activeTabs={activeTabs}
+  shouldHideEventDetails={shouldHideEventDetails}
+  onSelectDate={(date) => {
+    const baseTab = selectedTab || defaultTab;
+
+    if (baseTab && !canEditTabContent(baseTab)) {
+      return toast({
+        title: "View only",
+        description: "You can view this table but cannot add events to it.",
+        variant: "destructive",
+      });
+    }
+
+    setSelectedDate(date);
+    setSelectedEvent(null);
+    setIsEventModalOpen(true);
+  }}
+  onSelectEvent={handleSelectEvent}
+  onMoveEvent={handleMoveEvent}
+/>
+)}
           </div>
         </div>
-        
-        {/* Mobile Sidebar */}
+
         {isMobile && (
           <Sidebar
             isMobile
@@ -614,41 +1894,56 @@ function CalendarPageContent() {
               setSelectedTab(null);
               setIsTabModalOpen(true);
             }}
-            onShareTab={(tab) => {
-              setShareTab(tab);
-              setIsShareModalOpen(true);
-            }}
-            onManageTab={(tab) => {
-              setSelectedTab(tab);
-              setIsTabModalOpen(true);
-            }}
+           onShareTab={(tab) => {
+  if (!canShareTab(tab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can manage sharing.",
+      variant: "destructive",
+    });
+  }
+
+  setShareTab(tab);
+  setIsShareModalOpen(true);
+}}
+onManageTab={(tab) => {
+  if (!canManageTab(tab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can edit table settings.",
+      variant: "destructive",
+    });
+  }
+
+  setSelectedTab(tab);
+  setIsTabModalOpen(true);
+}}
             sharedTabs={sharedWithMe}
             pendingSuggestionsCount={pendingSuggestions}
             onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
       </div>
-      
-      {/* Event Modal */}
+
       <EventModal
-        isOpen={isEventModalOpen}
-        onClose={() => {
-          setIsEventModalOpen(false);
-          setSelectedEvent(null);
-          setSelectedDate(null);
-          setSelectedTab(null);
-        }}
-        event={selectedEvent}
-        tabs={ownedTabs}
-        defaultTab={selectedTab || defaultTab}
-        defaultDate={selectedDate}
-        onSave={handleEventSave}
-        onDelete={(event) => deleteEventMutation.mutate(event)}
-        isSharedEvent={selectedEvent && !ownedTabs.some(t => t.id === selectedEvent.tab_id)}
-        userRole={selectedEvent ? getUserRole(selectedEvent.tab_id) : 'owner'}
-      />
-      
-      {/* Tab Modal */}
+  isOpen={isEventModalOpen}
+  onClose={() => {
+    setIsEventModalOpen(false);
+    setSelectedEvent(null);
+    setSelectedDate(null);
+    setSelectedTab(null);
+  }}
+  event={selectedEvent}
+  tabs={allTabs}
+  defaultTab={selectedTab || defaultTab}
+  defaultDate={selectedDate}
+  onSave={handleEventSaveSmart}
+  onDelete={handleEventDeleteSmart}
+  isSharedEvent={activeEventIsShared}
+  userRole={activeEventUserRole}
+  hideDetails={activeEventHideDetails}
+/>
+
       <TabModal
         isOpen={isTabModalOpen}
         onClose={() => {
@@ -657,10 +1952,21 @@ function CalendarPageContent() {
         }}
         tab={selectedTab}
         onSave={handleTabSave}
-        onDelete={(tab) => deleteTabMutation.mutate(tab.id)}
+        onDelete={(tab) => {
+  const resolvedTab = typeof tab === "object" ? tab : selectedTab;
+
+  if (!isOwnedTab(resolvedTab)) {
+    return toast({
+      title: "Not allowed",
+      description: "Only the table owner can delete this table.",
+      variant: "destructive",
+    });
+  }
+
+  deleteTabMutation.mutate(resolvedTab?.id ?? tab);
+}}
       />
-      
-      {/* Share Modal */}
+
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => {
@@ -669,12 +1975,17 @@ function CalendarPageContent() {
         }}
         tab={shareTab}
         shares={tabShares}
-        onInvite={(email, role) => shareTabMutation.mutate({ email, role })}
-        onUpdateShare={(id, role) => updateShareMutation.mutate({ id, role })}
-        onRemoveShare={(id) => removeShareMutation.mutate(id)}
+          onInvite={(email, role) =>
+    shareTabMutation.mutate({ tabId: shareTab.id, email, role })
+  }
+  onUpdateShare={(shareId, role) =>
+    updateShareMutation.mutate({ shareId, role })
+  }
+  onRemoveShare={(shareId) =>
+    removeShareMutation.mutate({ shareId })
+  }
       />
-      
-      {/* History Panel */}
+
       <EventHistoryPanel
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
@@ -682,7 +1993,6 @@ function CalendarPageContent() {
         onRevert={handleRevert}
       />
 
-      {/* Suggestions Inbox */}
       <SuggestionsInbox
         isOpen={isSuggestionsOpen}
         onClose={() => setIsSuggestionsOpen(false)}
@@ -690,19 +2000,18 @@ function CalendarPageContent() {
         tabs={allTabs}
         onAccept={(suggestion) => acceptSuggestionMutation.mutate(suggestion)}
         onReject={(suggestion) => rejectSuggestionMutation.mutate(suggestion.id)}
-        onEdit={(suggestion) => {
-          setIsSuggestionsOpen(false);
-          setSelectedEvent(null);
-          setSelectedDate(suggestion.suggested_date);
-          setIsEventModalOpen(true);
-        }}
+        onEdit={() =>
+  toast({
+    title: "Coming soon",
+    description: "Bridge mode: suggestions not connected yet.",
+  })
+}
         onOpenSettings={() => {
           setIsSuggestionsOpen(false);
           setIsSuggestionsSettingsOpen(true);
         }}
       />
 
-      {/* Suggestions Settings */}
       <SuggestionsSettingsModal
         isOpen={isSuggestionsSettingsOpen}
         onClose={() => setIsSuggestionsSettingsOpen(false)}
@@ -710,14 +2019,17 @@ function CalendarPageContent() {
         onSave={(data) => updateSuggestionsSettingsMutation.mutate(data)}
       />
 
-      {/* Onboarding */}
       <OnboardingFlow
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
-        onComplete={handleOnboardingComplete}
+        onComplete={() =>
+  toast({
+    title: "Coming soon",
+    description: "Bridge mode",
+  })
+}
       />
 
-      {/* Suggestions badge */}
       {pendingSuggestions > 0 && !isSuggestionsOpen && (
         <div className="fixed bottom-8 right-8 z-40">
           <button
@@ -732,13 +2044,57 @@ function CalendarPageContent() {
         </div>
       )}
 
-      {/* Suggestions Info Modal */}
       <Dialog open={isSuggestionsInfoOpen} onOpenChange={setIsSuggestionsInfoOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Smart Event Suggestions</DialogTitle>
-          </DialogHeader>
-          <SuggestionsComingSoon />
+  <DialogHeader>
+    <DialogTitle className="sr-only">Smart Event Suggestions</DialogTitle>
+    <DialogDescription className="sr-only">
+      Review smart calendar suggestions and recurring event recommendations.
+    </DialogDescription>
+  </DialogHeader>
+  <SuggestionsComingSoon />
+</DialogContent>
+      </Dialog>
+
+      {/* Recurring instance scope prompt */}
+      <Dialog
+        open={editScopePromptOpen}
+        onOpenChange={(open) => {
+          setEditScopePromptOpen(open);
+          if (!open) setPendingRecurringClick(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+  <DialogHeader>
+    <DialogTitle>Edit recurring event</DialogTitle>
+    <DialogDescription>
+      Choose whether to edit this occurrence or the entire series.
+    </DialogDescription>
+  </DialogHeader>
+
+          <div className="text-sm text-slate-600">
+            Do you want to edit just this occurrence, or the whole series?
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => openRecurringScope("one")}>
+              Edit this occurrence
+            </Button>
+
+            <Button variant="outline" onClick={() => openRecurringScope("series")}>
+              Edit the whole series
+            </Button>
+
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setEditScopePromptOpen(false);
+                setPendingRecurringClick(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
