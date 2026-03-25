@@ -668,6 +668,8 @@ const handleMoveEvent = async ({ event, nextStart, nextEnd, nextAllDay = false }
   queryKey: ["tabs", user?.id],
   queryFn: () => fetchTabs(user.id),
   enabled: !!user?.id,
+  refetchOnWindowFocus: false,
+  staleTime: 30000,
 });
 
 console.log("tabs query:", {
@@ -695,6 +697,8 @@ const {
       email: user.email,
     }),
   enabled: !!user?.id && !!user?.email,
+  refetchOnWindowFocus: false,
+  staleTime: 30000,
 });
 
 const sharedWithMe = sharedTabs;
@@ -830,16 +834,18 @@ if (!user || isLoadingTabs) return;
   }, [currentDate]);
 
   const { data: events = [], isLoading: isLoadingEvents } = useQuery({
-    queryKey: ["events", user?.id, activeTabs, range.startISO, range.endISO],
-    queryFn: () =>
-      fetchEvents({
-        ownerId: user.id,
-        tabIds: activeTabs,
-        startISO: range.startISO,
-        endISO: range.endISO,
-      }),
-    enabled: !!user?.id && !isLoadingTabs,
-  });
+  queryKey: ["events", user?.id, activeTabs, range.startISO, range.endISO],
+  queryFn: () =>
+    fetchEvents({
+      ownerId: user.id,
+      tabIds: activeTabs,
+      startISO: range.startISO,
+      endISO: range.endISO,
+    }),
+  enabled: !!user?.id && !isLoadingTabs,
+  refetchOnWindowFocus: false,
+  staleTime: 15000,
+});
 
   console.log("events query:", {
   isLoadingEvents,
@@ -850,10 +856,12 @@ if (!user || isLoadingTabs) return;
 
   // ---------- NOTES (Supabase) ----------
   const { data: notes = [], isLoading: isLoadingNotes } = useQuery({
-    queryKey: ["notes", user?.id, activeTabs],
-    queryFn: () => fetchNotes({ ownerId: user.id, tabIds: activeTabs }),
-    enabled: !!user?.id && !isLoadingTabs,
-  });
+  queryKey: ["notes", user?.id, activeTabs],
+  queryFn: () => fetchNotes({ ownerId: user.id, tabIds: activeTabs }),
+  enabled: !!user?.id && !isLoadingTabs,
+  refetchOnWindowFocus: false,
+  staleTime: 15000,
+});
 
   console.log("notes query:", {
   isLoadingNotes,
@@ -1502,16 +1510,21 @@ useEffect(() => {
 
 
   // Loading gate (real auth)
-  if (loading || !user || isLoadingTabs) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
-          <p className="mt-2 text-slate-500">Loading your tables...</p>
-        </div>
+  const isInitialLoading =
+  loading ||
+  !user ||
+  (isLoadingTabs && ownedTabs.length === 0 && sharedTabs.length === 0);
+
+if (isInitialLoading) {
+  return (
+    <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
+        <p className="mt-2 text-slate-500">Loading your tables...</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   const pendingSuggestions = suggestions.length;
 

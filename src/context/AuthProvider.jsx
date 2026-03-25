@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { claimTabInvitesForUser } from "@/lib/tabShares";
@@ -72,10 +73,11 @@ async function ensureProfile(user) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(true);
+const [session, setSession] = useState(null);
+const [profile, setProfile] = useState(null);
+const [loading, setLoading] = useState(true);
+const [profileLoading, setProfileLoading] = useState(true);
+const claimedInviteKeyRef = useRef(null);
 
   const applySession = useCallback((newSession) => {
     setSession(newSession ?? null);
@@ -84,10 +86,11 @@ export function AuthProvider({ children }) {
 
   const loadProfile = useCallback(async (activeUser) => {
     if (!activeUser?.id) {
-      setProfile(null);
-      setProfileLoading(false);
-      return null;
-    }
+  claimedInviteKeyRef.current = null;
+  setProfile(null);
+  setProfileLoading(false);
+  return null;
+}
 
     setProfileLoading(true);
 
@@ -229,15 +232,21 @@ export function AuthProvider({ children }) {
   }, [applySession, loadProfile]);
 
   useEffect(() => {
-    if (!user?.id || !user?.email || !session) return;
+  if (!user?.id || !user?.email || !session) return;
 
-    claimTabInvitesForUser({
-      userId: user.id,
-      email: user.email,
-    }).catch((e) => {
-      console.error("Failed to claim tab invites:", e);
-    });
-  }, [user?.id, user?.email, session]);
+  const claimKey = `${user.id}:${user.email.toLowerCase().trim()}`;
+  if (claimedInviteKeyRef.current === claimKey) return;
+
+  claimedInviteKeyRef.current = claimKey;
+
+  claimTabInvitesForUser({
+    userId: user.id,
+    email: user.email,
+  }).catch((e) => {
+    console.error("Failed to claim tab invites:", e);
+    claimedInviteKeyRef.current = null;
+  });
+}, [user?.id, user?.email, session]);
 
   const signIn = async ({ email, password }) => {
     return await supabase.auth.signInWithPassword({
