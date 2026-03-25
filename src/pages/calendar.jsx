@@ -659,9 +659,18 @@ const handleMoveEvent = async ({ event, nextStart, nextEnd, nextAllDay = false }
   }
 };
   // ---------- TABS (Supabase) ----------
-  git add .
-git commit -m "Fix repeated auth invite claiming and calendar reload spinner"
-git push
+ const {
+  data: ownedTabs = [],
+  isLoading: isLoadingTabs,
+  error: tabsError,
+  isError: isTabsError,
+} = useQuery({
+  queryKey: ["tabs", user?.id],
+  queryFn: () => fetchTabs(user.id),
+  enabled: !!user?.id,
+  refetchOnWindowFocus: false,
+  staleTime: 30000,
+});
 
 console.log("tabs query:", {
   isLoadingTabs,
