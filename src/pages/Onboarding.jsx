@@ -1,387 +1,356 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  Briefcase,
-  CalendarDays,
-  Check,
-  Heart,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import gatherLogo from "@/assets/gather-logo.png";
 
-function StepCard({ icon: Icon, title, text }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <div className="mb-3 inline-flex rounded-xl bg-white/10 p-2">
-        <Icon className="h-5 w-5 text-white" />
-      </div>
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-300">{text}</p>
-    </div>
-  );
-}
-
-function ChoiceChip({ selected, children }) {
-  return (
-    <div
-      className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-        selected
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700"
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
+const STARTER_TABLES = [
+  {
+    name: "Work",
+    color: "indigo",
+    description: "Projects, deadlines, meetings, and tasks.",
+    is_default: true,
+  },
+  {
+    name: "Personal",
+    color: "violet",
+    description: "Appointments, reminders, errands, and daily life.",
+    is_default: false,
+  },
+  {
+    name: "Family",
+    color: "emerald",
+    description: "Shared schedules, kids, sports, and home routines.",
+    is_default: false,
+  },
+];
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user } = useAuth();
 
-  const initialName = useMemo(() => {
-    return (
-      profile?.display_name ||
-      profile?.full_name ||
-      user?.user_metadata?.full_name ||
-      user?.user_metadata?.name ||
-      ""
-    );
-  }, [profile, user]);
+  const initialName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "";
 
-  const [step, setStep] = useState(1);
   const [displayName, setDisplayName] = useState(initialName);
-  const [tablePrefs, setTablePrefs] = useState(["Personal", "Family"]);
+  const [selectedTables, setSelectedTables] = useState(
+    STARTER_TABLES.map((t) => t.name)
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const selectedCount = useMemo(() => selectedTables.length, [selectedTables]);
+
   const toggleTable = (name) => {
-    setTablePrefs((current) =>
-      current.includes(name)
-        ? current.filter((x) => x !== name)
-        : [...current, name]
+    setSelectedTables((prev) =>
+      prev.includes(name)
+        ? prev.filter((value) => value !== name)
+        : [...prev, name]
     );
   };
 
-  const handleFinish = async () => {
-    if (!user?.id) return;
+  const completeOnboardingOnly = async () => {
+    const { error: profileError } = await supabase.from("profiles").upsert({
+      id: user.id,
+      email: user.email,
+      full_name: displayName.trim(),
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    if (profileError) throw profileError;
+  };
+
+  const handleFinish = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!user?.id) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    if (!displayName.trim()) {
+      setError("Please enter the name you want Gather to use.");
+      return;
+    }
+
+    if (selectedTables.length === 0) {
+      setError("Choose at least one starter table to begin.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const cleanName = displayName.trim();
+
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        full_name: cleanName,
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (profileError) throw profileError;
+
+      const { data: existingTables, error: existingError } = await supabase
+        .from("calendar_tabs")
+        .select("name")
+        .eq("owner_id", user.id);
+
+      if (existingError) throw existingError;
+
+      const existingNames = new Set(
+        (existingTables || []).map((tab) => tab.name.toLowerCase())
+      );
+
+      const rowsToInsert = STARTER_TABLES.filter((table) =>
+        selectedTables.includes(table.name)
+      )
+        .filter((table) => !existingNames.has(table.name.toLowerCase()))
+        .map((table) => ({
+          owner_id: user.id,
+          name: table.name,
+          color: table.color,
+          is_default: table.is_default,
+        }));
+
+      if (rowsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("calendar_tabs")
+          .insert(rowsToInsert);
+
+        if (insertError) throw insertError;
+      }
+
+      navigate("/calendar", { replace: true });
+    } catch (err) {
+      setError(err.message || "Could not finish setup.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    if (!user?.id) {
+      navigate("/login", { replace: true });
+      return;
+    }
 
     setSaving(true);
     setError("");
 
-    const cleanName = displayName.trim();
-
-    if (!cleanName) {
-      setError("Please choose the name you want shown in Gather.");
-      setSaving(false);
-      return;
-    }
-
     try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          full_name: cleanName,
-          display_name: cleanName,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-
-      if (profileError) throw profileError;
-
-      if (tablePrefs.length > 0) {
-        const { data: existingTabs, error: tabsReadError } = await supabase
-          .from("calendar_tabs")
-          .select("name")
-          .eq("owner_id", user.id);
-
-        if (tabsReadError) throw tabsReadError;
-
-        const existingNames = new Set(
-          (existingTabs || []).map((t) => t.name?.toLowerCase())
-        );
-
-        const defaults = [
-          { name: "Work", color: "indigo" },
-          { name: "Personal", color: "violet" },
-          { name: "Family", color: "emerald" },
-        ];
-
-        const toCreate = defaults
-          .filter((tab) => tablePrefs.includes(tab.name))
-          .filter((tab) => !existingNames.has(tab.name.toLowerCase()))
-          .map((tab, index) => ({
-            owner_id: user.id,
-            name: tab.name,
-            color: tab.color,
-            is_default: index === 0 && existingNames.size === 0,
-          }));
-
-        if (toCreate.length > 0) {
-          const { error: createTabsError } = await supabase
-            .from("calendar_tabs")
-            .insert(toCreate);
-
-          if (createTabsError) throw createTabsError;
-        }
-      }
-
-      await refreshProfile();
+      await completeOnboardingOnly();
       navigate("/calendar", { replace: true });
     } catch (err) {
-      console.error("Onboarding finish error:", err);
-      setError(err?.message || "Could not finish onboarding.");
+      setError(err.message || "Could not skip setup.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden overflow-hidden lg:flex">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.32),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.18),transparent_30%)]" />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-24 items-center justify-center rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+              <img
+                src={gatherLogo}
+                alt="Gather logo"
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
 
-          <div className="relative z-10 flex w-full flex-col justify-between px-10 py-10 xl:px-16 xl:py-14">
             <div>
-              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
-                <Sparkles className="h-3.5 w-3.5" />
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
                 Welcome to Gather
-              </div>
-
-              <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white xl:text-5xl">
-                Gather — where life meets around the table.
               </h1>
-
-              <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
-                Before you get started, let’s set up your name and the tables
-                you want to begin with.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Gather helps you organize life around shared tables—family,
+                work, personal plans, and more—without losing privacy or
+                simplicity.
               </p>
-            </div>
-
-            <div className="grid gap-4">
-              <StepCard
-                icon={CalendarDays}
-                title="See life in one place"
-                text="Bring family, work, personal plans, and shared events into one calendar."
-              />
-              <StepCard
-                icon={Users}
-                title="Share around your table"
-                text="Invite family, co-parents, or teammates into the spaces that matter."
-              />
-              <StepCard
-                icon={Heart}
-                title="Make it yours"
-                text="Choose the name you want shown in Gather and start with the tables that fit your life."
-              />
-            </div>
-
-            <div className="text-sm text-slate-400">
-              Step {step} of 3
             </div>
           </div>
-        </section>
 
-        <section className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-6 lg:px-10">
-          <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="mb-8">
-              <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-900 transition-all"
-                  style={{ width: `${(step / 3) * 100}%` }}
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={saving}
+            className="hidden rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60 sm:inline-flex"
+          >
+            Skip for now
+          </button>
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-[1.1fr_420px]">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
+            <form onSubmit={handleFinish} className="space-y-8">
+              <div>
+                <div className="mb-4">
+                  <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                    Step 1 · Make it yours
+                  </span>
+                </div>
+
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  What should Gather call you?
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Enter your display name"
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                 />
+                <p className="mt-2 text-sm text-slate-500">
+                  This helps personalize your workspace and shared experiences.
+                </p>
               </div>
 
-              <p className="text-sm font-medium text-slate-500">
-                Step {step} of 3
-              </p>
-            </div>
-
-            {step === 1 && (
               <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Welcome to Gather
-                </h2>
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  Gather helps you organize family, work, co-parenting, and
-                  everything in between with shared tables, calendars, and
-                  memories in one place.
-                </p>
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <CalendarDays className="h-5 w-5 text-slate-900" />
-                    <p className="mt-3 text-sm font-semibold text-slate-900">
-                      Plan
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Keep everything on one calendar.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <Users className="h-5 w-5 text-slate-900" />
-                    <p className="mt-3 text-sm font-semibold text-slate-900">
-                      Share
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Organize life with the right people.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <Briefcase className="h-5 w-5 text-slate-900" />
-                    <p className="mt-3 text-sm font-semibold text-slate-900">
-                      Separate
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Keep tables distinct, view life together.
-                    </p>
-                  </div>
+                <div className="mb-4">
+                  <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    Step 2 · Start with your tables
+                  </span>
                 </div>
+
+                <div className="grid gap-4">
+                  {STARTER_TABLES.map((table) => {
+                    const checked = selectedTables.includes(table.name);
+
+                    return (
+                      <label
+                        key={table.name}
+                        className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition ${
+                          checked
+                            ? "border-slate-900 bg-slate-50"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTable(table.name)}
+                          className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                        />
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              {table.name}
+                            </h3>
+                            {table.is_default ? (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                default
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {table.description}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-3 text-sm text-slate-500">
+                  Selected: {selectedCount} {selectedCount === 1 ? "table" : "tables"}
+                </p>
+              </div>
+
+              {error ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Finishing setup..." : "Finish setup"}
+                </button>
 
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
-                  className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
+                  onClick={handleSkip}
+                  disabled={saving}
+                  className="inline-flex justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                 >
-                  Continue
-                  <ArrowRight className="h-4 w-4" />
+                  Skip for now
                 </button>
               </div>
-            )}
+            </form>
+          </section>
 
-            {step === 2 && (
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  What should we call you?
-                </h2>
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  This is the name Gather will show in your account and shared
-                  spaces. You can use your real name, nickname, or whatever fits
-                  best.
-                </p>
+          <aside className="space-y-5">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">
+                What Gather is built for
+              </h2>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                <li>• Family schedules and household coordination</li>
+                <li>• Co-parenting and shared visibility</li>
+                <li>• Work-life organization without clutter</li>
+                <li>• Personal planning with room for memories and notes</li>
+              </ul>
+            </div>
 
-                <div className="mt-8">
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Display name
-                  </label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="What should we call you?"
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-500"
-                  />
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Trust and transparency
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                We want onboarding to feel clear and respectful from the start.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  to="/privacy"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  to="/terms"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  Terms
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">
+                Coming soon
+              </h2>
+              <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  Smarter planning suggestions
                 </div>
-
-                <div className="mt-8 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStep(3)}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
-                  >
-                    Continue
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  More polished family and team collaboration
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  Expanded memories, notes, and life organization tools
                 </div>
               </div>
-            )}
-
-            {step === 3 && (
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Choose your starter tables
-                </h2>
-                <p className="mt-3 text-base leading-7 text-slate-600">
-                  Start with the tables that match your life. You can always add
-                  more later.
-                </p>
-
-                <div className="mt-8 grid gap-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleTable("Personal")}
-                    className="text-left"
-                  >
-                    <ChoiceChip selected={tablePrefs.includes("Personal")}>
-                      Personal
-                    </ChoiceChip>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleTable("Family")}
-                    className="text-left"
-                  >
-                    <ChoiceChip selected={tablePrefs.includes("Family")}>
-                      Family
-                    </ChoiceChip>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleTable("Work")}
-                    className="text-left"
-                  >
-                    <ChoiceChip selected={tablePrefs.includes("Work")}>
-                      Work
-                    </ChoiceChip>
-                  </button>
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-start gap-3">
-                    <Check className="mt-0.5 h-5 w-5 text-slate-900" />
-                    <p className="text-sm leading-6 text-slate-600">
-                      Your tables keep parts of life organized separately, while
-                      still letting you view everything together on one
-                      calendar.
-                    </p>
-                  </div>
-                </div>
-
-                {error ? (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                ) : null}
-
-                <div className="mt-8 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setStep(2)}
-                    className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleFinish}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                  >
-                    {saving ? "Finishing..." : "Finish setup"}
-                    {!saving && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );

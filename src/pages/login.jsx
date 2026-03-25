@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Users, Briefcase, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import gatherLogo from "@/assets/gather-logo.png";
+import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
 
 function GoogleIcon() {
   return (
@@ -42,14 +43,14 @@ function AppleIcon() {
 function BrandLogo({ mobile = false }) {
   return (
     <div
-      className={`overflow-hidden rounded-3xl border border-white/10 bg-white shadow-lg shadow-slate-950/20 ${
-        mobile ? "h-14 w-14" : "h-16 w-16"
+      className={`flex items-center justify-center rounded-3xl border border-white/10 bg-white shadow-lg shadow-slate-950/20 ${
+        mobile ? "h-14 w-14 p-2" : "h-16 w-16 p-2.5"
       }`}
     >
       <img
         src={gatherLogo}
         alt="Gather logo"
-        className="h-full w-full object-cover"
+        className="max-h-full max-w-full object-contain"
       />
     </div>
   );
@@ -81,10 +82,20 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const callbackUrl = `${window.location.origin}/auth/callback?next=/calendar`;
+  const callbackUrl = `${window.location.origin}/auth/callback`;
 
   useEffect(() => {
     let mounted = true;
+
+    async function routeAuthenticatedUser(session) {
+      const userId = session?.user?.id;
+      if (!userId || !mounted) return;
+
+      const destination = await getPostAuthRedirect(userId);
+      if (mounted) {
+        navigate(destination, { replace: true });
+      }
+    }
 
     async function checkSession() {
       const {
@@ -92,7 +103,7 @@ export default function LoginPage() {
       } = await supabase.auth.getSession();
 
       if (mounted && session) {
-        navigate("/calendar", { replace: true });
+        await routeAuthenticatedUser(session);
       }
     }
 
@@ -100,11 +111,11 @@ export default function LoginPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (event === "SIGNED_IN" && session) {
-        navigate("/calendar", { replace: true });
+        await routeAuthenticatedUser(session);
       }
     });
 
@@ -122,14 +133,15 @@ export default function LoginPage() {
 
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) throw error;
 
-        navigate("/calendar", { replace: true });
+        const destination = await getPostAuthRedirect(data?.user?.id);
+        navigate(destination, { replace: true });
         return;
       }
 
@@ -270,11 +282,11 @@ export default function LoginPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-6 text-center">
                 <div className="mb-4 flex justify-center lg:hidden">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-1 shadow-sm">
+                  <div className="flex items-center justify-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
                     <img
                       src={gatherLogo}
                       alt="Gather logo"
-                      className="h-20 w-20 rounded-2xl object-cover"
+                      className="max-h-20 max-w-20 object-contain"
                     />
                   </div>
                 </div>

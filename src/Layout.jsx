@@ -15,20 +15,32 @@ import { Toaster } from "@/components/ui/toaster";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 
-const PUBLIC_ROUTES = ["/support", "/privacy", "/terms"];
+const MINIMAL_CHROME_ROUTES = [
+  "/login",
+  "/onboarding",
+  "/auth/callback",
+  "/forgot-password",
+  "/reset-password",
+  "/support",
+  "/privacy",
+  "/terms",
+];
 
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+  const isMinimalChromeRoute = MINIMAL_CHROME_ROUTES.some((route) =>
     location.pathname.toLowerCase().startsWith(route)
   );
 
   const getInitials = (nameOrEmail) => {
     if (!nameOrEmail) return "U";
-    const base = nameOrEmail.includes("@") ? nameOrEmail.split("@")[0] : nameOrEmail;
+    const base = nameOrEmail.includes("@")
+      ? nameOrEmail.split("@")[0]
+      : nameOrEmail;
+
     return base
       .split(/[.\s_-]+/)
       .filter(Boolean)
@@ -45,8 +57,8 @@ export default function AppLayout() {
     navigate("/login", { replace: true });
   };
 
-  // Public routes get minimal chrome
-  if (isPublicRoute) {
+  // Auth/setup/public pages get minimal chrome
+  if (isMinimalChromeRoute) {
     return (
       <div className="min-h-screen bg-slate-50">
         <Toaster position="top-right" richColors />
@@ -54,21 +66,31 @@ export default function AppLayout() {
           <Outlet />
         </main>
 
-        <footer className="bg-white border-t border-slate-200 py-6 px-4">
-          <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        <footer className="border-t border-slate-200 bg-white px-4 py-6">
+          <div className="mx-auto flex max-w-screen-2xl flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <span>© {new Date().getFullYear()} Gather</span>
               <span className="text-slate-300">·</span>
-              <span>Where life meets.</span>
+              <span>Where life meets around the table.</span>
             </div>
+
             <div className="flex items-center gap-4 text-sm">
-              <Link to="/privacy" className="text-slate-500 hover:text-slate-700 transition-colors">
+              <Link
+                to="/privacy"
+                className="text-slate-500 transition-colors hover:text-slate-700"
+              >
                 Privacy Policy
               </Link>
-              <Link to="/terms" className="text-slate-500 hover:text-slate-700 transition-colors">
+              <Link
+                to="/terms"
+                className="text-slate-500 transition-colors hover:text-slate-700"
+              >
                 Terms of Service
               </Link>
-              <Link to="/support" className="text-slate-500 hover:text-slate-700 transition-colors">
+              <Link
+                to="/support"
+                className="text-slate-500 transition-colors hover:text-slate-700"
+              >
                 Support
               </Link>
             </div>
@@ -82,26 +104,33 @@ export default function AppLayout() {
     <div className="min-h-screen bg-slate-50">
       <Toaster position="top-right" richColors />
 
-      <nav className="bg-white/95 backdrop-blur-sm border-b border-slate-200/50 px-4 py-3 sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
+      <nav className="sticky top-0 z-30 border-b border-slate-200/50 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link to="/calendar" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Calendar className="w-5 h-5 text-white" />
+            <Link
+              to="/calendar"
+              className="flex items-center gap-2 transition-opacity hover:opacity-80"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg">
+                <Calendar className="h-5 w-5 text-white" />
               </div>
-              <span className="text-lg font-semibold text-slate-900 hidden sm:block">Gather</span>
+              <span className="hidden text-lg font-semibold text-slate-900 sm:block">
+                Gather
+              </span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-1 ml-4">
+            <div className="ml-4 hidden items-center gap-1 md:flex">
               <Link to="/calendar">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={`text-sm ${
-                    isActive("/calendar") ? "bg-slate-100 text-slate-900" : "text-slate-600"
+                    isActive("/calendar")
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-600"
                   }`}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />
+                  <Calendar className="mr-2 h-4 w-4" />
                   My Tables
                 </Button>
               </Link>
@@ -111,10 +140,12 @@ export default function AppLayout() {
                   variant="ghost"
                   size="sm"
                   className={`text-sm ${
-                    isActive("/shared") ? "bg-slate-100 text-slate-900" : "text-slate-600"
+                    isActive("/shared")
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-600"
                   }`}
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
+                  <Share2 className="mr-2 h-4 w-4" />
                   Invited Tables
                 </Button>
               </Link>
@@ -124,10 +155,12 @@ export default function AppLayout() {
                   variant="ghost"
                   size="sm"
                   className={`text-sm ${
-                    isActive("/settings") ? "bg-slate-100 text-slate-900" : "text-slate-600"
+                    isActive("/settings")
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-600"
                   }`}
                 >
-                  <Settings className="w-4 h-4 mr-2" />
+                  <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </Button>
               </Link>
@@ -139,7 +172,7 @@ export default function AppLayout() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-indigo-100 text-indigo-700 font-medium">
+                    <AvatarFallback className="bg-indigo-100 font-medium text-indigo-700">
                       {getInitials(user?.user_metadata?.full_name || user?.email)}
                     </AvatarFallback>
                   </Avatar>
@@ -158,14 +191,14 @@ export default function AppLayout() {
 
                 <DropdownMenuItem className="md:hidden" asChild>
                   <Link to="/calendar" className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className="mr-2 h-4 w-4" />
                     My Tables
                   </Link>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem className="md:hidden" asChild>
                   <Link to="/shared" className="flex items-center">
-                    <Share2 className="w-4 h-4 mr-2" />
+                    <Share2 className="mr-2 h-4 w-4" />
                     Invited Tables
                   </Link>
                 </DropdownMenuItem>
@@ -174,7 +207,7 @@ export default function AppLayout() {
 
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="flex items-center">
-                    <Settings className="w-4 h-4 mr-2" />
+                    <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </Link>
                 </DropdownMenuItem>
@@ -186,7 +219,7 @@ export default function AppLayout() {
                   className="text-red-600"
                   disabled={loading}
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
+                  <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -199,21 +232,30 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-6 px-4">
-        <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-slate-200 bg-white px-4 py-6">
+        <div className="mx-auto flex max-w-screen-2xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>© {new Date().getFullYear()} Gather</span>
             <span className="text-slate-300">·</span>
-            <span>Where life meets.</span>
+            <span>Where life meets around the table.</span>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <Link to="/privacy" className="text-slate-500 hover:text-slate-700 transition-colors">
+            <Link
+              to="/privacy"
+              className="text-slate-500 transition-colors hover:text-slate-700"
+            >
               Privacy Policy
             </Link>
-            <Link to="/terms" className="text-slate-500 hover:text-slate-700 transition-colors">
+            <Link
+              to="/terms"
+              className="text-slate-500 transition-colors hover:text-slate-700"
+            >
               Terms of Service
             </Link>
-            <Link to="/support" className="text-slate-500 hover:text-slate-700 transition-colors">
+            <Link
+              to="/support"
+              className="text-slate-500 transition-colors hover:text-slate-700"
+            >
               Support
             </Link>
           </div>
