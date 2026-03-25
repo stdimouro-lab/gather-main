@@ -1,117 +1,86 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
-export default function AuthCallbackPage() {
+export default function AuthCallback() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    async function finishAuth() {
+    const finishAuth = async () => {
       try {
-        const params = new URLSearchParams(location.search);
-        const code = params.get("code");
-        const next = params.get("next") || "/calendar";
-        const providerError =
-          params.get("error_description") || params.get("error");
+        const url = new URL(window.location.href);
+        const next = url.searchParams.get("next") || "/calendar";
 
-        if (providerError) {
-          throw new Error(providerError);
+        // If Supabase sent back a PKCE code, exchange it for a session
+        if (url.searchParams.get("code")) {
+          const { error } = await supabase.auth.exchangeCodeForSession(
+            window.location.href
+          );
+
+          if (error) {
+            console.error("OAuth exchange error:", error);
+            if (active) navigate("/login", { replace: true });
+            return;
+          }
         }
 
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        }
+        // Give the client a moment to persist and hydrate the session
+        const { data, error } = await supabase.auth.getSession();
 
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-
-        if (session) {
-          navigate(next, { replace: true });
+        if (error) {
+          console.error("getSession after callback error:", error);
+          if (active) navigate("/login", { replace: true });
           return;
         }
 
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
-          if (!mounted) return;
-          if (event === "SIGNED_IN" && session) {
-            subscription.unsubscribe();
-            navigate(next, { replace: true });
-          }
-        });
-
-        window.setTimeout(async () => {
-          try {
-            const {
-              data: { session: retrySession },
-            } = await supabase.auth.getSession();
-
-            subscription.unsubscribe();
-
-            if (retrySession) {
-              navigate(next, { replace: true });
-              return;
-            }
-
-            if (mounted) {
-              setError("Could not complete sign-in. Please try again.");
-            }
-          } catch (err) {
-            subscription.unsubscribe();
-            if (mounted) {
-              setError(err?.message || "Could not complete sign-in.");
-            }
-          }
-        }, 2000);
-      } catch (err) {
-        if (mounted) {
-          setError(err?.message || "Could not complete sign-in.");
+        if (data?.session?.user) {
+          if (active) navigate(next, { replace: true });
+          return;
         }
+
+        // Retry briefly in case auth state is still settling
+        let foundSession = false;
+
+        for (let i = 0; i < 10; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          const { data: retryData, error: retryError } =
+            await supabase.auth.getSession();
+
+          if (retryError) {
+            console.error("retry getSession error:", retryError);
+            break;
+          }
+
+          if (retryData?.session?.user) {
+            foundSession = true;
+            if (active) navigate(next, { replace: true });
+            break;
+          }
+        }
+
+        if (!foundSession && active) {
+          console.error("No session found after OAuth callback.");
+          navigate("/login", { replace: true });
+        }
+      } catch (err) {
+        console.error("Callback crash:", err);
+        if (active) navigate("/login", { replace: true });
       }
-    }
+    };
 
     finishAuth();
 
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, [location.search, navigate]);
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-sm border border-slate-200 p-6 text-center">
-        {!error ? (
-          <>
-            <h1 className="text-xl font-semibold text-slate-900">Gather</h1>
-            <p className="mt-3 text-sm text-slate-600">
-              Finishing sign-in…
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-semibold text-slate-900">
-              Sign-in failed
-            </h1>
-            <p className="mt-3 text-sm text-red-600">{error}</p>
-            <button
-              type="button"
-              onClick={() => navigate("/login", { replace: true })}
-              className="mt-5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-            >
-              Back to login
-            </button>
-          </>
-        )}
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <p className="text-slate-500">Signing you in...</p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { CalendarDays, Users, Briefcase, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 function GoogleIcon() {
@@ -37,6 +38,31 @@ function AppleIcon() {
   );
 }
 
+function GatherMark() {
+  return (
+    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700" />
+      <div className="relative flex items-center justify-center">
+        <Users className="h-7 w-7" />
+      </div>
+    </div>
+  );
+}
+
+function FeaturePill({ icon: Icon, title, text }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+      <div className="mt-0.5 rounded-xl bg-white/10 p-2">
+        <Icon className="h-4 w-4 text-white" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-slate-300">{text}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
@@ -49,13 +75,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const appUrl =
-    import.meta.env.VITE_APP_URL?.trim() || window.location.origin;
-
-  const callbackUrl = useMemo(() => {
-    const next = encodeURIComponent("/calendar");
-    return `${appUrl}/auth/callback?next=${next}`;
-  }, [appUrl]);
+  const callbackUrl = `${window.location.origin}/auth/callback?next=/calendar`;
 
   useEffect(() => {
     let mounted = true;
@@ -76,6 +96,7 @@ export default function LoginPage() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
+
       if (event === "SIGNED_IN" && session) {
         navigate("/calendar", { replace: true });
       }
@@ -110,7 +131,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent("/calendar")}`,
+          emailRedirectTo: callbackUrl,
           data: {
             full_name: fullName?.trim() || null,
           },
@@ -156,181 +177,275 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-semibold text-slate-900">Gather</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Sign in to your calendar, family, and shared tables.
-          </p>
-        </div>
+    <div className="min-h-screen bg-slate-950">
+      <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="relative hidden overflow-hidden lg:flex">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.30),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.20),transparent_30%)]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
 
-        <div className="grid grid-cols-2 gap-2 mb-6 rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("signin");
-              setError("");
-              setMessage("");
-            }}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              mode === "signin"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600"
-            }`}
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("signup");
-              setError("");
-              setMessage("");
-            }}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${
-              mode === "signup"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600"
-            }`}
-          >
-            Create account
-          </button>
-        </div>
-
-        <div className="space-y-3 mb-6">
-          <button
-            type="button"
-            onClick={() => handleOAuth("google")}
-            disabled={oauthLoading !== null || loading}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:opacity-60 flex items-center justify-center gap-3"
-          >
-            <GoogleIcon />
-            <span>
-              {oauthLoading === "google"
-                ? "Starting Google…"
-                : "Continue with Google"}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleOAuth("apple")}
-            disabled={oauthLoading !== null || loading}
-            className="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-3"
-          >
-            <AppleIcon />
-            <span>
-              {oauthLoading === "apple"
-                ? "Starting Apple…"
-                : "Continue with Apple"}
-            </span>
-          </button>
-        </div>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-slate-500">or use email</span>
-          </div>
-        </div>
-
-        <form onSubmit={handleEmailAuth} className="space-y-4">
-          {mode === "signup" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Full name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-                placeholder="Your name"
-                autoComplete="name"
-              />
+          <div className="relative z-10 flex w-full flex-col justify-between px-10 py-10 xl:px-16 xl:py-14">
+            <div className="flex items-center gap-4">
+              <GatherMark />
+              <div>
+                <p className="text-2xl font-semibold tracking-tight text-white">
+                  Gather
+                </p>
+                <p className="text-sm text-slate-400">
+                  Where life meets around the table.
+                </p>
+              </div>
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
+            <div className="max-w-xl">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
+                <Sparkles className="h-3.5 w-3.5" />
+                Shared life organizer
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-              placeholder="••••••••"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              required
-            />
-          </div>
+              <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white xl:text-5xl">
+                Bring your life together.
+              </h1>
 
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
+              <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
+                Gather helps families, teams, co-parents, and busy lives stay
+                connected with shared tables, calendars, plans, and memories in
+                one place.
+              </p>
+
+              <div className="mt-10 grid gap-4">
+                <FeaturePill
+                  icon={CalendarDays}
+                  title="Family-first planning"
+                  text="Keep school, sports, appointments, and daily life in one shared view."
+                />
+                <FeaturePill
+                  icon={Users}
+                  title="Built for shared tables"
+                  text="Organize family, co-parenting, personal, or team schedules around the people who matter."
+                />
+                <FeaturePill
+                  icon={Briefcase}
+                  title="Strong enough for work too"
+                  text="Separate work and personal life into tables while still seeing everything together."
+                />
+              </div>
             </div>
-          ) : null}
 
-          {message ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              {message}
+            <div className="text-sm text-slate-400">
+              One calendar. Multiple tables. More clarity.
             </div>
-          ) : null}
+          </div>
+        </section>
 
-          <button
-            type="submit"
-            disabled={loading || oauthLoading !== null}
-            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-          >
-            {loading
-              ? mode === "signin"
-                ? "Signing in…"
-                : "Creating account…"
-              : mode === "signin"
-              ? "Sign in with email"
-              : "Create account"}
-          </button>
-        </form>
+        <section className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-6 lg:px-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8 lg:hidden">
+              <div className="mb-5 flex items-center gap-4">
+                <GatherMark />
+                <div>
+                  <p className="text-2xl font-semibold text-slate-900">
+                    Gather
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Where life meets around the table.
+                  </p>
+                </div>
+              </div>
 
-        <div className="mt-4 text-center text-sm">
-          <Link
-            to="/forgot-password"
-            className="text-slate-700 hover:text-slate-900 underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                Bring your life together.
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                A shared organizer for family, work, co-parenting, and
+                everything in between.
+              </p>
+            </div>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          By continuing, you agree to our{" "}
-          <Link to="/terms" className="underline">
-            Terms
-          </Link>{" "}
-          and{" "}
-          <Link to="/privacy" className="underline">
-            Privacy Policy
-          </Link>
-          .
-        </p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+              <div className="mb-6 text-center">
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  {mode === "signin" ? "Welcome back" : "Create your account"}
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  {mode === "signin"
+                    ? "Sign in to your calendar, plans, and shared tables."
+                    : "Start organizing your life around the table."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signin");
+                    setError("");
+                    setMessage("");
+                  }}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    mode === "signin"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-600"
+                  }`}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("signup");
+                    setError("");
+                    setMessage("");
+                  }}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    mode === "signup"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-600"
+                  }`}
+                >
+                  Create account
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => handleOAuth("google")}
+                  disabled={oauthLoading !== null || loading}
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <GoogleIcon />
+                  <span>
+                    {oauthLoading === "google"
+                      ? "Starting Google…"
+                      : "Continue with Google"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOAuth("apple")}
+                  disabled={oauthLoading !== null || loading}
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-60"
+                >
+                  <AppleIcon />
+                  <span>
+                    {oauthLoading === "apple"
+                      ? "Starting Apple…"
+                      : "Continue with Apple"}
+                  </span>
+                </button>
+              </div>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                  <span className="bg-white px-2 text-slate-500">
+                    or use email
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                {mode === "signup" && (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
+                      placeholder="What should we call you?"
+                      autoComplete="name"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
+                    placeholder="••••••••"
+                    autoComplete={
+                      mode === "signin" ? "current-password" : "new-password"
+                    }
+                    required
+                  />
+                </div>
+
+                {error ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                    {error}
+                  </div>
+                ) : null}
+
+                {message ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+                    {message}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={loading || oauthLoading !== null}
+                  className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {loading
+                    ? mode === "signin"
+                      ? "Signing in…"
+                      : "Creating account…"
+                    : mode === "signin"
+                      ? "Sign in with email"
+                      : "Create account"}
+                </button>
+              </form>
+
+              <div className="mt-4 text-center text-sm">
+                <Link
+                  to="/forgot-password"
+                  className="text-slate-700 underline hover:text-slate-900"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+
+              <p className="mt-6 text-center text-xs leading-5 text-slate-500">
+                By continuing, you agree to our{" "}
+                <Link to="/terms" className="underline">
+                  Terms
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
