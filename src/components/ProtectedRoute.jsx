@@ -3,10 +3,11 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
 
 export default function ProtectedRoute() {
-  const { user, loading, profile, profileLoading } = useAuth();
+  const { user, loading, profile } = useAuth();
   const location = useLocation();
 
-  if (loading || profileLoading) {
+  // Only block on true auth boot, not profile refreshes
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">

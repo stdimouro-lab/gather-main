@@ -119,11 +119,18 @@ const claimedInviteKeyRef = useRef(null);
       applySession(newSession);
 
       if (newSession?.user) {
-        await loadProfile(newSession.user);
-      } else {
-        setProfile(null);
-        setProfileLoading(false);
-      }
+  const sameUser = newSession.user.id === user?.id;
+
+  // If we already have a profile for the same user, do not block the app
+  // on token refresh / focus-related auth events.
+  if (!sameUser || !profile) {
+    await loadProfile(newSession.user);
+  }
+} else {
+  claimedInviteKeyRef.current = null;
+  setProfile(null);
+  setProfileLoading(false);
+}
     } catch (err) {
       console.error("refreshSession threw:", err);
       applySession(null);
@@ -163,73 +170,76 @@ const claimedInviteKeyRef = useRef(null);
   }, [user?.id]);
 
   useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
 
-    const bootstrap = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
+  const bootstrap = async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
 
-        if (!isMounted) return;
-
-        if (error) {
-          console.error("initial getSession error:", error);
-        }
-
-        const newSession = data?.session ?? null;
-        applySession(newSession);
-
-        if (newSession?.user) {
-          await loadProfile(newSession.user);
-        } else {
-          setProfile(null);
-          setProfileLoading(false);
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        console.error("initial getSession threw:", err);
-        applySession(null);
-        setProfile(null);
-        setProfileLoading(false);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    bootstrap();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
 
-      applySession(newSession ?? null);
-      setLoading(false);
+      if (error) {
+        console.error("initial getSession error:", error);
+      }
+
+      const newSession = data?.session ?? null;
+      applySession(newSession);
 
       if (newSession?.user) {
         await loadProfile(newSession.user);
       } else {
+        claimedInviteKeyRef.current = null;
         setProfile(null);
         setProfileLoading(false);
       }
-
-      if (
-        event === "SIGNED_OUT" ||
-        event === "INITIAL_SESSION" ||
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED" ||
-        event === "USER_UPDATED"
-      ) {
-        // handled above
+    } catch (err) {
+      if (!isMounted) return;
+      console.error("initial getSession threw:", err);
+      applySession(null);
+      claimedInviteKeyRef.current = null;
+      setProfile(null);
+      setProfileLoading(false);
+    } finally {
+      if (isMounted) {
+        setLoading(false);
       }
-    });
+    }
+  };
 
-    return () => {
-      isMounted = false;
-      subscription?.unsubscribe();
-    };
-  }, [applySession, loadProfile]);
+  bootstrap();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    if (!isMounted) return;
+
+    const nextUser = newSession?.user ?? null;
+    const currentUserId = user?.id ?? null;
+    const nextUserId = nextUser?.id ?? null;
+    const userChanged = currentUserId !== nextUserId;
+
+    applySession(newSession ?? null);
+    setLoading(false);
+
+    if (!nextUser) {
+      claimedInviteKeyRef.current = null;
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    // Only reload profile when the signed-in user actually changes
+    // or we do not have one yet.
+    if (userChanged || !profile) {
+      await loadProfile(nextUser);
+    }
+  });
+
+  return () => {
+    isMounted = false;
+    subscription?.unsubscribe();
+  };
+}, [applySession, loadProfile, user?.id, profile]);
 
   useEffect(() => {
   if (!user?.id || !user?.email || !session) return;
