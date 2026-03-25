@@ -669,14 +669,8 @@ const handleMoveEvent = async ({ event, nextStart, nextEnd, nextAllDay = false }
   queryFn: () => fetchTabs(user.id),
   enabled: !!user?.id,
   refetchOnWindowFocus: false,
+  refetchOnMount: false,
   staleTime: 30000,
-});
-
-console.log("tabs query:", {
-  isLoadingTabs,
-  ownedTabsCount: ownedTabs.length,
-  isTabsError,
-  tabsError,
 });
 
   useEffect(() => {
@@ -698,6 +692,7 @@ const {
     }),
   enabled: !!user?.id && !!user?.email,
   refetchOnWindowFocus: false,
+  refetchOnMount: false,
   staleTime: 30000,
 });
 
@@ -844,14 +839,8 @@ if (!user || isLoadingTabs) return;
     }),
   enabled: !!user?.id && !isLoadingTabs,
   refetchOnWindowFocus: false,
+  refetchOnMount: false,
   staleTime: 15000,
-});
-
-  console.log("events query:", {
-  isLoadingEvents,
-  eventsCount: events.length,
-  activeTabsCount: activeTabs.length,
-  range,
 });
 
   // ---------- NOTES (Supabase) ----------
@@ -860,12 +849,8 @@ if (!user || isLoadingTabs) return;
   queryFn: () => fetchNotes({ ownerId: user.id, tabIds: activeTabs }),
   enabled: !!user?.id && !isLoadingTabs,
   refetchOnWindowFocus: false,
+  refetchOnMount: false,
   staleTime: 15000,
-});
-
-  console.log("notes query:", {
-  isLoadingNotes,
-  notesCount: notes.length,
 });
 
   const tabShares = [];
@@ -1510,17 +1495,12 @@ useEffect(() => {
 
 
   // Loading gate (real auth)
-  const isInitialLoading =
-  loading ||
-  !user ||
-  (isLoadingTabs && ownedTabs.length === 0 && sharedTabs.length === 0);
-
-if (isInitialLoading) {
+  if (loading || !user) {
   return (
     <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
-        <p className="mt-2 text-slate-500">Loading your tables...</p>
+        <p className="mt-2 text-slate-500">Loading your account...</p>
       </div>
     </div>
   );

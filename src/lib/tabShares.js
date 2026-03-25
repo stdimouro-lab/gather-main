@@ -5,7 +5,7 @@ export async function claimTabInvitesForUser({ userId, email }) {
   if (!userId || !email) return;
 
   const normalizedEmail = email.toLowerCase().trim();
-  console.log("claimTabInvitesForUser called:", { userId, email, normalizedEmail });
+  // console.log("claimTabInvitesForUser called:", { userId, email, normalizedEmail });
 
   const { data, error } = await supabase
     .from("tab_shares")
@@ -19,8 +19,8 @@ export async function claimTabInvitesForUser({ userId, email }) {
     .eq("status", "pending")
     .select("*");
 
-  console.log("claim result data:", data);
-console.log("claim result error:", error);
+  // console.log("claim result data:", data);
+//console.log("claim result error:", error);
 
   if (error) throw error;
 }
@@ -32,7 +32,7 @@ export async function fetchSharedTabsForMe({ userId, email }) {
   const normalizedEmail = (email ?? "").toLowerCase().trim();
   const queries = [];
 
-  console.log("fetchSharedTabsForMe start", { userId, email, normalizedEmail });
+  //console.log("fetchSharedTabsForMe start", { userId, email, normalizedEmail });
 
   if (userId) {
     queries.push(
@@ -100,7 +100,7 @@ export async function fetchSharedTabsForMe({ userId, email }) {
     throw tabsErr;
   }
 
-  console.log("loaded tabs:", tabs);
+  //console.log("loaded tabs:", tabs);
 
   const tabMap = new Map((tabs ?? []).map((t) => [t.id, t]));
 
