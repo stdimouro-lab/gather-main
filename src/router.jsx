@@ -12,6 +12,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Support from "./pages/Support";
 import AuthCallback from "./pages/AuthCallback";
+import Onboarding from "./pages/Onboarding";
 
 export default function AppRouter() {
   return (
@@ -31,6 +32,7 @@ export default function AppRouter() {
           <Route path="/plans" element={<Plans />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/shared" element={<SharedWithMe />} />
+          <Route path="/onboarding" element={<Onboarding />} />
         </Route>
       </Route>
 

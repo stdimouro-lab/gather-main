@@ -12,7 +12,7 @@ import { claimTabInvitesForUser } from "@/lib/tabShares";
 const AuthContext = createContext(null);
 
 async function ensureProfile(user) {
-  if (!user?.id) return;
+  if (!user?.id) return null;
 
   const fullName =
     user.user_metadata?.full_name ||
@@ -22,11 +22,9 @@ async function ensureProfile(user) {
 
   const email = user.email || "";
 
-  // First check whether a profile already exists so we do not overwrite
-  // a good saved name with an empty OAuth value later.
   const { data: existingProfile, error: readError } = await supabase
     .from("profiles")
-    .select("id, full_name, email")
+    .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -41,12 +39,12 @@ async function ensureProfile(user) {
     updated_at: new Date().toISOString(),
   };
 
-  // Only write full_name if we actually have one,
-  // or if the profile does not already have one.
-  if (fullName) {
+  if (fullName && !existingProfile?.full_name) {
     payload.full_name = fullName;
-  } else if (!existingProfile?.full_name) {
-    payload.full_name = "";
+  }
+
+  if (!existingProfile?.display_name && fullName) {
+    payload.display_name = fullName;
   }
 
   const { error } = await supabase.from("profiles").upsert(payload, {
@@ -57,16 +55,53 @@ async function ensureProfile(user) {
     console.error("ensureProfile upsert error:", error);
     throw error;
   }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    console.error("ensureProfile fetch error:", profileError);
+    throw profileError;
+  }
+
+  return profile;
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const applySession = useCallback((newSession) => {
     setSession(newSession ?? null);
     setUser(newSession?.user ?? null);
+  }, []);
+
+  const loadProfile = useCallback(async (activeUser) => {
+    if (!activeUser?.id) {
+      setProfile(null);
+      setProfileLoading(false);
+      return null;
+    }
+
+    setProfileLoading(true);
+
+    try {
+      const ensured = await ensureProfile(activeUser);
+      setProfile(ensured ?? null);
+      return ensured ?? null;
+    } catch (err) {
+      console.error("loadProfile error:", err);
+      setProfile(null);
+      return null;
+    } finally {
+      setProfileLoading(false);
+    }
   }, []);
 
   const refreshSession = useCallback(async () => {
@@ -77,14 +112,52 @@ export function AuthProvider({ children }) {
         console.error("refreshSession getSession error:", error);
       }
 
-      applySession(data?.session ?? null);
+      const newSession = data?.session ?? null;
+      applySession(newSession);
+
+      if (newSession?.user) {
+        await loadProfile(newSession.user);
+      } else {
+        setProfile(null);
+        setProfileLoading(false);
+      }
     } catch (err) {
       console.error("refreshSession threw:", err);
       applySession(null);
+      setProfile(null);
+      setProfileLoading(false);
     } finally {
       setLoading(false);
     }
-  }, [applySession]);
+  }, [applySession, loadProfile]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!user?.id) {
+      setProfile(null);
+      setProfileLoading(false);
+      return null;
+    }
+
+    setProfileLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      setProfile(data);
+      return data;
+    } catch (err) {
+      console.error("refreshProfile error:", err);
+      return null;
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -99,17 +172,21 @@ export function AuthProvider({ children }) {
           console.error("initial getSession error:", error);
         }
 
-        applySession(data?.session ?? null);
+        const newSession = data?.session ?? null;
+        applySession(newSession);
 
-        if (data?.session?.user?.id) {
-          ensureProfile(data.session.user).catch((e) => {
-            console.error("Initial profile bootstrap failed:", e);
-          });
+        if (newSession?.user) {
+          await loadProfile(newSession.user);
+        } else {
+          setProfile(null);
+          setProfileLoading(false);
         }
       } catch (err) {
         if (!isMounted) return;
         console.error("initial getSession threw:", err);
         applySession(null);
+        setProfile(null);
+        setProfileLoading(false);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -121,23 +198,27 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
 
       applySession(newSession ?? null);
       setLoading(false);
 
+      if (newSession?.user) {
+        await loadProfile(newSession.user);
+      } else {
+        setProfile(null);
+        setProfileLoading(false);
+      }
+
       if (
-        (event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "USER_UPDATED") &&
-        newSession?.user?.id
+        event === "SIGNED_OUT" ||
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
       ) {
-        setTimeout(() => {
-          ensureProfile(newSession.user).catch((e) => {
-            console.error("Profile bootstrap failed:", e);
-          });
-        }, 0);
+        // handled above
       }
     });
 
@@ -145,7 +226,7 @@ export function AuthProvider({ children }) {
       isMounted = false;
       subscription?.unsubscribe();
     };
-  }, [applySession]);
+  }, [applySession, loadProfile]);
 
   useEffect(() => {
     if (!user?.id || !user?.email || !session) return;
@@ -198,7 +279,9 @@ export function AuthProvider({ children }) {
     return {
       user,
       session,
+      profile,
       loading,
+      profileLoading,
       isAuthed: !!session?.user,
       emailConfirmed,
       signIn,
@@ -207,9 +290,9 @@ export function AuthProvider({ children }) {
       sendPasswordReset,
       updatePassword,
       refreshSession,
-      ensureProfile: () => ensureProfile(user),
+      refreshProfile,
     };
-  }, [user, session, loading, refreshSession]);
+  }, [user, session, profile, loading, profileLoading, refreshSession, refreshProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

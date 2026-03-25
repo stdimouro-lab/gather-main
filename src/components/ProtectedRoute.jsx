@@ -3,20 +3,14 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
 
 export default function ProtectedRoute() {
-  const { user, loading } = useAuth();
+  const { user, loading, profile, profileLoading } = useAuth();
   const location = useLocation();
 
-  console.log("ProtectedRoute:", {
-    loading,
-    hasUser: !!user,
-    path: location.pathname,
-  });
-
-  if (loading) {
+  if (loading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto" />
+          <Loader2 className="w-8 h-8 animate-spin text-slate-700 mx-auto" />
           <p className="mt-2 text-slate-500">Loading...</p>
         </div>
       </div>
@@ -25,6 +19,14 @@ export default function ProtectedRoute() {
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (
+    location.pathname !== "/onboarding" &&
+    profile &&
+    !profile.onboarding_completed
+  ) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <Outlet />;
