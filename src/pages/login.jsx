@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, Users, Briefcase, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import gatherLogo from "@/assets/gather-logo.png";
 
 function GoogleIcon() {
   return (
@@ -38,13 +39,18 @@ function AppleIcon() {
   );
 }
 
-function GatherMark() {
+function BrandLogo({ mobile = false }) {
   return (
-    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-700" />
-      <div className="relative flex items-center justify-center">
-        <Users className="h-7 w-7" />
-      </div>
+    <div
+      className={`overflow-hidden rounded-3xl border border-white/10 bg-white shadow-lg shadow-slate-950/20 ${
+        mobile ? "h-14 w-14" : "h-16 w-16"
+      }`}
+    >
+      <img
+        src={gatherLogo}
+        alt="Gather logo"
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
@@ -180,12 +186,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-950">
       <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
         <section className="relative hidden overflow-hidden lg:flex">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.30),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.20),transparent_30%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.32),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.18),transparent_30%)]" />
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
 
           <div className="relative z-10 flex w-full flex-col justify-between px-10 py-10 xl:px-16 xl:py-14">
             <div className="flex items-center gap-4">
-              <GatherMark />
+              <BrandLogo />
               <div>
                 <p className="text-2xl font-semibold tracking-tight text-white">
                   Gather
@@ -241,7 +247,7 @@ export default function LoginPage() {
           <div className="w-full max-w-md">
             <div className="mb-8 lg:hidden">
               <div className="mb-5 flex items-center gap-4">
-                <GatherMark />
+                <BrandLogo mobile />
                 <div>
                   <p className="text-2xl font-semibold text-slate-900">
                     Gather
@@ -263,6 +269,16 @@ export default function LoginPage() {
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-6 text-center">
+                <div className="mb-4 flex justify-center lg:hidden">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-1 shadow-sm">
+                    <img
+                      src={gatherLogo}
+                      alt="Gather logo"
+                      className="h-20 w-20 rounded-2xl object-cover"
+                    />
+                  </div>
+                </div>
+
                 <h2 className="text-2xl font-semibold text-slate-900">
                   {mode === "signin" ? "Welcome back" : "Create your account"}
                 </h2>
