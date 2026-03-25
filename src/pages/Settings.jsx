@@ -16,10 +16,22 @@ import {
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import useEntitlement from "@/hooks/useEntitlement";
+import { restoreApplePurchases } from "@/lib/appleBillingBridge";
 
 export default function Settings() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+
+    const {
+    planTier,
+    isComped,
+    billingSource,
+    seatLimit,
+    seatsUsed,
+    storageLimitMb,
+    storageUsedMb,
+  } = useEntitlement();
 
   const displayName =
     profile?.full_name ||
@@ -299,19 +311,53 @@ export default function Settings() {
   </div>
 
   <p className="mt-1 text-sm text-slate-500">
-    Manage your plan and restore purchases on iPhone and iPad.
+    Your Gather plan, seats, storage, and purchase recovery options.
   </p>
+
+  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="rounded-xl border bg-slate-50 p-4">
+      <p className="text-sm text-slate-500">Plan</p>
+      <p className="mt-1 font-medium text-slate-900 capitalize">
+        {isComped ? "Complimentary" : planTier}
+      </p>
+    </div>
+
+    <div className="rounded-xl border bg-slate-50 p-4">
+      <p className="text-sm text-slate-500">Billing source</p>
+      <p className="mt-1 font-medium text-slate-900 capitalize">
+        {billingSource}
+      </p>
+    </div>
+
+    <div className="rounded-xl border bg-slate-50 p-4">
+      <p className="text-sm text-slate-500">Seats</p>
+      <p className="mt-1 font-medium text-slate-900">
+        {seatsUsed} / {seatLimit}
+      </p>
+    </div>
+
+    <div className="rounded-xl border bg-slate-50 p-4">
+      <p className="text-sm text-slate-500">Storage</p>
+      <p className="mt-1 font-medium text-slate-900">
+        {(storageUsedMb / 1024).toFixed(1)} / {(storageLimitMb / 1024).toFixed(1)} GB
+      </p>
+    </div>
+  </div>
 
   <div className="mt-4 flex flex-wrap gap-3">
     <button
-      type="button"
-      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-      onClick={() => {
-        alert("Restore Purchases will be connected when Apple billing is added.");
-      }}
-    >
-      Restore Purchases
-    </button>
+  type="button"
+  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+  onClick={async () => {
+    try {
+      await restoreApplePurchases();
+    } catch (error) {
+      alert(error?.message ?? "Restore Purchases is not connected yet.");
+    }
+  }}
+>
+  Restore Purchases
+</button>
 
     <button
       type="button"

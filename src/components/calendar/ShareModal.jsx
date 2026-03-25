@@ -20,6 +20,7 @@ export default function ShareModal({
   onInvite,
   onUpdateShare,
   onRemoveShare,
+  seatSummary = null,
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("viewer");
@@ -99,6 +100,16 @@ export default function ShareModal({
               Only this tab will be shared. You can change or remove access at any time.
             </p>
           </div>
+          {seatSummary && (
+  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+    <p className="text-xs text-slate-700">
+      Seats in use: {seatSummary.used} / {seatSummary.limit}
+    </p>
+    <p className="mt-1 text-xs text-slate-500">
+      Free accounts cannot invite members. Family plans can invite up to their seat limit.
+    </p>
+  </div>
+)}
 
           <form onSubmit={handleInvite} className="space-y-4">
             <div className="space-y-1">
@@ -134,10 +145,18 @@ export default function ShareModal({
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-700"
-              disabled={!email.trim() || isInviting}
+              disabled={
+  !email.trim() ||
+  isInviting ||
+  (seatSummary ? seatSummary.used >= seatSummary.limit : false)
+}
             >
               <UserPlus className="w-4 h-4 mr-2" />
-              {isInviting ? "Inviting..." : "Send Invite"}
+              {seatSummary && seatSummary.used >= seatSummary.limit
+  ? "Seat limit reached"
+  : isInviting
+  ? "Inviting..."
+  : "Send Invite"}
             </Button>
           </form>
 

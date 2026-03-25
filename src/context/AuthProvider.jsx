@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { claimTabInvitesForUser } from "@/lib/tabShares";
+import { ensureAccountForUser } from "@/lib/account";
 
 const AuthContext = createContext(null);
 
@@ -95,10 +96,11 @@ const claimedInviteKeyRef = useRef(null);
     setProfileLoading(true);
 
     try {
-      const ensured = await ensureProfile(activeUser);
-      setProfile(ensured ?? null);
-      return ensured ?? null;
-    } catch (err) {
+  const ensured = await ensureProfile(activeUser);
+  await ensureAccountForUser(activeUser);
+  setProfile(ensured ?? null);
+  return ensured ?? null;
+} catch (err) {
       console.error("loadProfile error:", err);
       setProfile(null);
       return null;

@@ -27,6 +27,7 @@ import SuggestionsSettingsModal from "../components/calendar/SuggestionsSettings
 import SuggestionsComingSoon from "../components/calendar/SuggestionsComingSoon";
 import OnboardingFlow from "../components/calendar/OnboardingFlow";
 import TodayAtTheTable from "../components/calendar/TodayAtTheTable";
+import useEntitlement from "@/hooks/useEntitlement";
 
 import {
   Dialog,
@@ -42,6 +43,7 @@ import { useAuth } from "../context/AuthProvider";
 import { supabase } from "../lib/supabase"; 
 import { ruleWithUntilBefore, ruleWithoutUntil } from "@/lib/recurrence_ops";
 import RecurrenceScopeModal from "../components/calendar/RecurrenceScopeModal";
+import { syncAccountSeatUsage } from "@/lib/entitlements";
 
 import {
   getRealEventId,
@@ -69,6 +71,15 @@ const [snoozedSuggestions, setSnoozedSuggestions] = useState(() => {
 });
 
   const { user, loading } = useAuth();
+  const {
+    account,
+    hasPaidAccess,
+    seatLimit,
+    seatsUsed,
+    remainingSeats,
+    tableLimit,
+  } = useEntitlement();
+
   const queryClient = useQueryClient();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -1132,12 +1143,26 @@ const bridgeNotConnected = (msg = "Not connected yet (coming next).") => {
 };
 
 const shareTabMutation = useMutation({
-  mutationFn: ({ tabId, email, role }) =>
-    inviteToTab({ tabId, ownerId: user.id, email, role }),
-  onSuccess: () => {
+  mutationFn: async ({ tabId, email, role }) => {
+    if (!hasPaidAccess) {
+      throw new Error("Inviting people is part of the Family plan.");
+    }
+
+    if (remainingSeats <= 0) {
+      throw new Error("Your account has reached its current seat limit.");
+    }
+
+    return inviteToTab({ tabId, ownerId: user.id, email, role });
+  },
+  onSuccess: async () => {
     toast({ title: "Invite sent" });
-    // optional: refresh shared tabs list
+
+    if (account?.id) {
+      await syncAccountSeatUsage(account.id);
+    }
+
     queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+    queryClient.invalidateQueries({ queryKey: ["account", user.id] });
   },
   onError: (e) =>
     toast({
@@ -1159,8 +1184,20 @@ const updateShareMutation = useMutation({
 });
 
 const removeShareMutation = useMutation({
-  mutationFn: ({ shareId }) => removeTabShare({ shareId }),
-  onSuccess: () => toast({ title: "Access removed" }),
+  mutationFn: async ({ shareId }) => {
+    const result = await removeTabShare({ shareId });
+
+    if (account?.id) {
+      await syncAccountSeatUsage(account.id);
+    }
+
+    return result;
+  },
+  onSuccess: () => {
+    toast({ title: "Access removed" });
+    queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+  },
   onError: (e) =>
     toast({
       title: "Remove failed",
@@ -1458,6 +1495,16 @@ createEventMutation.mutate(data);
     return toast({
       title: "Not allowed",
       description: "Only the table owner can edit this table.",
+      variant: "destructive",
+    });
+  }
+
+  const isCreatingNew = !selectedTab;
+
+  if (isCreatingNew && !hasPaidAccess && typeof tableLimit === "number" && ownedTabs.length >= tableLimit) {
+    return toast({
+      title: "Free plan limit reached",
+      description: "Free accounts include 3 tables. Upgrade to create more.",
       variant: "destructive",
     });
   }
@@ -2016,14 +2063,18 @@ onManageTab={(tab) => {
       />
 
       <ShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => {
-          setIsShareModalOpen(false);
-          setShareTab(null);
-        }}
-        tab={shareTab}
-        shares={tabShares}
-          onInvite={(email, role) =>
+  isOpen={isShareModalOpen}
+  onClose={() => {
+    setIsShareModalOpen(false);
+    setShareTab(null);
+  }}
+  tab={shareTab}
+  shares={tabShares}
+  seatSummary={{
+    used: seatsUsed ?? 1,
+    limit: seatLimit ?? 1,
+  }}
+  onInvite={(email, role) =>
     shareTabMutation.mutate({ tabId: shareTab.id, email, role })
   }
   onUpdateShare={(shareId, role) =>
@@ -2032,7 +2083,7 @@ onManageTab={(tab) => {
   onRemoveShare={(shareId) =>
     removeShareMutation.mutate({ shareId })
   }
-      />
+/>
 
       <EventHistoryPanel
         isOpen={isHistoryOpen}
