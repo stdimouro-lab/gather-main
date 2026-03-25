@@ -43,14 +43,14 @@ function AppleIcon() {
 function BrandLogo({ mobile = false }) {
   return (
     <div
-      className={`flex items-center justify-center rounded-3xl border border-white/10 bg-white shadow-lg shadow-slate-950/20 ${
-        mobile ? "h-14 w-14 p-2" : "h-16 w-16 p-2.5"
+      className={`flex items-center justify-center ${
+        mobile ? "h-20 w-20" : "h-24 w-24"
       }`}
     >
       <img
         src={gatherLogo}
         alt="Gather logo"
-        className="max-h-full max-w-full object-contain"
+        className="h-full w-full object-contain drop-shadow-lg"
       />
     </div>
   );
@@ -202,17 +202,17 @@ export default function LoginPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
 
           <div className="relative z-10 flex w-full flex-col justify-between px-10 py-10 xl:px-16 xl:py-14">
-            <div className="flex items-center gap-4">
-              <BrandLogo />
-              <div>
-                <p className="text-2xl font-semibold tracking-tight text-white">
-                  Gather
-                </p>
-                <p className="text-sm text-slate-400">
-                  Where life meets around the table.
-                </p>
-              </div>
-            </div>
+            <div className="flex items-center gap-5">
+  <BrandLogo />
+  <div>
+    <p className="text-2xl font-semibold tracking-tight text-white">
+      Gather
+    </p>
+    <p className="text-sm text-slate-300">
+      Where life meets around the table.
+    </p>
+  </div>
+</div>
 
             <div className="max-w-xl">
               <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
@@ -282,14 +282,12 @@ export default function LoginPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-6 text-center">
                 <div className="mb-4 flex justify-center lg:hidden">
-                  <div className="flex items-center justify-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
-                    <img
-                      src={gatherLogo}
-                      alt="Gather logo"
-                      className="max-h-20 max-w-20 object-contain"
-                    />
-                  </div>
-                </div>
+  <img
+    src={gatherLogo}
+    alt="Gather logo"
+    className="h-24 w-24 object-contain drop-shadow-sm"
+  />
+</div>
 
                 <h2 className="text-2xl font-semibold text-slate-900">
                   {mode === "signin" ? "Welcome back" : "Create your account"}
