@@ -10,30 +10,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Calendar, Share2, LogOut, Settings } from "lucide-react";
-import { Toaster } from "@/components/ui/toaster";
 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
-
-const MINIMAL_CHROME_ROUTES = [
-  "/login",
-  "/onboarding",
-  "/auth/callback",
-  "/forgot-password",
-  "/reset-password",
-  "/support",
-  "/privacy",
-  "/terms",
-];
 
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-
-  const isMinimalChromeRoute = MINIMAL_CHROME_ROUTES.some((route) =>
-    location.pathname.toLowerCase().startsWith(route)
-  );
 
   const getInitials = (nameOrEmail) => {
     if (!nameOrEmail) return "U";
@@ -57,53 +41,8 @@ export default function AppLayout() {
     navigate("/login", { replace: true });
   };
 
-  // Auth/setup/public pages get minimal chrome
-  if (isMinimalChromeRoute) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <Toaster position="top-right" richColors />
-        <main className="min-h-[calc(100vh-80px)]">
-          <Outlet />
-        </main>
-
-        <footer className="border-t border-slate-200 bg-white px-4 py-6">
-          <div className="mx-auto flex max-w-screen-2xl flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>© {new Date().getFullYear()} Gather</span>
-              <span className="text-slate-300">·</span>
-              <span>Where life meets around the table.</span>
-            </div>
-
-            <div className="flex items-center gap-4 text-sm">
-              <Link
-                to="/privacy"
-                className="text-slate-500 transition-colors hover:text-slate-700"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                to="/terms"
-                className="text-slate-500 transition-colors hover:text-slate-700"
-              >
-                Terms of Service
-              </Link>
-              <Link
-                to="/support"
-                className="text-slate-500 transition-colors hover:text-slate-700"
-              >
-                Support
-              </Link>
-            </div>
-          </div>
-        </footer>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Toaster position="top-right" richColors />
-
+    <div className="min-h-screen bg-slate-50 pt-safe-top pb-safe-bottom">
       <nav className="sticky top-0 z-30 border-b border-slate-200/50 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
         <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
           <div className="flex items-center gap-6">
@@ -239,6 +178,7 @@ export default function AppLayout() {
             <span className="text-slate-300">·</span>
             <span>Where life meets around the table.</span>
           </div>
+
           <div className="flex items-center gap-4 text-sm">
             <Link
               to="/privacy"

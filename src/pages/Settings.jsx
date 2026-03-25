@@ -292,6 +292,37 @@ export default function Settings() {
           </div>
         </section>
 
+<section className="rounded-2xl border bg-white p-6 shadow-sm">
+  <div className="flex items-center gap-2">
+    <Users className="h-5 w-5 text-slate-700" />
+    <h2 className="text-xl font-semibold text-slate-900">Billing</h2>
+  </div>
+
+  <p className="mt-1 text-sm text-slate-500">
+    Manage your plan and restore purchases on iPhone and iPad.
+  </p>
+
+  <div className="mt-4 flex flex-wrap gap-3">
+    <button
+      type="button"
+      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+      onClick={() => {
+        alert("Restore Purchases will be connected when Apple billing is added.");
+      }}
+    >
+      Restore Purchases
+    </button>
+
+    <button
+      type="button"
+      onClick={() => navigate("/plans")}
+      className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+    >
+      View plans
+    </button>
+  </div>
+</section>
+
         <DeleteAccountSection />
       </div>
     </div>

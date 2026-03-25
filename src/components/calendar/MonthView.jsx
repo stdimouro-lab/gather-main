@@ -34,6 +34,9 @@ export default function MonthView({
 
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const isTouchDevice =
+  typeof window !== "undefined" &&
+  ("ontouchstart" in window || navigator.maxTouchPoints > 0);
 
   const normalizeEventForModal = (ev) => {
   if (!ev) return ev;
@@ -154,25 +157,31 @@ const oldEnd = parseISO(oldEndISO);
               transition={{ delay: idx * 0.01 }}
               onClick={() => onSelectDate(day)}
               onDragOver={(e) => {
-                // Allow drop
-                e.preventDefault();
-              }}
-              onDragEnter={() => setDragOverKey(dayKey)}
-              onDragLeave={() => setDragOverKey((k) => (k === dayKey ? null : k))}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDragOverKey(null);
+  if (isTouchDevice) return;
+  e.preventDefault();
+}}
+onDragEnter={() => {
+  if (isTouchDevice) return;
+  setDragOverKey(dayKey);
+}}
+onDragLeave={() => {
+  if (isTouchDevice) return;
+  setDragOverKey((k) => (k === dayKey ? null : k));
+}}
+onDrop={(e) => {
+  if (isTouchDevice) return;
+  e.preventDefault();
+  e.stopPropagation();
+  setDragOverKey(null);
 
-                const eventId = e.dataTransfer.getData("text/plain");
-                if (!eventId) return;
+  const eventId = e.dataTransfer.getData("text/plain");
+  if (!eventId) return;
 
-                const ev = findEventById(eventId);
-                if (!ev) return;
+  const ev = findEventById(eventId);
+  if (!ev) return;
 
-                // Move to dropped day (keep time-of-day)
-                moveEventToDay(ev, day);
-              }}
+  moveEventToDay(ev, day);
+}}
               className={cn(
                 "min-h-[100px] sm:min-h-[120px] p-1.5 sm:p-2 border-b border-r border-slate-100 cursor-pointer transition-colors hover:bg-slate-50",
                 !isCurrentMonth && "bg-slate-50/50",
@@ -207,8 +216,9 @@ const oldEnd = parseISO(oldEndISO);
   initial={{ opacity: 0, scale: 0.9 }}
   animate={{ opacity: 1, scale: 1 }}
   exit={{ opacity: 0, scale: 0.9 }}
-  draggable
+  draggable={!isTouchDevice}
 onDragStart={(e) => {
+  if (isTouchDevice) return;
   e.stopPropagation();
   e.dataTransfer.setData("text/plain", String(event.id));
   e.dataTransfer.effectAllowed = "move";

@@ -229,27 +229,29 @@ export default function EventModal({
 
       <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4 grid w-full grid-cols-2 gap-1 bg-slate-100 p-1 sm:flex sm:w-auto sm:flex-wrap">
-                <TabsTrigger value="details" className="min-w-0 px-2 text-[11px] sm:text-xs">
-                  Details
-                </TabsTrigger>
+              <div className="mb-4 overflow-x-auto">
+  <TabsList className="inline-flex min-w-max gap-1 bg-slate-100 p-1">
+    <TabsTrigger value="details" className="px-3 text-xs">
+      Details
+    </TabsTrigger>
 
-                {showMemories && (
-                  <TabsTrigger value="memories" className="text-xs">
-                    Memories
-                  </TabsTrigger>
-                )}
+    {showMemories && (
+      <TabsTrigger value="memories" className="px-3 text-xs">
+        Memories
+      </TabsTrigger>
+    )}
 
-                <TabsTrigger value="recurrence" className="text-xs">
-                  Recurrence
-                </TabsTrigger>
+    <TabsTrigger value="recurrence" className="px-3 text-xs">
+      Recurrence
+    </TabsTrigger>
 
-                {showPrivacyTab && (
-                  <TabsTrigger value="privacy" className="text-xs">
-                    Privacy
-                  </TabsTrigger>
-                )}
-              </TabsList>
+    {showPrivacyTab && (
+      <TabsTrigger value="privacy" className="px-3 text-xs">
+        Privacy
+      </TabsTrigger>
+    )}
+  </TabsList>
+</div>
 
               <TabsContent value="details" className="space-y-4 mt-0">
                 <div className="space-y-2">

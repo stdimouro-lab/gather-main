@@ -319,6 +319,18 @@ export default function OnboardingPage({ isGuideMode = false }) {
 
           <aside className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h2 className="text-lg font-semibold text-slate-900">
+    What you can do with Gather
+  </h2>
+
+  <div className="mt-4 space-y-3 text-sm text-slate-600">
+    <p>Keep family, personal life, and work organized in separate tables.</p>
+    <p>Share only what others need to know while keeping private details private.</p>
+    <p>Save memories like photos and videos to the moments that matter.</p>
+    <p>Grow from your own planning space into shared family or team coordination.</p>
+  </div>
+</div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">
                 What Gather is built for
               </h2>

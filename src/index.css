@@ -91,3 +91,10 @@ html,
 body {
   overflow-x: hidden;
 }
+.pt-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
