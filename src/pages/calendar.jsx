@@ -1616,7 +1616,7 @@ onManageTab={(tab) => {
               {isLoadingNotes ? (
                 <div className="text-sm text-slate-500">Loading notes…</div>
               ) : notes.length === 0 ? (
-                <div className="text-sm text-slate-500">No notes yet.</div>
+                <div className="text-sm text-slate-500">Start capturing memories, plans, and ideas at your table.</div>
               ) : (
                 <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
                   {notes.slice(0, 30).map((n) => (
@@ -1798,6 +1798,61 @@ onManageTab={(tab) => {
     </div>
   )}
 </div>
+
+{!isLoadingEvents && events.length === 0 && (
+  <div className="mb-6 flex items-center justify-center">
+    <div className="w-full max-w-xl rounded-2xl border bg-white/80 backdrop-blur p-6 text-center shadow-sm">
+      
+      <div className="flex justify-center mb-3">
+        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+          <Calendar className="w-6 h-6 text-indigo-600" />
+        </div>
+      </div>
+
+      <h2 className="text-lg font-semibold text-slate-900">
+        Welcome to Gather
+      </h2>
+
+      <p className="text-sm text-slate-500 mt-1">
+        Where life meets around the table.
+      </p>
+
+      <p className="text-sm text-slate-500 mt-3">
+        Start by creating your first event or organizing your tables.
+      </p>
+
+      <div className="mt-5 flex flex-wrap justify-center gap-2">
+        <Button
+          className="bg-indigo-600 hover:bg-indigo-700"
+          onClick={() => {
+            setSelectedEvent(null);
+            setSelectedDate(new Date());
+            setIsEventModalOpen(true);
+          }}
+        >
+          + Add Event
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSelectedTab(null);
+            setIsTabModalOpen(true);
+          }}
+        >
+          + Create Table
+        </Button>
+
+        <Button
+          variant="ghost"
+          onClick={() => setIsOnboardingOpen(true)}
+        >
+          View Guide
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
 <CalendarHeader
               currentDate={currentDate}

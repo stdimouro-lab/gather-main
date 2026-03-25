@@ -25,7 +25,7 @@ const STARTER_TABLES = [
   },
 ];
 
-export default function OnboardingPage() {
+export default function OnboardingPage({ isGuideMode = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -172,24 +172,26 @@ export default function OnboardingPage() {
 
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                Welcome to Gather
+                {isGuideMode ? "Learn Gather" : "Welcome to Gather"}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Gather helps you organize life around shared tables—family,
-                work, personal plans, and more—without losing privacy or
-                simplicity.
+                {isGuideMode
+                  ? "Here’s how Gather helps you organize life around your tables—family, work, and everything in between."
+                  : "Gather — where life meets around the table. Organize family, work, and personal life without losing privacy or simplicity."}
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={saving}
-            className="hidden rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60 sm:inline-flex"
-          >
-            Skip for now
-          </button>
+          {!isGuideMode && (
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={saving}
+              className="hidden rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60 sm:inline-flex"
+            >
+              Skip for now
+            </button>
+          )}
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_420px]">
@@ -197,9 +199,11 @@ export default function OnboardingPage() {
             <form onSubmit={handleFinish} className="space-y-8">
               <div>
                 <div className="mb-4">
-                  <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
-                    Step 1 · Make it yours
-                  </span>
+                  {!isGuideMode && (
+                    <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                      Step 1 · Make it yours
+                    </span>
+                  )}
                 </div>
 
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -219,9 +223,11 @@ export default function OnboardingPage() {
 
               <div>
                 <div className="mb-4">
-                  <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                    Step 2 · Start with your tables
-                  </span>
+                  {!isGuideMode && (
+                    <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Step 2 · Start with your tables
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid gap-4">
@@ -265,7 +271,8 @@ export default function OnboardingPage() {
                 </div>
 
                 <p className="mt-3 text-sm text-slate-500">
-                  Selected: {selectedCount} {selectedCount === 1 ? "table" : "tables"}
+                  Selected: {selectedCount}{" "}
+                  {selectedCount === 1 ? "table" : "tables"}
                 </p>
               </div>
 
@@ -276,31 +283,52 @@ export default function OnboardingPage() {
               ) : null}
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving ? "Finishing setup..." : "Finish setup"}
-                </button>
+                {!isGuideMode && (
+                  <>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {saving ? "Finishing setup..." : "Finish setup"}
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  disabled={saving}
-                  className="inline-flex justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  Skip for now
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleSkip}
+                      disabled={saving}
+                      className="inline-flex justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      Skip for now
+                    </button>
+                  </>
+                )}
+
+                {isGuideMode && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="inline-flex justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                )}
               </div>
             </form>
           </section>
 
-          <aside className="space-y-5">
+          <aside className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">
                 What Gather is built for
               </h2>
+
+              <div className="mt-4 rounded-2xl bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                💡 Tables are the foundation of Gather. Each table can represent
+                a part of your life — like family, work, or personal — and
+                everything stays organized but connected.
+              </div>
+
               <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                 <li>• Family schedules and household coordination</li>
                 <li>• Co-parenting and shared visibility</li>
@@ -311,10 +339,12 @@ export default function OnboardingPage() {
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">
-                Trust and transparency
+                Your privacy matters
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                We want onboarding to feel clear and respectful from the start.
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Gather is designed to keep your personal life, family plans, and
+                shared information organized while respecting your privacy.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-3">
@@ -324,28 +354,40 @@ export default function OnboardingPage() {
                 >
                   Privacy Policy
                 </Link>
+
                 <Link
                   to="/terms"
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
-                  Terms
+                  Terms of Service
                 </Link>
               </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">
-                Coming soon
+                What’s coming next
               </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Gather is just getting started. Here’s what’s coming soon.
+              </p>
+
               <div className="mt-4 space-y-3 text-sm text-slate-600">
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                  Smarter planning suggestions
+                  ✨ Smart planning suggestions
                 </div>
+
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                  More polished family and team collaboration
+                  👨‍👩‍👧‍👦 Family and co-parenting tools
                 </div>
+
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                  Expanded memories, notes, and life organization tools
+                  🧠 AI-powered organization
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  📸 Memories, notes, and shared moments
                 </div>
               </div>
             </div>

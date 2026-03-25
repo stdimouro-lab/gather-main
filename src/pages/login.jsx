@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, Users, Briefcase, Sparkles } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  Briefcase,
+  Sparkles,
+  ShieldCheck,
+  HeartHandshake,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import gatherLogo from "@/assets/gather-logo.png";
 import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
@@ -66,6 +73,15 @@ function FeaturePill({ icon: Icon, title, text }) {
         <p className="text-sm font-semibold text-white">{title}</p>
         <p className="mt-1 text-sm leading-6 text-slate-300">{text}</p>
       </div>
+    </div>
+  );
+}
+
+function TrustPill({ icon: Icon, text }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+      <Icon className="h-3.5 w-3.5 text-slate-500" />
+      <span>{text}</span>
     </div>
   );
 }
@@ -196,23 +212,23 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid min-h-screen lg:grid-cols-[1.08fr_0.92fr]">
         <section className="relative hidden overflow-hidden lg:flex">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.32),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.18),transparent_30%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.30),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.16),transparent_28%)]" />
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
 
           <div className="relative z-10 flex w-full flex-col justify-between px-10 py-10 xl:px-16 xl:py-14">
             <div className="flex items-center gap-5">
-  <BrandLogo />
-  <div>
-    <p className="text-2xl font-semibold tracking-tight text-white">
-      Gather
-    </p>
-    <p className="text-sm text-slate-300">
-      Where life meets around the table.
-    </p>
-  </div>
-</div>
+              <BrandLogo />
+              <div>
+                <p className="text-2xl font-semibold tracking-tight text-white">
+                  Gather
+                </p>
+                <p className="text-sm text-slate-300">
+                  Where life meets around the table.
+                </p>
+              </div>
+            </div>
 
             <div className="max-w-xl">
               <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
@@ -227,24 +243,24 @@ export default function LoginPage() {
               <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
                 Gather helps families, teams, co-parents, and busy lives stay
                 connected with shared tables, calendars, plans, and memories in
-                one place.
+                one calm place.
               </p>
 
               <div className="mt-10 grid gap-4">
                 <FeaturePill
                   icon={CalendarDays}
                   title="Family-first planning"
-                  text="Keep school, sports, appointments, and daily life in one shared view."
+                  text="Keep school, sports, appointments, and everyday life organized in one shared view."
                 />
                 <FeaturePill
                   icon={Users}
-                  title="Built for shared tables"
-                  text="Organize family, co-parenting, personal, or team schedules around the people who matter."
+                  title="Built around tables"
+                  text="Create separate tables for family, co-parenting, personal life, or work—then keep everything connected."
                 />
                 <FeaturePill
                   icon={Briefcase}
                   title="Strong enough for work too"
-                  text="Separate work and personal life into tables while still seeing everything together."
+                  text="Keep work and life organized without the clutter of juggling multiple disconnected tools."
                 />
               </div>
             </div>
@@ -282,21 +298,32 @@ export default function LoginPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-6 text-center">
                 <div className="mb-4 flex justify-center lg:hidden">
-  <img
-    src={gatherLogo}
-    alt="Gather logo"
-    className="h-24 w-24 object-contain drop-shadow-sm"
-  />
-</div>
+                  <img
+                    src={gatherLogo}
+                    alt="Gather logo"
+                    className="h-24 w-24 object-contain drop-shadow-sm"
+                  />
+                </div>
 
                 <h2 className="text-2xl font-semibold text-slate-900">
                   {mode === "signin" ? "Welcome back" : "Create your account"}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
                   {mode === "signin"
-                    ? "Sign in to your calendar, plans, and shared tables."
-                    : "Start organizing your life around the table."}
+                    ? "Sign in to your calendar, tables, plans, and shared routines."
+                    : "Start organizing life around your table."}
                 </p>
+              </div>
+
+              <div className="mb-5 flex flex-wrap justify-center gap-2">
+                <TrustPill
+                  icon={ShieldCheck}
+                  text="Privacy-minded design"
+                />
+                <TrustPill
+                  icon={HeartHandshake}
+                  text="Built for families and teams"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
@@ -383,8 +410,8 @@ export default function LoginPage() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
-                      placeholder="What should we call you?"
+                      className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
+                      placeholder="What should Gather call you?"
                       autoComplete="name"
                     />
                   </div>
@@ -398,7 +425,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
+                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
                     placeholder="you@example.com"
                     autoComplete="email"
                     required
@@ -413,7 +440,7 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500"
+                    className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
                     placeholder="••••••••"
                     autoComplete={
                       mode === "signin" ? "current-password" : "new-password"
@@ -444,8 +471,8 @@ export default function LoginPage() {
                       ? "Signing in…"
                       : "Creating account…"
                     : mode === "signin"
-                      ? "Sign in with email"
-                      : "Create account"}
+                    ? "Sign in with email"
+                    : "Create account"}
                 </button>
               </form>
 
