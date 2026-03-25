@@ -5,14 +5,12 @@ import { supabase } from "@/lib/supabase";
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const location = useLocation();
-
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("Finishing sign-in…");
 
   useEffect(() => {
     let mounted = true;
 
-    const finishAuth = async () => {
+    async function finishAuth() {
       try {
         const params = new URLSearchParams(location.search);
         const code = params.get("code");
@@ -24,13 +22,11 @@ export default function AuthCallbackPage() {
           throw new Error(providerError);
         }
 
-        // If Supabase returned an auth code, exchange it for a session.
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         }
 
-        // Session may already be present depending on the flow/client behavior.
         const {
           data: { session },
           error: sessionError,
@@ -43,9 +39,6 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // Fallback: wait briefly for auth state change.
-        setStatus("Finalizing your session…");
-
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((event, session) => {
@@ -56,7 +49,7 @@ export default function AuthCallbackPage() {
           }
         });
 
-        const timeout = window.setTimeout(async () => {
+        window.setTimeout(async () => {
           try {
             const {
               data: { session: retrySession },
@@ -78,24 +71,18 @@ export default function AuthCallbackPage() {
               setError(err?.message || "Could not complete sign-in.");
             }
           }
-        }, 2500);
-
-        return () => {
-          window.clearTimeout(timeout);
-          subscription.unsubscribe();
-        };
+        }, 2000);
       } catch (err) {
         if (mounted) {
           setError(err?.message || "Could not complete sign-in.");
         }
       }
-    };
+    }
 
-    const cleanupPromise = finishAuth();
+    finishAuth();
 
     return () => {
       mounted = false;
-      if (typeof cleanupPromise === "function") cleanupPromise();
     };
   }, [location.search, navigate]);
 
@@ -105,7 +92,9 @@ export default function AuthCallbackPage() {
         {!error ? (
           <>
             <h1 className="text-xl font-semibold text-slate-900">Gather</h1>
-            <p className="mt-3 text-sm text-slate-600">{status}</p>
+            <p className="mt-3 text-sm text-slate-600">
+              Finishing sign-in…
+            </p>
           </>
         ) : (
           <>
