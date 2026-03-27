@@ -3,7 +3,13 @@ import { generateSuggestions } from "@/lib/ai/suggestions";
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
-import { inviteToTab, updateTabShare, removeTabShare, fetchSharedTabsForMe } from "../lib/tabShares";
+import {
+  inviteToTab,
+  updateTabShare,
+  removeTabShare,
+  fetchSharedTabsForMe,
+  claimTabInvitesForUser,
+} from "../lib/tabShares";
 import { fetchTabs, createTab, updateTab, deleteTab } from "../lib/tabs";
 import {
   fetchEvents,
@@ -822,6 +828,25 @@ if (!user || isLoadingTabs) return;
     }
   })();
 }, [user, isLoadingTabs, ownedTabs.length, queryClient]);
+
+useEffect(() => {
+  async function syncInvites() {
+    if (!user?.id || !user?.email) return;
+
+    try {
+      await claimTabInvitesForUser({
+        userId: user.id,
+        email: user.email,
+      });
+      queryClient.invalidateQueries({ queryKey: ["tabs"] });
+      queryClient.invalidateQueries({ queryKey: ["shared-tabs"] });
+    } catch (error) {
+      console.error("Failed to sync tab invites", error);
+    }
+  }
+
+  syncInvites();
+}, [user?.id, user?.email, queryClient]);
 
   // ---------- EVENTS (Supabase) ----------
   const range = useMemo(() => {

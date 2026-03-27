@@ -198,12 +198,14 @@ export default function OnboardingPage({ isGuideMode = false }) {
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
             <form onSubmit={handleFinish} className="space-y-8">
               <div>
-                <div className="mb-4">
-                  {!isGuideMode && (
-                    <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
-                      Step 1 · Make it yours
-                    </span>
-                  )}
+                <div className="mb-3">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Your profile
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Set the name Gather uses across your workspace and shared
+                    experiences.
+                  </p>
                 </div>
 
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -222,12 +224,14 @@ export default function OnboardingPage({ isGuideMode = false }) {
               </div>
 
               <div>
-                <div className="mb-4">
-                  {!isGuideMode && (
-                    <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                      Step 2 · Start with your tables
-                    </span>
-                  )}
+                <div className="mb-3">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Choose your starter tables
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Start with the spaces that fit your life now. You can always
+                    add more later.
+                  </p>
                 </div>
 
                 <div className="grid gap-4">
@@ -319,17 +323,30 @@ export default function OnboardingPage({ isGuideMode = false }) {
 
           <aside className="space-y-6">
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-  <h2 className="text-lg font-semibold text-slate-900">
-    What you can do with Gather
-  </h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                What you can do with Gather
+              </h2>
 
-  <div className="mt-4 space-y-3 text-sm text-slate-600">
-    <p>Keep family, personal life, and work organized in separate tables.</p>
-    <p>Share only what others need to know while keeping private details private.</p>
-    <p>Save memories like photos and videos to the moments that matter.</p>
-    <p>Grow from your own planning space into shared family or team coordination.</p>
-  </div>
-</div>
+              <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <p>
+                  Keep family, personal life, and work organized in separate
+                  tables.
+                </p>
+                <p>
+                  Share only what others need to know while keeping private
+                  details private.
+                </p>
+                <p>
+                  Save memories like photos and videos to the moments that
+                  matter.
+                </p>
+                <p>
+                  Grow from your own planning space into shared family or team
+                  coordination.
+                </p>
+              </div>
+            </div>
+
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">
                 What Gather is built for
@@ -391,15 +408,16 @@ export default function OnboardingPage({ isGuideMode = false }) {
                 </div>
 
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  📅 Premium calendar imports for schools, sports, and shared
+                  schedules
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
                   👨‍👩‍👧‍👦 Family and co-parenting tools
                 </div>
 
                 <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                  🧠 AI-powered organization
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                  📸 Memories, notes, and shared moments
+                  📸 Memories, notes, files, and shared event moments
                 </div>
               </div>
             </div>

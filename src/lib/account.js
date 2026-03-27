@@ -39,16 +39,16 @@ export async function ensureAccountForUser(user) {
   const { data: created, error: createError } = await supabase
     .from("accounts")
     .insert({
-      owner_id: user.id,
-      plan_tier: "free",
-      billing_source: "none",
-      is_comped: false,
-      seat_limit: 1,
-      seats_used: 1,
-      storage_limit_mb: 2048,
-      storage_used_mb: 0,
-      plan_status: "active",
-    })
+  owner_id: user.id,
+  plan_tier: "free",
+  plan_status: "expired",
+  billing_source: "none",
+  is_comped: false,
+  seat_limit: 1,
+  seats_used: 0,
+  storage_limit_mb: 1024,
+  storage_used_mb: 0,
+})
     .select("*")
     .single();
 

@@ -1,20 +1,49 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { format, parseISO } from "date-fns";
-import { Calendar, MapPin, FileText, Lock, Eye, Repeat, Trash2, Lightbulb } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  FileText,
+  Lock,
+  Eye,
+  Repeat,
+  Trash2,
+  Lightbulb,
+  Paperclip,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { getTabColors } from "./TabFilter";
 import { getEventTypeInfo } from "./EventTypeTag";
 import EventMemories from "./EventMemories";
 import { cn } from "@/lib/utils";
 import { DateTime } from "luxon";
+import { getRealEventId } from "@/lib/recurrenceUtils";
+import { useAuth } from "@/context/AuthProvider";
 
 const WEEKDAYS = [
   { key: "SU", label: "S" },
@@ -46,6 +75,8 @@ export default function EventModal({
   userRole = "owner",
   hideDetails = false,
 }) {
+  const { user } = useAuth();
+
   const [formData, setFormData] = useState({
     title: "",
     tab_id: "",
@@ -64,11 +95,12 @@ export default function EventModal({
 
   const [activeTab, setActiveTab] = useState("details");
 
-  const canEdit = userRole === "owner" || userRole === "editor" || userRole === "admin";
+  const canEdit =
+    userRole === "owner" || userRole === "editor" || userRole === "admin";
   const canDelete = userRole === "owner" || userRole === "admin";
 
-  // If this is a shared tab and the user is only a viewer, new submissions become suggestions.
-  const isSuggestionMode = !event && !canEdit && !!defaultTab?.is_shared && defaultTab?.share_role === "viewer";
+  const isSuggestionMode =
+    !event && !canEdit && !!defaultTab?.is_shared && defaultTab?.share_role === "viewer";
 
   const dialogTitle = useMemo(() => {
     if (event) return "Edit Event";
@@ -193,73 +225,96 @@ export default function EventModal({
   };
 
   const selectedTab = tabs.find((t) => t.id === formData.tab_id);
-  const colors = selectedTab ? getTabColors(selectedTab.color) : getTabColors("indigo");
+  const colors = selectedTab
+    ? getTabColors(selectedTab.color)
+    : getTabColors("indigo");
 
   const showReadOnlyBanner = !!event && !canEdit;
   const disableFields = !!event && !canEdit;
-  const showMemories = !!event && !isSuggestionMode;
+  const showFilesAndMemories = !!event && !isSuggestionMode;
   const showPrivacyTab = !isSuggestionMode;
   const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
   const showDelete = !!event && canDelete;
 
+  const realEventId = getRealEventId(event);
+  const memoryTabLabel = "Files & Memories";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="w-[95vw] max-w-lg p-0 overflow-hidden max-h-[92dvh] overflow-x-hidden">
-    <div className={cn("h-2", colors.bg)} />
+      <DialogContent className="w-[95vw] max-w-lg max-h-[92dvh] overflow-hidden p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>
+            Create or edit an event, including details, privacy, recurrence, and shared files.
+          </DialogDescription>
+        </DialogHeader>
 
-    <form onSubmit={handleSubmit} className="flex min-w-0 flex-col max-h-[92dvh] overflow-x-hidden">
-      <DialogHeader className="flex-shrink-0 px-4 pb-2 pt-4 sm:px-6">
-        <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900">
-          {isSuggestionMode && <Lightbulb className="w-5 h-5 text-amber-500" />}
-          {dialogTitle}
-        </DialogTitle>
+        <div className={cn("h-2", colors.bg)} />
 
-        {showReadOnlyBanner && (
-          <div className="mt-1 text-xs text-slate-500">
-            View only — you can see this table but cannot make changes.
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-w-0 max-h-[92dvh] flex-col overflow-x-hidden"
+        >
+          <div className="flex-shrink-0 px-4 pb-2 pt-4 sm:px-6">
+            <div className="flex items-center gap-2 text-xl font-semibold text-slate-900">
+              {isSuggestionMode && (
+                <Lightbulb className="h-5 w-5 text-amber-500" />
+              )}
+              {dialogTitle}
+            </div>
+
+            {showReadOnlyBanner && (
+              <div className="mt-1 text-xs text-slate-500">
+                View only — you can see this table but cannot make changes.
+              </div>
+            )}
+
+            {isSuggestionMode && (
+              <div className="mt-1 text-xs text-slate-500">
+                You are a viewer on this shared table, so this will be sent as a suggestion for the owner to review.
+              </div>
+            )}
           </div>
-        )}
 
-        {isSuggestionMode && (
-          <div className="mt-1 text-xs text-slate-500">
-            You are a viewer on this shared table, so this will be sent as a suggestion for the owner to review.
-          </div>
-        )}
-      </DialogHeader>
-
-      <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6">
+          <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="mb-4 overflow-x-auto">
-  <TabsList className="inline-flex min-w-max gap-1 bg-slate-100 p-1">
-    <TabsTrigger value="details" className="px-3 text-xs">
-      Details
-    </TabsTrigger>
+                <TabsList className="inline-flex min-w-max gap-1 bg-slate-100 p-1">
+                  <TabsTrigger value="details" className="px-3 text-xs">
+                    Details
+                  </TabsTrigger>
 
-    {showMemories && (
-      <TabsTrigger value="memories" className="px-3 text-xs">
-        Memories
-      </TabsTrigger>
-    )}
+                  {showFilesAndMemories && (
+                    <TabsTrigger value="memories" className="px-3 text-xs">
+                      {memoryTabLabel}
+                    </TabsTrigger>
+                  )}
 
-    <TabsTrigger value="recurrence" className="px-3 text-xs">
-      Recurrence
-    </TabsTrigger>
+                  <TabsTrigger value="recurrence" className="px-3 text-xs">
+                    Recurrence
+                  </TabsTrigger>
 
-    {showPrivacyTab && (
-      <TabsTrigger value="privacy" className="px-3 text-xs">
-        Privacy
-      </TabsTrigger>
-    )}
-  </TabsList>
-</div>
+                  {showPrivacyTab && (
+                    <TabsTrigger value="privacy" className="px-3 text-xs">
+                      Privacy
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </div>
 
-              <TabsContent value="details" className="space-y-4 mt-0">
+              <TabsContent value="details" className="mt-0 space-y-4">
                 <div className="space-y-2">
                   <Input
-                    placeholder={isSuggestionMode ? "What would you like to suggest?" : "What's happening?"}
+                    placeholder={
+                      isSuggestionMode
+                        ? "What would you like to suggest?"
+                        : "What's happening?"
+                    }
                     value={hideDetails ? "Busy" : formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full min-w-0 rounded-none border-0 border-b px-0 text-base sm:text-lg font-medium focus-visible:ring-0 focus-visible:border-indigo-500"
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
+                    className="w-full min-w-0 rounded-none border-0 border-b px-0 text-base font-medium focus-visible:border-indigo-500 focus-visible:ring-0 sm:text-lg"
                     disabled={disableFields || hideDetails}
                     required
                   />
@@ -270,41 +325,47 @@ export default function EventModal({
                     Which table does this belong to?
                   </Label>
                   <Select
-  value={formData.tab_id}
-  onValueChange={(value) => setFormData({ ...formData, tab_id: value })}
-  disabled={disableFields || isSharedEvent}
->
-  <SelectTrigger className="w-full min-w-0">
-    <SelectValue placeholder="Select a table" />
-  </SelectTrigger>
+                    value={formData.tab_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, tab_id: value })
+                    }
+                    disabled={disableFields || isSharedEvent}
+                  >
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue placeholder="Select a table" />
+                    </SelectTrigger>
 
-  <SelectContent>
-    {tabs.map((tab) => {
-      const tabColors = getTabColors(tab.color);
+                    <SelectContent>
+                      {tabs.map((tab) => {
+                        const tabColors = getTabColors(tab.color);
 
-      return (
-        <SelectItem key={tab.id} value={tab.id}>
-          <div className="flex min-w-0 items-center gap-2">
-            <div className={cn("h-3 w-3 rounded-full", tabColors.bg)} />
-            <span className="truncate">{tab.name}</span>
+                        return (
+                          <SelectItem key={tab.id} value={tab.id}>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div
+                                className={cn("h-3 w-3 rounded-full", tabColors.bg)}
+                              />
+                              <span className="truncate">{tab.name}</span>
 
-            {tab.is_shared && (
-              <span className="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
-                {tab.share_role === "editor" ? "Editor" : "Viewer"}
-              </span>
-            )}
-          </div>
-        </SelectItem>
-      );
-    })}
-  </SelectContent>
-</Select>
+                              {tab.is_shared && (
+                                <span className="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                                  {tab.share_role === "editor" ? "Editor" : "Viewer"}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="flex items-center gap-2 mb-2">
+                <div className="mb-2 flex items-center gap-2">
                   <Switch
                     checked={formData.all_day}
-                    onCheckedChange={(checked) => setFormData({ ...formData, all_day: checked })}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, all_day: checked })
+                    }
                     disabled={disableFields}
                   />
                   <Label className="text-sm text-slate-600">All day</Label>
@@ -312,16 +373,22 @@ export default function EventModal({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> When?
+                    <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                      <Calendar className="h-3 w-3" /> When?
                     </Label>
                     <Input
                       type={formData.all_day ? "date" : "datetime-local"}
-                      value={formData.all_day ? formData.start_date.split("T")[0] : formData.start_date}
+                      value={
+                        formData.all_day
+                          ? formData.start_date.split("T")[0]
+                          : formData.start_date
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          start_date: formData.all_day ? `${e.target.value}T00:00` : e.target.value,
+                          start_date: formData.all_day
+                            ? `${e.target.value}T00:00`
+                            : e.target.value,
                         })
                       }
                       disabled={disableFields}
@@ -330,16 +397,22 @@ export default function EventModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> Until
+                    <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                      <Calendar className="h-3 w-3" /> Until
                     </Label>
                     <Input
                       type={formData.all_day ? "date" : "datetime-local"}
-                      value={formData.all_day ? formData.end_date.split("T")[0] : formData.end_date}
+                      value={
+                        formData.all_day
+                          ? formData.end_date.split("T")[0]
+                          : formData.end_date
+                      }
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          end_date: formData.all_day ? `${e.target.value}T23:59` : e.target.value,
+                          end_date: formData.all_day
+                            ? `${e.target.value}T23:59`
+                            : e.target.value,
                         })
                       }
                       disabled={disableFields}
@@ -349,25 +422,32 @@ export default function EventModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500">Event Type</Label>
+                  <Label className="text-xs font-medium text-slate-500">
+                    Event Type
+                  </Label>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {["school", "sports", "appointment", "reservation", "family", "work"].map((type) => {
                       const typeInfo = getEventTypeInfo(type);
+
                       return (
                         <button
                           key={type}
                           type="button"
-                          onClick={() => setFormData({ ...formData, event_type: type })}
+                          onClick={() =>
+                            setFormData({ ...formData, event_type: type })
+                          }
                           disabled={disableFields}
                           className={cn(
-                            "p-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1 justify-center",
+                            "flex items-center justify-center gap-1 rounded-lg p-2 text-xs font-medium transition-all",
                             formData.event_type === type
                               ? "bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           )}
                         >
                           <span>{typeInfo.emoji}</span>
-                          <span className="hidden sm:inline">{typeInfo.label}</span>
+                          <span className="hidden sm:inline">
+                            {typeInfo.label}
+                          </span>
                         </button>
                       );
                     })}
@@ -376,13 +456,15 @@ export default function EventModal({
 
                 {!hideDetails && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> Location
+                    <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                      <MapPin className="h-3 w-3" /> Location
                     </Label>
                     <Input
                       placeholder="Add location"
                       value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, location: e.target.value })
+                      }
                       disabled={disableFields}
                     />
                   </div>
@@ -390,39 +472,48 @@ export default function EventModal({
 
                 {!hideDetails && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                      <FileText className="w-3 h-3" /> {isSuggestionMode ? "Why suggest this?" : "Notes"}
+                    <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                      <FileText className="h-3 w-3" />{" "}
+                      {isSuggestionMode ? "Why suggest this?" : "Notes"}
                     </Label>
                     <Textarea
-                      placeholder={isSuggestionMode ? "Add context for the owner..." : "Anything to remember?"}
+                      placeholder={
+                        isSuggestionMode
+                          ? "Add context for the owner..."
+                          : "Anything to remember?"
+                      }
                       value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="w-full min-w-0 min-h-[80px] resize-none"
+                      onChange={(e) =>
+                        setFormData({ ...formData, notes: e.target.value })
+                      }
+                      className="min-h-[80px] w-full min-w-0 resize-none"
                       disabled={disableFields}
                     />
                   </div>
                 )}
               </TabsContent>
 
-              {showMemories && (
-                <TabsContent value="memories" className="space-y-4 mt-0">
-                  {event ? (
+              {showFilesAndMemories && (
+                <TabsContent value="memories" className="mt-0 space-y-4">
+                  {realEventId ? (
                     <EventMemories
-                      eventId={event.id}
+                      eventId={realEventId}
+                      tabId={event?.tab_id}
+                      ownerId={user?.id}
                       isEditable={canEdit}
-                      userEmail={event.owner_email}
-                      visibility={formData.visibility}
                     />
                   ) : (
-                    <p className="text-sm text-slate-400">Create the event first to add memories</p>
+                    <div className="rounded-2xl border border-dashed bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                      Save the event first to add files and memories.
+                    </div>
                   )}
                 </TabsContent>
               )}
 
-              <TabsContent value="recurrence" className="space-y-4 mt-0">
+              <TabsContent value="recurrence" className="mt-0 space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Repeat className="w-3 h-3" /> Repeat
+                  <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                    <Repeat className="h-3 w-3" /> Repeat
                   </Label>
 
                   <Select
@@ -449,10 +540,13 @@ export default function EventModal({
 
                 {formData.recurrence === "weekly" && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500">Repeat on</Label>
+                    <Label className="text-xs font-medium text-slate-500">
+                      Repeat on
+                    </Label>
                     <div className="grid grid-cols-7 gap-1 sm:gap-2">
                       {WEEKDAYS.map((d) => {
                         const selected = (formData.recurrenceByDay || []).includes(d.key);
+
                         return (
                           <button
                             key={d.key}
@@ -460,11 +554,13 @@ export default function EventModal({
                             disabled={disableFields}
                             onClick={() => {
                               const prev = formData.recurrenceByDay || [];
-                              const next = selected ? prev.filter((x) => x !== d.key) : [...prev, d.key];
+                              const next = selected
+                                ? prev.filter((x) => x !== d.key)
+                                : [...prev, d.key];
                               setFormData({ ...formData, recurrenceByDay: next });
                             }}
                             className={cn(
-  "h-8 rounded-lg text-xs font-semibold transition-all sm:h-9 sm:text-sm",
+                              "h-8 rounded-lg text-xs font-semibold transition-all sm:h-9 sm:text-sm",
                               selected
                                 ? "bg-indigo-600 text-white"
                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -510,14 +606,16 @@ export default function EventModal({
               </TabsContent>
 
               {showPrivacyTab && (
-                <TabsContent value="privacy" className="space-y-4 mt-0">
+                <TabsContent value="privacy" className="mt-0 space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> Visibility for shared users
+                    <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                      <Eye className="h-3 w-3" /> Visibility for shared users
                     </Label>
                     <Select
                       value={formData.visibility}
-                      onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, visibility: value })
+                      }
                       disabled={disableFields}
                     >
                       <SelectTrigger>
@@ -526,13 +624,13 @@ export default function EventModal({
                       <SelectContent>
                         <SelectItem value="full">
                           <div className="flex items-center gap-2">
-                            <Eye className="w-4 h-4" />
+                            <Eye className="h-4 w-4" />
                             Full details visible
                           </div>
                         </SelectItem>
                         <SelectItem value="busy_only">
                           <div className="flex items-center gap-2">
-                            <Lock className="w-4 h-4" />
+                            <Lock className="h-4 w-4" />
                             Busy only (hide details)
                           </div>
                         </SelectItem>
@@ -545,14 +643,19 @@ export default function EventModal({
 
                   {showPrivateNotes && (
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Private notes (only you can see)
+                      <Label className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                        <Lock className="h-3 w-3" /> Private notes (only you can see)
                       </Label>
                       <Textarea
                         placeholder="Add private notes..."
                         value={formData.private_notes}
-                        onChange={(e) => setFormData({ ...formData, private_notes: e.target.value })}
-                        className="w-full min-w-0 min-h-[80px] resize-none bg-slate-50"
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            private_notes: e.target.value,
+                          })
+                        }
+                        className="min-h-[80px] w-full min-w-0 resize-none bg-slate-50"
                         disabled={disableFields}
                       />
                     </div>
@@ -562,15 +665,15 @@ export default function EventModal({
             </Tabs>
           </div>
 
-          <div className="hidden sm:flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
+          <div className="hidden flex-shrink-0 items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex">
             {showDelete ? (
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onDelete(event)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
             ) : (
@@ -590,9 +693,12 @@ export default function EventModal({
             </div>
           </div>
 
-          <div className="sm:hidden sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 space-y-2 flex-shrink-0">
+          <div className="sticky bottom-0 left-0 right-0 flex-shrink-0 space-y-2 border-t border-slate-200 bg-white p-4 sm:hidden">
             {(canEdit || isSuggestionMode) && (
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base">
+              <Button
+                type="submit"
+                className="h-12 w-full bg-indigo-600 text-base hover:bg-indigo-700"
+              >
                 {submitLabel}
               </Button>
             )}
@@ -602,7 +708,7 @@ export default function EventModal({
                 type="button"
                 variant="outline"
                 onClick={() => onDelete(event)}
-                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 h-12"
+                className="h-12 w-full text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 Delete Event
               </Button>
