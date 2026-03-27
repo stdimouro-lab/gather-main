@@ -1,6 +1,18 @@
 import { supabase } from "./supabase";
 import { applyFamilyPlanDefaults, applyFreePlanDefaults, syncAccountSeatUsage } from "./entitlements";
 
+export async function getAccountSeatCount(accountId) {
+  if (!accountId) return 0;
+
+  const { count, error } = await supabase
+    .from("account_members")
+    .select("*", { count: "exact", head: true })
+    .eq("account_id", accountId);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function ensureAccountForUser(user) {
   if (!user?.id) return null;
 
