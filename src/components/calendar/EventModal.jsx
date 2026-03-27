@@ -231,12 +231,12 @@ export default function EventModal({
 
   const showReadOnlyBanner = !!event && !canEdit;
   const disableFields = !!event && !canEdit;
-  const showFilesAndMemories = !!event && !isSuggestionMode;
+  const showFilesAndMemories = Boolean(event?.id) && !isSuggestionMode;
   const showPrivacyTab = !isSuggestionMode;
   const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
   const showDelete = !!event && canDelete;
 
-  const realEventId = getRealEventId(event);
+  const realEventId = event ? getRealEventId(event) : null;
   const memoryTabLabel = "Files & Memories";
 
   return (
