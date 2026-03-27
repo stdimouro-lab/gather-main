@@ -7,7 +7,6 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
   isToday,
   parseISO,
   differenceInMinutes,
@@ -34,49 +33,45 @@ export default function MonthView({
 
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   const isTouchDevice =
-  typeof window !== "undefined" &&
-  ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
 
   const normalizeEventForModal = (ev) => {
-  if (!ev) return ev;
+    if (!ev) return ev;
 
-  return {
-    ...ev,
-    start_date: ev.start_date ?? ev.start_at ?? ev.originalStartAt ?? "",
-    end_date: ev.end_date ?? ev.end_at ?? "",
-    start_at: ev.start_at ?? ev.start_date ?? ev.originalStartAt ?? "",
-    end_at: ev.end_at ?? ev.end_date ?? "",
-    allDay: ev.allDay ?? ev.all_day ?? false,
-    all_day: ev.all_day ?? ev.allDay ?? false,
+    return {
+      ...ev,
+      start_date: ev.start_date ?? ev.start_at ?? ev.originalStartAt ?? "",
+      end_date: ev.end_date ?? ev.end_at ?? "",
+      start_at: ev.start_at ?? ev.start_date ?? ev.originalStartAt ?? "",
+      end_at: ev.end_at ?? ev.end_date ?? "",
+      allDay: ev.allDay ?? ev.all_day ?? false,
+      all_day: ev.all_day ?? ev.allDay ?? false,
+    };
   };
-};
-  
-  // Build a map of events by day (faster + consistent originalStartAt handling)
+
   const eventsByDayKey = useMemo(() => {
-  const map = new Map();
+    const map = new Map();
 
-  for (const ev of events ?? []) {
-    if (!activeTabs?.includes(ev.tab_id)) continue;
+    for (const ev of events ?? []) {
+      if (!activeTabs?.includes(ev.tab_id)) continue;
 
-    const sourceDate =
-      ev.start_date ??
-      ev.start_at ??
-      null;
+      const sourceDate = ev.start_date ?? ev.start_at ?? null;
+      if (!sourceDate) continue;
 
-    if (!sourceDate) continue;
+      const d = parseISO(sourceDate);
+      if (Number.isNaN(d.getTime())) continue;
 
-    const d = parseISO(sourceDate);
-    if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(ev);
+    }
 
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(ev);
-  }
-
-  return map;
-}, [events, activeTabs]);
+    return map;
+  }, [events, activeTabs]);
 
   const getEventsForDay = (day) => {
     const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
@@ -88,7 +83,6 @@ export default function MonthView({
     return Math.max(0, count - 3);
   };
 
-  // --- Drag/drop (native HTML5) ---
   const [dragOverKey, setDragOverKey] = useState(null);
 
   const findEventById = (id) => {
@@ -100,12 +94,16 @@ export default function MonthView({
     if (!ev || typeof onMoveEvent !== "function") return;
 
     const oldStartISO = ev.start_date ?? ev.start_at;
-const oldEndISO = ev.end_date ?? ev.end_at;
+    const oldEndISO = ev.end_date ?? ev.end_at;
 
-if (!oldStartISO || !oldEndISO) return;
+    if (!oldStartISO || !oldEndISO) return;
 
-const oldStart = parseISO(oldStartISO);
-const oldEnd = parseISO(oldEndISO);
+    const oldStart = parseISO(oldStartISO);
+    const oldEnd = parseISO(oldEndISO);
+
+    if (Number.isNaN(oldStart.getTime()) || Number.isNaN(oldEnd.getTime())) {
+      return;
+    }
 
     const duration = Math.max(15, differenceInMinutes(oldEnd, oldStart));
     const minutesFromMidnight = oldStart.getHours() * 60 + oldStart.getMinutes();
@@ -117,28 +115,26 @@ const oldEnd = parseISO(oldEndISO);
     const newEnd = addMinutes(newStart, duration);
 
     await onMoveEvent({
-  event: ev,
-  nextStart: newStart.toISOString(),
-  nextEnd: newEnd.toISOString(),
-  nextAllDay: ev.all_day ?? ev.allDay ?? false,
-});
+      event: ev,
+      nextStart: newStart.toISOString(),
+      nextEnd: newEnd.toISOString(),
+      nextAllDay: ev.all_day ?? ev.allDay ?? false,
+    });
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      {/* Week day headers */}
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="grid grid-cols-7 border-b border-slate-100">
         {weekDays.map((day) => (
           <div
             key={day}
-            className="px-2 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider"
+            className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400"
           >
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
       <div className="grid grid-cols-7">
         {days.map((day, idx) => {
           const dayEvents = getEventsForDay(day);
@@ -157,41 +153,41 @@ const oldEnd = parseISO(oldEndISO);
               transition={{ delay: idx * 0.01 }}
               onClick={() => onSelectDate(day)}
               onDragOver={(e) => {
-  if (isTouchDevice) return;
-  e.preventDefault();
-}}
-onDragEnter={() => {
-  if (isTouchDevice) return;
-  setDragOverKey(dayKey);
-}}
-onDragLeave={() => {
-  if (isTouchDevice) return;
-  setDragOverKey((k) => (k === dayKey ? null : k));
-}}
-onDrop={(e) => {
-  if (isTouchDevice) return;
-  e.preventDefault();
-  e.stopPropagation();
-  setDragOverKey(null);
+                if (isTouchDevice) return;
+                e.preventDefault();
+              }}
+              onDragEnter={() => {
+                if (isTouchDevice) return;
+                setDragOverKey(dayKey);
+              }}
+              onDragLeave={() => {
+                if (isTouchDevice) return;
+                setDragOverKey((k) => (k === dayKey ? null : k));
+              }}
+              onDrop={(e) => {
+                if (isTouchDevice) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverKey(null);
 
-  const eventId = e.dataTransfer.getData("text/plain");
-  if (!eventId) return;
+                const eventId = e.dataTransfer.getData("text/plain");
+                if (!eventId) return;
 
-  const ev = findEventById(eventId);
-  if (!ev) return;
+                const ev = findEventById(eventId);
+                if (!ev) return;
 
-  moveEventToDay(ev, day);
-}}
+                moveEventToDay(ev, day);
+              }}
               className={cn(
-                "min-h-[100px] sm:min-h-[120px] p-1.5 sm:p-2 border-b border-r border-slate-100 cursor-pointer transition-colors hover:bg-slate-50",
+                "min-h-[100px] cursor-pointer border-b border-r border-slate-100 p-1.5 transition-colors hover:bg-slate-50 sm:min-h-[120px] sm:p-2",
                 !isCurrentMonth && "bg-slate-50/50",
                 idx % 7 === 6 && "border-r-0",
-                isDragOver && "ring-2 ring-indigo-400 ring-inset bg-indigo-50/40"
+                isDragOver && "ring-2 ring-inset ring-indigo-400 bg-indigo-50/40"
               )}
             >
               <div
                 className={cn(
-                  "w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-sm font-medium mb-1 transition-all",
+                  "mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium transition-all sm:h-8 sm:w-8",
                   isCurrentDay && "bg-indigo-600 text-white",
                   !isCurrentDay &&
                     isCurrentMonth &&
@@ -212,25 +208,29 @@ onDrop={(e) => {
 
                     return (
                       <motion.div
-  key={event.id}
-  initial={{ opacity: 0, scale: 0.9 }}
-  animate={{ opacity: 1, scale: 1 }}
-  exit={{ opacity: 0, scale: 0.9 }}
-  draggable={!isTouchDevice}
-onDragStart={(e) => {
-  if (isTouchDevice) return;
-  e.stopPropagation();
-  e.dataTransfer.setData("text/plain", String(event.id));
-  e.dataTransfer.effectAllowed = "move";
-}}
+                        key={event.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        draggable={!isTouchDevice}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectEvent?.(normalizeEventForModal(event));
+                        }}
+                        onDragStart={(e) => {
+                          if (isTouchDevice) return;
+                          e.stopPropagation();
+                          e.dataTransfer.setData("text/plain", String(event.id));
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
                         className={cn(
-                          "pointer-events-auto cursor-pointer select-none",
-                          "px-2 py-1 rounded-lg text-xs font-medium truncate transition-all hover:scale-[1.02] shadow-sm",
+                          "pointer-events-auto cursor-pointer select-none rounded-lg px-2 py-1 text-xs font-medium truncate transition-all hover:scale-[1.02] shadow-sm hover:shadow-md",
                           colors.light,
-                          colors.text,
-                          "hover:shadow-md"
+                          colors.text
                         )}
-                        title={shouldHideEventDetails?.(event) ? "Busy" : event.title}
+                        title={
+                          shouldHideEventDetails?.(event) ? "Busy" : event.title
+                        }
                       >
                         <span className="mr-1">
                           {event.event_type === "school" && "🎒"}
@@ -247,16 +247,17 @@ onDragStart={(e) => {
                 </AnimatePresence>
 
                 {moreCount > 0 && (
-  <div
-    onClick={(e) => {
-      e.stopPropagation();
-      onSelectDate(day);
-    }}
-    className="text-xs text-indigo-500 font-medium px-2 hover:underline cursor-pointer"
-  >
-    +{moreCount} more
-  </div>
-)}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDate(day);
+                    }}
+                    className="w-full rounded-lg px-2 py-1 text-left text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    +{moreCount} more
+                  </button>
+                )}
               </div>
             </motion.div>
           );

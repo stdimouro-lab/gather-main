@@ -246,7 +246,7 @@ const stableEventId = useMemo(() => {
   }
 }, [event?.id]);
 
-const showFilesAndMemories = Boolean(stableEventId) && !isSuggestionMode;
+const showFilesAndMemories = !isSuggestionMode;
 const showPrivacyTab = !isSuggestionMode;
 const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
 const showDelete = !!event && canDelete;
