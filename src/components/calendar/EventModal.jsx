@@ -115,85 +115,89 @@ export default function EventModal({
   }, [event, isSuggestionMode]);
 
   useEffect(() => {
-    const toLocalInputValue = (value, isAllDay = false) => {
-      if (!value) return "";
+  const toLocalInputValue = (value, isAllDay = false) => {
+    if (!value) return "";
 
-      try {
-        if (isAllDay) {
-          return DateTime.fromISO(value, { zone: "utc" }).toFormat("yyyy-LL-dd'T'HH:mm");
-        }
-
-        return format(parseISO(value), "yyyy-MM-dd'T'HH:mm");
-      } catch (err) {
-        console.error("toLocalInputValue error:", { value, isAllDay, err });
-        return "";
+    try {
+      if (isAllDay) {
+        return DateTime.fromISO(value, { zone: "utc" }).toFormat("yyyy-LL-dd'T'HH:mm");
       }
-    };
 
-    if (event) {
-      const recurrenceType = coerceRecurrenceType(
-        event.recurrence ?? event.recurrenceRule ?? event.recurrence_rule
-      );
-
-      const fallbackByDay =
-        Array.isArray(event.recurrenceByDay) ? event.recurrenceByDay : [];
-
-      const startValue =
-        event?.start_date ??
-        event?.start_at ??
-        event?.originalStartAt ??
-        event?.start ??
-        "";
-
-      const endValue =
-        event?.end_date ??
-        event?.end_at ??
-        event?.end ??
-        "";
-
-      const isAllDay = event?.all_day ?? event?.allDay ?? false;
-
-      setFormData({
-        title: event.title || "",
-        tab_id: event.tab_id || defaultTab?.id || tabs[0]?.id || "",
-        start_date: toLocalInputValue(startValue, isAllDay),
-        end_date: toLocalInputValue(endValue, isAllDay),
-        all_day: isAllDay,
-        location: event.location || "",
-        notes: event.notes || "",
-        private_notes: event.private_notes || "",
-        visibility: event.visibility || "full",
-        event_type: event.event_type || "other",
-        recurrence: recurrenceType || "none",
-        recurrenceByDay: fallbackByDay,
-        recurrenceEndDate: event?.recurrence?.end_date || "",
-      });
-    } else {
-      const defaultDateTime = defaultDate || new Date();
-      const startStr = format(defaultDateTime, "yyyy-MM-dd'T'HH:mm");
-      const endDateTime = new Date(defaultDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 1);
-      const endStr = format(endDateTime, "yyyy-MM-dd'T'HH:mm");
-
-      setFormData({
-        title: "",
-        tab_id: defaultTab?.id || tabs[0]?.id || "",
-        start_date: startStr,
-        end_date: endStr,
-        all_day: false,
-        location: "",
-        notes: "",
-        private_notes: "",
-        visibility: "full",
-        event_type: "other",
-        recurrence: "none",
-        recurrenceByDay: [],
-        recurrenceEndDate: "",
-      });
+      return format(parseISO(value), "yyyy-MM-dd'T'HH:mm");
+    } catch (err) {
+      console.error("toLocalInputValue error:", { value, isAllDay, err });
+      return "";
     }
+  };
 
+  if (event) {
+    const recurrenceType = coerceRecurrenceType(
+      event.recurrence ?? event.recurrenceRule ?? event.recurrence_rule
+    );
+
+    const fallbackByDay =
+      Array.isArray(event.recurrenceByDay) ? event.recurrenceByDay : [];
+
+    const startValue =
+      event?.start_date ??
+      event?.start_at ??
+      event?.originalStartAt ??
+      event?.start ??
+      "";
+
+    const endValue =
+      event?.end_date ??
+      event?.end_at ??
+      event?.end ??
+      "";
+
+    const isAllDay = event?.all_day ?? event?.allDay ?? false;
+
+    setFormData({
+      title: event.title || "",
+      tab_id: event.tab_id || defaultTab?.id || tabs[0]?.id || "",
+      start_date: toLocalInputValue(startValue, isAllDay),
+      end_date: toLocalInputValue(endValue, isAllDay),
+      all_day: isAllDay,
+      location: event.location || "",
+      notes: event.notes || "",
+      private_notes: event.private_notes || "",
+      visibility: event.visibility || "full",
+      event_type: event.event_type || "other",
+      recurrence: recurrenceType || "none",
+      recurrenceByDay: fallbackByDay,
+      recurrenceEndDate: event?.recurrence?.end_date || "",
+    });
+  } else {
+    const defaultDateTime = defaultDate || new Date();
+    const startStr = format(defaultDateTime, "yyyy-MM-dd'T'HH:mm");
+    const endDateTime = new Date(defaultDateTime);
+    endDateTime.setHours(endDateTime.getHours() + 1);
+    const endStr = format(endDateTime, "yyyy-MM-dd'T'HH:mm");
+
+    setFormData({
+      title: "",
+      tab_id: defaultTab?.id || tabs[0]?.id || "",
+      start_date: startStr,
+      end_date: endStr,
+      all_day: false,
+      location: "",
+      notes: "",
+      private_notes: "",
+      visibility: "full",
+      event_type: "other",
+      recurrence: "none",
+      recurrenceByDay: [],
+      recurrenceEndDate: "",
+    });
+  }
+}, [event, isOpen]);
+
+useEffect(() => {
+  if (isOpen) {
     setActiveTab("details");
-  }, [event, tabs, defaultTab, defaultDate, isOpen]);
+  }
+}, [isOpen, event?.id]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -229,15 +233,25 @@ export default function EventModal({
     ? getTabColors(selectedTab.color)
     : getTabColors("indigo");
 
-  const showReadOnlyBanner = !!event && !canEdit;
-  const disableFields = !!event && !canEdit;
-  const showFilesAndMemories = Boolean(event?.id) && !isSuggestionMode;
-  const showPrivacyTab = !isSuggestionMode;
-  const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
-  const showDelete = !!event && canDelete;
+ const showReadOnlyBanner = !!event && !canEdit;
+const disableFields = !!event && !canEdit;
 
-  const realEventId = event ? getRealEventId(event) : null;
-  const memoryTabLabel = "Files & Memories";
+const stableEventId = useMemo(() => {
+  if (!event) return null;
+
+  try {
+    return getRealEventId(event);
+  } catch {
+    return event?.id || null;
+  }
+}, [event?.id]);
+
+const showFilesAndMemories = Boolean(stableEventId) && !isSuggestionMode;
+const showPrivacyTab = !isSuggestionMode;
+const showPrivateNotes = !isSharedEvent && !isSuggestionMode;
+const showDelete = !!event && canDelete;
+
+const memoryTabLabel = "Files & Memories";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -495,9 +509,9 @@ export default function EventModal({
 
               {showFilesAndMemories && (
                 <TabsContent value="memories" className="mt-0 space-y-4">
-                  {realEventId ? (
-                    <EventMemories
-                      eventId={realEventId}
+                  {stableEventId ? (
+  <EventMemories
+    eventId={stableEventId}
                       tabId={event?.tab_id}
                       ownerId={user?.id}
                       isEditable={canEdit}
