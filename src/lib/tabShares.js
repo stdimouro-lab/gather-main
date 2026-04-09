@@ -278,7 +278,24 @@ export async function removeTabShare(shareId) {
   return existing;
 }
 
-export async function fetchSharedTabsForMe(userId, email) {
+export async function fetchSharedTabsForMe(arg1, arg2) {
+  // 🔥 supports BOTH call styles:
+  // fetchSharedTabsForMe(userId, email)
+  // fetchSharedTabsForMe({ userId, email })
+
+  let userId;
+  let email;
+
+  if (typeof arg1 === "object" && arg1 !== null) {
+    userId = arg1.userId;
+    email = arg1.email;
+  } else {
+    userId = arg1;
+    email = arg2;
+  }
+
+  // 🔥 force correct types
+  const safeUserId = typeof userId === "string" ? userId : userId?.id || "";
   const normalizedEmail = normalizeEmail(email);
 
   let query = supabase
@@ -289,16 +306,32 @@ export async function fetchSharedTabsForMe(userId, email) {
     `)
     .eq("accepted", true);
 
-  if (userId && normalizedEmail) {
-    query = query.or(`shared_with_id.eq.${userId},invited_user_id.eq.${userId},invited_email.eq.${normalizedEmail}`);
-  } else if (userId) {
-    query = query.or(`shared_with_id.eq.${userId},invited_user_id.eq.${userId}`);
-  } else if (normalizedEmail) {
-    query = query.eq("invited_email", normalizedEmail);
+  const filters = [];
+
+  if (safeUserId) {
+    filters.push(`shared_with_id.eq.${safeUserId}`);
+    filters.push(`invited_user_id.eq.${safeUserId}`);
+  }
+
+  if (normalizedEmail) {
+    filters.push(`invited_email.eq.${normalizedEmail}`);
+  }
+
+  if (filters.length) {
+    query = query.or(filters.join(","));
   }
 
   const { data, error } = await query;
 
-  if (error) throw error;
+  if (error) {
+    console.error("fetchSharedTabsForMe error", {
+      safeUserId,
+      normalizedEmail,
+      filters,
+      error,
+    });
+    throw error;
+  }
+
   return data ?? [];
 }

@@ -13,6 +13,16 @@ import { ensureAccountForUser } from "@/lib/account";
 
 const AuthContext = createContext(null);
 
+function timeoutPromise(ms, label) {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+}
+
+async function withTimeout(promise, ms, label) {
+  return Promise.race([promise, timeoutPromise(ms, label)]);
+}
+
 async function ensureProfile(user) {
   if (!user?.id) return null;
 
@@ -24,11 +34,11 @@ async function ensureProfile(user) {
 
   const email = user.email || "";
 
-  const { data: existingProfile, error: readError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { data: existingProfile, error: readError } = await withTimeout(
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    8000,
+    "profiles read"
+  );
 
   if (readError) {
     console.error("ensureProfile read error:", readError);
@@ -49,216 +59,321 @@ async function ensureProfile(user) {
     payload.display_name = fullName;
   }
 
-  const { error } = await supabase.from("profiles").upsert(payload, {
-    onConflict: "id",
-  });
+  const { error: upsertError } = await withTimeout(
+    supabase.from("profiles").upsert(payload, {
+      onConflict: "id",
+    }),
+    8000,
+    "profiles upsert"
+  );
 
-  if (error) {
-    console.error("ensureProfile upsert error:", error);
-    throw error;
+  if (upsertError) {
+    console.error("ensureProfile upsert error:", upsertError);
+    throw upsertError;
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const { data: profile, error: profileError } = await withTimeout(
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    8000,
+    "profiles fetch"
+  );
 
   if (profileError) {
     console.error("ensureProfile fetch error:", profileError);
     throw profileError;
   }
 
-  return profile;
+  return profile ?? null;
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-const [session, setSession] = useState(null);
-const [profile, setProfile] = useState(null);
-const [loading, setLoading] = useState(true);
-const [profileLoading, setProfileLoading] = useState(true);
-const claimedInviteKeyRef = useRef(null);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
-  const applySession = useCallback((newSession) => {
-    setSession(newSession ?? null);
-    setUser(newSession?.user ?? null);
+  const bootstrappedRef = useRef(false);
+  const claimedInviteKeyRef = useRef(null);
+  const profilePromiseRef = useRef(null);
+  const mountedRef = useRef(false);
+
+  const safeSet = useCallback((fn) => {
+    if (mountedRef.current) fn();
   }, []);
 
-  const loadProfile = useCallback(async (activeUser) => {
-    if (!activeUser?.id) {
-  claimedInviteKeyRef.current = null;
-  setProfile(null);
-  setProfileLoading(false);
-  return null;
-}
+  const applySession = useCallback(
+    (newSession) => {
+      safeSet(() => {
+        setSession(newSession ?? null);
+        setUser(newSession?.user ?? null);
+      });
+    },
+    [safeSet]
+  );
 
-    setProfileLoading(true);
-
-    try {
-  const ensured = await ensureProfile(activeUser);
-  await ensureAccountForUser(activeUser);
-  setProfile(ensured ?? null);
-  return ensured ?? null;
-} catch (err) {
-      console.error("loadProfile error:", err);
+  const clearProfileState = useCallback(() => {
+    safeSet(() => {
       setProfile(null);
-      return null;
-    } finally {
       setProfileLoading(false);
-    }
-  }, []);
+    });
+  }, [safeSet]);
+
+  const clearAuthState = useCallback(() => {
+    claimedInviteKeyRef.current = null;
+    profilePromiseRef.current = null;
+
+    safeSet(() => {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      setProfileLoading(false);
+    });
+  }, [safeSet]);
+
+  const loadProfile = useCallback(
+    async (activeUser) => {
+      if (!activeUser?.id) {
+        claimedInviteKeyRef.current = null;
+        profilePromiseRef.current = null;
+        clearProfileState();
+        return null;
+      }
+
+      if (profilePromiseRef.current) {
+        return profilePromiseRef.current;
+      }
+
+      safeSet(() => setProfileLoading(true));
+      console.log("loadProfile start", activeUser.id);
+
+      const promise = (async () => {
+        try {
+          const ensured = await withTimeout(
+            ensureProfile(activeUser),
+            10000,
+            "ensureProfile"
+          );
+
+          console.log("loadProfile ensured profile");
+
+          try {
+            await withTimeout(
+              ensureAccountForUser(activeUser),
+              10000,
+              "ensureAccountForUser"
+            );
+          } catch (accountError) {
+            console.error("ensureAccountForUser failed:", accountError);
+          }
+
+          safeSet(() => {
+            setProfile(ensured ?? null);
+          });
+
+          return ensured ?? null;
+        } catch (err) {
+          console.error("loadProfile error:", err);
+          safeSet(() => {
+            setProfile(null);
+          });
+          return null;
+        } finally {
+          profilePromiseRef.current = null;
+          safeSet(() => {
+            setProfileLoading(false);
+          });
+        }
+      })();
+
+      profilePromiseRef.current = promise;
+      return promise;
+    },
+    [clearProfileState, safeSet]
+  );
+
+  const hydrateFromSession = useCallback(
+    async (newSession) => {
+      applySession(newSession);
+
+      if (!newSession?.user) {
+        claimedInviteKeyRef.current = null;
+        profilePromiseRef.current = null;
+        clearProfileState();
+        safeSet(() => setLoading(false));
+        return null;
+      }
+
+      await loadProfile(newSession.user);
+      safeSet(() => setLoading(false));
+      return newSession;
+    },
+    [applySession, clearProfileState, loadProfile, safeSet]
+  );
 
   const refreshSession = useCallback(async () => {
+    safeSet(() => {
+      setLoading(true);
+      setProfileLoading(true);
+    });
+
     try {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await withTimeout(
+        supabase.auth.getSession(),
+        10000,
+        "auth.getSession"
+      );
 
       if (error) {
         console.error("refreshSession getSession error:", error);
+        throw error;
       }
 
-      const newSession = data?.session ?? null;
-      applySession(newSession);
-
-      if (newSession?.user) {
-  const sameUser = newSession.user.id === user?.id;
-
-  // If we already have a profile for the same user, do not block the app
-  // on token refresh / focus-related auth events.
-  if (!sameUser || !profile) {
-    await loadProfile(newSession.user);
-  }
-} else {
-  claimedInviteKeyRef.current = null;
-  setProfile(null);
-  setProfileLoading(false);
-}
+      return await hydrateFromSession(data?.session ?? null);
     } catch (err) {
       console.error("refreshSession threw:", err);
-      applySession(null);
-      setProfile(null);
-      setProfileLoading(false);
-    } finally {
-      setLoading(false);
+      clearAuthState();
+      return null;
     }
-  }, [applySession, loadProfile]);
+  }, [clearAuthState, hydrateFromSession, safeSet]);
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) {
-      setProfile(null);
-      setProfileLoading(false);
+      clearProfileState();
       return null;
     }
 
-    setProfileLoading(true);
+    safeSet(() => setProfileLoading(true));
 
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const { data, error } = await withTimeout(
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        8000,
+        "refreshProfile"
+      );
 
       if (error) throw error;
 
-      setProfile(data);
-      return data;
+      safeSet(() => {
+        setProfile(data ?? null);
+      });
+
+      return data ?? null;
     } catch (err) {
       console.error("refreshProfile error:", err);
+      safeSet(() => {
+        setProfile(null);
+      });
       return null;
     } finally {
-      setProfileLoading(false);
+      safeSet(() => setProfileLoading(false));
     }
-  }, [user?.id]);
+  }, [clearProfileState, safeSet, user?.id]);
 
   useEffect(() => {
-  let isMounted = true;
-
-  const bootstrap = async () => {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-
-      if (!isMounted) return;
-
-      if (error) {
-        console.error("initial getSession error:", error);
-      }
-
-      const newSession = data?.session ?? null;
-      applySession(newSession);
-
-      if (newSession?.user) {
-        await loadProfile(newSession.user);
-      } else {
-        claimedInviteKeyRef.current = null;
-        setProfile(null);
-        setProfileLoading(false);
-      }
-    } catch (err) {
-      if (!isMounted) return;
-      console.error("initial getSession threw:", err);
-      applySession(null);
-      claimedInviteKeyRef.current = null;
-      setProfile(null);
-      setProfileLoading(false);
-    } finally {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }
-  };
-
-  bootstrap();
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-    if (!isMounted) return;
-
-    const nextUser = newSession?.user ?? null;
-    const currentUserId = user?.id ?? null;
-    const nextUserId = nextUser?.id ?? null;
-    const userChanged = currentUserId !== nextUserId;
-
-    applySession(newSession ?? null);
-    setLoading(false);
-
-    if (!nextUser) {
-      claimedInviteKeyRef.current = null;
-      setProfile(null);
-      setProfileLoading(false);
-      return;
-    }
-
-    // Only reload profile when the signed-in user actually changes
-    // or we do not have one yet.
-    if (userChanged || !profile) {
-      await loadProfile(nextUser);
-    }
-  });
-
-  return () => {
-    isMounted = false;
-    subscription?.unsubscribe();
-  };
-}, [applySession, loadProfile, user?.id, profile]);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-  if (!user?.id || !user?.email || !session) return;
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
 
-  const claimKey = `${user.id}:${user.email.toLowerCase().trim()}`;
-  if (claimedInviteKeyRef.current === claimKey) return;
+    let watchdogId = null;
 
-  claimedInviteKeyRef.current = claimKey;
+    const startWatchdog = () => {
+      watchdogId = window.setTimeout(() => {
+        console.error("Auth bootstrap watchdog fired; forcing loading false");
+        safeSet(() => {
+          setLoading(false);
+          setProfileLoading(false);
+        });
+      }, 12000);
+    };
 
-  claimTabInvitesForUser({
-    userId: user.id,
-    email: user.email,
-  }).catch((e) => {
-    console.error("Failed to claim tab invites:", e);
-    claimedInviteKeyRef.current = null;
-  });
-}, [user?.id, user?.email, session]);
+    const stopWatchdog = () => {
+      if (watchdogId) {
+        clearTimeout(watchdogId);
+        watchdogId = null;
+      }
+    };
+
+    const bootstrap = async () => {
+      startWatchdog();
+
+      safeSet(() => {
+        setLoading(true);
+        setProfileLoading(true);
+      });
+
+      try {
+        console.log("AuthProvider bootstrap start");
+
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          10000,
+          "initial auth.getSession"
+        );
+
+        if (error) {
+          console.error("initial getSession error:", error);
+          throw error;
+        }
+
+        const newSession = data?.session ?? null;
+        console.log("AuthProvider bootstrap session:", !!newSession?.user);
+
+        await hydrateFromSession(newSession);
+      } catch (err) {
+        console.error("initial getSession threw:", err);
+        clearAuthState();
+      } finally {
+        stopWatchdog();
+      }
+    };
+
+    void bootstrap();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("onAuthStateChange", event, !!newSession?.user);
+
+      safeSet(() => setLoading(true));
+
+      try {
+        await hydrateFromSession(newSession ?? null);
+      } catch (err) {
+        console.error("onAuthStateChange hydrate error:", err);
+        clearAuthState();
+      }
+    });
+
+    return () => {
+      stopWatchdog();
+      subscription?.unsubscribe();
+    };
+  }, [clearAuthState, hydrateFromSession, safeSet]);
+
+  useEffect(() => {
+    if (!user?.id || !user?.email || !session) return;
+
+    const claimKey = `${user.id}:${user.email.toLowerCase().trim()}`;
+    if (claimedInviteKeyRef.current === claimKey) return;
+
+    claimedInviteKeyRef.current = claimKey;
+
+    claimTabInvitesForUser({
+      userId: user.id,
+      email: user.email,
+    }).catch((e) => {
+      console.error("Failed to claim tab invites:", e);
+      claimedInviteKeyRef.current = null;
+    });
+  }, [user?.id, user?.email, session]);
 
   const signIn = async ({ email, password }) => {
     return await supabase.auth.signInWithPassword({
@@ -313,7 +428,24 @@ const claimedInviteKeyRef = useRef(null);
       refreshSession,
       refreshProfile,
     };
-  }, [user, session, profile, loading, profileLoading, refreshSession, refreshProfile]);
+  }, [
+    user,
+    session,
+    profile,
+    loading,
+    profileLoading,
+    refreshSession,
+    refreshProfile,
+  ]);
+
+  console.log("AuthProvider state", {
+    path: typeof window !== "undefined" ? window.location.pathname : "",
+    loading,
+    profileLoading,
+    hasUser: !!user,
+    hasSession: !!session,
+    hasProfile: !!profile,
+  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

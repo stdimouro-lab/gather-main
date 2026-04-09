@@ -2,9 +2,20 @@ import { CheckCircle2, Crown, Users, HardDrive, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import useEntitlement from "@/hooks/useEntitlement";
 import { startAppleUpgrade } from "@/lib/appleBillingBridge";
+import { startCheckout } from "@/lib/billing";
 
 function formatGbFromMb(mb) {
   return `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB`;
+}
+
+function isNativeAppleFlowAvailable() {
+  if (typeof window === "undefined") return false;
+
+  return Boolean(
+    window?.webkit?.messageHandlers?.appleBilling ||
+      window?.Capacitor ||
+      window?.cordova
+  );
 }
 
 export default function Plans() {
@@ -18,6 +29,33 @@ export default function Plans() {
     storageUsedMb,
     hasPaidAccess,
   } = useEntitlement();
+
+  const handleUpgradeToFamily = async () => {
+    console.log("Upgrade clicked");
+
+    try {
+      const nativeAppleFlow = isNativeAppleFlowAvailable();
+      console.log("nativeAppleFlow:", nativeAppleFlow);
+
+      if (nativeAppleFlow) {
+        console.log("Using Apple billing flow");
+        await startAppleUpgrade();
+        return;
+      }
+
+      const priceId = import.meta.env.VITE_STRIPE_PRICE_FAMILY;
+      console.log("Family priceId:", priceId);
+
+      if (!priceId) {
+        throw new Error("Missing VITE_STRIPE_PRICE_FAMILY in .env.local");
+      }
+
+      await startCheckout({ priceId });
+    } catch (error) {
+      console.error("Upgrade error full:", error);
+alert(error?.message ?? "Could not start upgrade.");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -34,31 +72,38 @@ export default function Plans() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm text-slate-500">Current plan</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 capitalize">
+            <p className="mt-1 text-lg font-semibold capitalize text-slate-900">
               {isComped ? "Complimentary plan" : planTier}
             </p>
-            <p className="mt-1 text-sm text-slate-500 capitalize">
+            <p className="mt-1 text-sm capitalize text-slate-500">
               Billing source: {billingSource}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Seats</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Seats
+              </p>
               <p className="mt-1 font-semibold text-slate-900">
                 {seatsUsed} / {seatLimit}
               </p>
             </div>
 
             <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Storage</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Storage
+              </p>
               <p className="mt-1 font-semibold text-slate-900">
-                {formatGbFromMb(storageUsedMb)} / {formatGbFromMb(storageLimitMb)}
+                {formatGbFromMb(storageUsedMb)} /{" "}
+                {formatGbFromMb(storageLimitMb)}
               </p>
             </div>
 
             <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Access</p>
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Access
+              </p>
               <p className="mt-1 font-semibold text-slate-900">
                 {hasPaidAccess ? "Paid features unlocked" : "Free tier"}
               </p>
@@ -76,7 +121,8 @@ export default function Plans() {
 
           <p className="mt-2 text-3xl font-bold text-slate-900">$0</p>
           <p className="mt-1 text-sm text-slate-500">
-            A complete starting point for personal life, family planning, and work.
+            A complete starting point for personal life, family planning, and
+            work.
           </p>
 
           <div className="mt-5 space-y-3 text-sm text-slate-700">
@@ -105,7 +151,13 @@ export default function Plans() {
             <h2 className="text-xl font-semibold">Family</h2>
           </div>
 
-          <p className="mt-2 text-3xl font-bold">$5.99<span className="text-base font-medium text-slate-300"> / month</span></p>
+          <p className="mt-2 text-3xl font-bold">
+            $5.99
+            <span className="text-base font-medium text-slate-300">
+              {" "}
+              / month
+            </span>
+          </p>
           <p className="mt-1 text-sm text-slate-300">
             Designed for households, co-parenting, and growing shared routines.
           </p>
@@ -130,23 +182,18 @@ export default function Plans() {
           </div>
 
           <div className="mt-6 rounded-2xl bg-white/10 p-4 text-sm text-slate-200">
-            Purchases made on iPhone and iPad will use Apple billing. Web billing
-            can be added separately later.
+            On the web, upgrades use secure Stripe checkout. On iPhone and iPad,
+            upgrades will use Apple billing when the native app flow is
+            connected.
           </div>
 
           <button
-  type="button"
-  className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-  onClick={async () => {
-    try {
-      await startAppleUpgrade();
-    } catch (error) {
-      alert(error?.message ?? "Apple billing is not connected yet.");
-    }
-  }}
->
-  Upgrade to Family
-</button>
+            type="button"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+            onClick={handleUpgradeToFamily}
+          >
+            Upgrade to Family
+          </button>
         </section>
       </div>
 
@@ -158,13 +205,17 @@ export default function Plans() {
           </div>
 
           <p className="mt-2 text-sm text-slate-600">
-            Family is the base plan, then seats can grow with your household or team.
+            Family is the base plan, then seats can grow with your household or
+            team.
           </p>
 
           <div className="mt-4 space-y-3 rounded-2xl border bg-slate-50 p-4 text-sm text-slate-700">
             <p>Family includes 5 total people.</p>
             <p>Later, extra seats can be added for larger families or teams.</p>
-            <p>That keeps Gather affordable for smaller households and scalable for bigger groups.</p>
+            <p>
+              That keeps Gather affordable for smaller households and scalable
+              for bigger groups.
+            </p>
           </div>
         </section>
 
@@ -175,22 +226,29 @@ export default function Plans() {
           </div>
 
           <p className="mt-2 text-sm text-slate-600">
-            Memories storage is included with every plan so photo and video usage can scale fairly.
+            Memories storage is included with every plan so photo and video
+            usage can scale fairly.
           </p>
 
           <div className="mt-4 space-y-3 rounded-2xl border bg-slate-50 p-4 text-sm text-slate-700">
             <p>Free includes 2 GB.</p>
             <p>Family includes 15 GB.</p>
-            <p>Additional storage tiers can be added later without changing the core plan.</p>
+            <p>
+              Additional storage tiers can be added later without changing the
+              core plan.
+            </p>
           </div>
         </section>
       </div>
 
       <div className="mt-8 rounded-3xl border bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Need help choosing?</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Need help choosing?
+        </h2>
         <p className="mt-2 text-sm text-slate-600">
           Start free with your first three tables, then upgrade when you want to
-          invite more people, grow your storage, or run more of life through Gather.
+          invite more people, grow your storage, or run more of life through
+          Gather.
         </p>
 
         <div className="mt-4">
