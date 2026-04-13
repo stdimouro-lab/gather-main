@@ -1,13 +1,24 @@
-import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useMemo, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { Share2, UserPlus, Trash2 } from "lucide-react";
+import { Share2, UserPlus, Trash2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTabColors } from "./TabFilter";
 import { toast } from "@/components/ui/use-toast";
@@ -45,6 +56,41 @@ export default function ShareModal({
     return safe.split("@")[0].slice(0, 2).toUpperCase();
   };
 
+  const seatState = useMemo(() => {
+    const used =
+      typeof seatSummary?.used === "number" && seatSummary.used >= 0
+        ? seatSummary.used
+        : null;
+
+    const limit =
+      typeof seatSummary?.limit === "number" && seatSummary.limit > 0
+        ? seatSummary.limit
+        : null;
+
+    if (used == null || limit == null) {
+      return {
+        hasSeatSummary: false,
+        used: null,
+        limit: null,
+        seatLimitReached: false,
+        overSeatLimit: false,
+      };
+    }
+
+    return {
+      hasSeatSummary: true,
+      used,
+      limit,
+      seatLimitReached: used >= limit,
+      overSeatLimit: used > limit,
+    };
+  }, [seatSummary]);
+
+  const inviteLocked =
+    isInviting ||
+    !email.trim() ||
+    (seatState.hasSeatSummary && seatState.seatLimitReached);
+
   const handleInvite = async (e) => {
     e.preventDefault();
 
@@ -54,6 +100,18 @@ export default function ShareModal({
       toast({
         title: "Email required",
         description: "Enter an email address to invite someone.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (seatState.hasSeatSummary && seatState.seatLimitReached) {
+      toast({
+        title: seatState.overSeatLimit ? "Seat limit exceeded" : "Seat limit reached",
+        description:
+          seatState.overSeatLimit
+            ? "This account is already over its seat limit. Remove members or upgrade before inviting anyone else."
+            : "This account has no remaining seats. Remove a member or upgrade to invite someone new.",
         variant: "destructive",
       });
       return;
@@ -84,32 +142,69 @@ export default function ShareModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[520px] overflow-hidden p-0">
         <div className={cn("h-2", colors.bg)} />
 
-        <DialogHeader className="px-6 pt-4 pb-2">
-          <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-            <Share2 className="w-5 h-5 text-slate-500" />
+        <DialogHeader className="px-6 pb-2 pt-4">
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900">
+            <Share2 className="h-5 w-5 text-slate-500" />
             Share "{tab?.name}" Tab
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 pb-6 space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+        <div className="space-y-6 px-6 pb-6">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
             <p className="text-xs text-blue-700">
-              Only this tab will be shared. You can change or remove access at any time.
+              Only this tab will be shared. You can change or remove access at any
+              time.
             </p>
           </div>
-          {seatSummary && (
-  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-    <p className="text-xs text-slate-700">
-      Seats in use: {seatSummary.used} / {seatSummary.limit}
-    </p>
-    <p className="mt-1 text-xs text-slate-500">
-      Free accounts cannot invite members. Family plans can invite up to their seat limit.
-    </p>
-  </div>
-)}
+
+          {seatState.hasSeatSummary && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs text-slate-700">
+                Seats in use: {seatState.used} / {seatState.limit}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Free accounts cannot invite members. Family and Business plans can
+                invite up to their seat limit.
+              </p>
+            </div>
+          )}
+
+          {seatState.hasSeatSummary && seatState.overSeatLimit && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 text-red-600" />
+                <div>
+                  <p className="text-xs font-medium text-red-700">
+                    This account is over the current seat limit.
+                  </p>
+                  <p className="mt-1 text-xs text-red-600">
+                    Remove members or upgrade the plan before sending more invites.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {seatState.hasSeatSummary &&
+            !seatState.overSeatLimit &&
+            seatState.seatLimitReached && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                  <div>
+                    <p className="text-xs font-medium text-amber-700">
+                      Seat limit reached
+                    </p>
+                    <p className="mt-1 text-xs text-amber-600">
+                      Remove a member or upgrade before inviting someone new.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
           <form onSubmit={handleInvite} className="space-y-4">
             <div className="space-y-1">
@@ -117,16 +212,21 @@ export default function ShareModal({
                 Invite by email
               </Label>
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   type="email"
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="flex-1"
+                  disabled={isInviting || (seatState.hasSeatSummary && seatState.seatLimitReached)}
                 />
 
-                <Select value={role} onValueChange={setRole}>
+                <Select
+                  value={role}
+                  onValueChange={setRole}
+                  disabled={isInviting || (seatState.hasSeatSummary && seatState.seatLimitReached)}
+                >
                   <SelectTrigger className="w-full sm:w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -136,31 +236,30 @@ export default function ShareModal({
                   </SelectContent>
                 </Select>
               </div>
-          
-           <p className="text-xs text-slate-500">
-      Access will appear when this person signs in with the same email address.
-    </p>
-  </div>
+
+              <p className="text-xs text-slate-500">
+                Access will appear when this person signs in with the same email
+                address.
+              </p>
+            </div>
 
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-700"
-              disabled={
-  !email.trim() ||
-  isInviting ||
-  (seatSummary ? seatSummary.used >= seatSummary.limit : false)
-}
+              disabled={inviteLocked}
             >
-              <UserPlus className="w-4 h-4 mr-2" />
-              {seatSummary && seatSummary.used >= seatSummary.limit
-  ? "Seat limit reached"
-  : isInviting
-  ? "Inviting..."
-  : "Send Invite"}
+              <UserPlus className="mr-2 h-4 w-4" />
+              {seatState.hasSeatSummary && seatState.overSeatLimit
+                ? "Over seat limit"
+                : seatState.hasSeatSummary && seatState.seatLimitReached
+                ? "Seat limit reached"
+                : isInviting
+                ? "Inviting..."
+                : "Send Invite"}
             </Button>
           </form>
 
-          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+          <div className="space-y-3 rounded-xl bg-slate-50 p-4">
             <p className="text-xs font-medium text-slate-500">Permission levels</p>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
@@ -175,7 +274,7 @@ export default function ShareModal({
               </div>
             </div>
 
-            <p className="text-xs text-slate-400 pt-2 border-t border-slate-200">
+            <p className="border-t border-slate-200 pt-2 text-xs text-slate-400">
               Access can be updated or removed later.
             </p>
           </div>
@@ -202,17 +301,17 @@ export default function ShareModal({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="flex items-center justify-between gap-3 p-3 bg-white border border-slate-200 rounded-xl"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex min-w-0 items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarFallback className="bg-slate-100 text-slate-600 text-xs font-medium">
+                            <AvatarFallback className="bg-slate-100 text-xs font-medium text-slate-600">
                               {getInitials(shareEmail)}
                             </AvatarFallback>
                           </Avatar>
 
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-700 truncate">
+                            <p className="truncate text-sm font-medium text-slate-700">
                               {shareEmail}
                             </p>
                             {isPending && (
@@ -221,20 +320,20 @@ export default function ShareModal({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex shrink-0 items-center gap-2">
                           <Select
-  value={share.role || "viewer"}
-  disabled={isPending}
-  onValueChange={(newRole) => {
-    onUpdateShare(share.id, newRole);
+                            value={share.role || "viewer"}
+                            disabled={isPending}
+                            onValueChange={(newRole) => {
+                              onUpdateShare(share.id, newRole);
 
-    toast({
-      title: "Access updated",
-      description: `Role changed to ${newRole}.`,
-    });
-  }}
->
-                            <SelectTrigger className="w-24 h-8 text-xs">
+                              toast({
+                                title: "Access updated",
+                                description: `Role changed to ${newRole}.`,
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-24 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -247,25 +346,27 @@ export default function ShareModal({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600"
                             onClick={async () => {
                               try {
                                 await onRemoveShare(share.id);
 
                                 toast({
                                   title: "Access removed",
-                                  description: "User no longer has access to this tab.",
+                                  description:
+                                    "User no longer has access to this tab.",
                                 });
                               } catch (err) {
                                 toast({
                                   title: "Remove failed",
-                                  description: err?.message ?? "Something went wrong.",
+                                  description:
+                                    err?.message ?? "Something went wrong.",
                                   variant: "destructive",
                                 });
                               }
                             }}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </motion.div>

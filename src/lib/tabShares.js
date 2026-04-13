@@ -1,6 +1,6 @@
 // src/lib/tabShares.js
 import { supabase } from "./supabase";
-import { getAccountSeatCount } from "./account"; // adjust path/name to your existing file
+import { syncAccountSeatUsage } from "./account";
 
 function normalizeEmail(email) {
   return email?.trim().toLowerCase() ?? null;
@@ -17,125 +17,18 @@ async function getTabById(tabId) {
   return data;
 }
 
-async function getAccountById(accountId) {
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("id, seat_limit")
-    .eq("id", accountId)
-    .single();
+async function assertSeatAvailable(ownerId) {
+  const result = await syncAccountSeatUsage(ownerId);
 
-  if (error) throw error;
-  return data;
-}
-
-async function assertSeatAvailable(accountId) {
-  const account = await getAccountById(accountId);
-  const seatsUsed = await getAccountSeatCount(accountId);
-
-  if (seatsUsed >= account.seat_limit) {
+  if (result.seatsUsed >= result.account.seat_limit) {
     const err = new Error("Seat limit reached");
     err.code = "SEAT_LIMIT_REACHED";
-    err.seatLimit = account.seat_limit;
-    err.seatsUsed = seatsUsed;
+    err.seatLimit = result.account.seat_limit;
+    err.seatsUsed = result.seatsUsed;
     throw err;
   }
 
-  return { seatLimit: account.seat_limit, seatsUsed };
-}
-
-export async function syncAcceptedSharesToAccountMembers(userId, email) {
-  const normalizedEmail = normalizeEmail(email);
-  if (!userId && !normalizedEmail) return;
-
-  const filters = [
-    userId ? `shared_with_id.eq.${userId}` : null,
-    userId ? `invited_user_id.eq.${userId}` : null,
-    normalizedEmail ? `invited_email.eq.${normalizedEmail}` : null,
-  ]
-    .filter(Boolean)
-    .join(",");
-
-  if (!filters) return;
-
-  const { data: acceptedShares, error: sharesError } = await supabase
-    .from("tab_shares")
-    .select("id, account_id, invited_email, shared_with_id, invited_user_id, status")
-    .or(filters)
-    .eq("status", "accepted");
-
-  if (sharesError) throw sharesError;
-  if (!acceptedShares?.length) return;
-
-  const accountIds = [...new Set(acceptedShares.map((row) => row.account_id).filter(Boolean))];
-
-  for (const accountId of accountIds) {
-    if (normalizedEmail) {
-      const { data: existingEmailRows, error: existingEmailRowsError } = await supabase
-        .from("account_members")
-        .select("id, user_id, email")
-        .eq("account_id", accountId)
-        .eq("email", normalizedEmail);
-
-      if (existingEmailRowsError) throw existingEmailRowsError;
-
-      for (const row of existingEmailRows ?? []) {
-        if (!row.user_id) {
-          const { error: patchError } = await supabase
-            .from("account_members")
-            .update({
-              user_id: userId,
-              email: normalizedEmail,
-              role: "member",
-              status: "active",
-            })
-            .eq("id", row.id);
-
-          if (patchError) throw patchError;
-        }
-      }
-    }
-
-    const { error: upsertError } = await supabase
-      .from("account_members")
-      .upsert(
-        {
-          account_id: accountId,
-          user_id: userId,
-          email: normalizedEmail,
-          role: "member",
-          status: "active",
-        },
-        {
-          onConflict: "account_id,user_id",
-        }
-      );
-
-    if (upsertError) throw upsertError;
-
-    if (normalizedEmail) {
-      const { data: dupes, error: dupesError } = await supabase
-        .from("account_members")
-        .select("id, user_id, email")
-        .eq("account_id", accountId)
-        .eq("email", normalizedEmail);
-
-      if (dupesError) throw dupesError;
-
-      const emailOnlyDupes = (dupes ?? []).filter((row) => !row.user_id);
-
-      if (emailOnlyDupes.length) {
-        const { error: deleteError } = await supabase
-          .from("account_members")
-          .delete()
-          .in(
-            "id",
-            emailOnlyDupes.map((row) => row.id)
-          );
-
-        if (deleteError) throw deleteError;
-      }
-    }
-  }
+  return result;
 }
 
 export async function claimTabInvitesForUser({ userId, email }) {
@@ -165,7 +58,9 @@ export async function claimTabInvitesForUser({ userId, email }) {
 
   if (updateError) throw updateError;
 
-  await syncAcceptedSharesToAccountMembers(userId, normalizedEmail);
+  const ownerIds = [...new Set(invites.map((i) => i.owner_id).filter(Boolean))];
+  await Promise.all(ownerIds.map((id) => syncAccountSeatUsage(id)));
+
   return invites;
 }
 
@@ -179,37 +74,37 @@ export async function inviteToTab({ tabId, email, role = "viewer", sharedById })
     throw new Error("Tab is missing account_id");
   }
 
-  const { data: existingAcceptedOrInvitedMember, error: existingMemberError } = await supabase
-    .from("account_members")
-    .select("id")
-    .eq("account_id", tab.account_id)
-    .eq("email", normalizedEmail)
-    .in("status", ["invited", "active"])
-    .limit(1);
+  const { data: existingShare, error: existingError } = await supabase
+    .from("tab_shares")
+    .select("*")
+    .eq("tab_id", tabId)
+    .eq("invited_email", normalizedEmail)
+    .maybeSingle();
 
-  if (existingMemberError) throw existingMemberError;
+  if (existingError) throw existingError;
 
-  const alreadyKnownMember = !!existingAcceptedOrInvitedMember?.length;
+  if (existingShare) {
+    const { data, error } = await supabase
+      .from("tab_shares")
+      .update({
+        account_id: tab.account_id,
+        owner_id: tab.owner_id,
+        shared_by_id: sharedById,
+        role,
+        accepted: false,
+        status: "pending",
+      })
+      .eq("id", existingShare.id)
+      .select()
+      .single();
 
-  if (!alreadyKnownMember) {
-    await assertSeatAvailable(tab.account_id);
+    if (error) throw error;
 
-    const { error: memberError } = await supabase
-      .from("account_members")
-      .upsert(
-        {
-          account_id: tab.account_id,
-          email: normalizedEmail,
-          role: "member",
-          status: "invited",
-        },
-        {
-          onConflict: "account_id,email",
-        }
-      );
-
-    if (memberError) throw memberError;
+    await syncAccountSeatUsage(tab.owner_id);
+    return data;
   }
+
+  await assertSeatAvailable(tab.owner_id);
 
   const payload = {
     tab_id: tabId,
@@ -224,14 +119,14 @@ export async function inviteToTab({ tabId, email, role = "viewer", sharedById })
 
   const { data, error } = await supabase
     .from("tab_shares")
-    .upsert(payload, {
-      onConflict: "tab_id,invited_email",
-      ignoreDuplicates: false,
-    })
+    .insert(payload)
     .select()
     .single();
 
   if (error) throw error;
+
+  await syncAccountSeatUsage(tab.owner_id);
+
   return data;
 }
 
@@ -249,11 +144,8 @@ export async function updateTabShare(shareId, updates) {
 
   if (error) throw error;
 
-  if (data?.accepted && (data?.shared_with_id || data?.invited_user_id || data?.invited_email)) {
-    await syncAcceptedSharesToAccountMembers(
-      data.shared_with_id || data.invited_user_id,
-      data.invited_email
-    );
+  if (data?.owner_id) {
+    await syncAccountSeatUsage(data.owner_id);
   }
 
   return data;
@@ -275,14 +167,124 @@ export async function removeTabShare(shareId) {
 
   if (error) throw error;
 
+  if (existing?.owner_id) {
+    await syncAccountSeatUsage(existing.owner_id);
+  }
+
   return existing;
 }
 
-export async function fetchSharedTabsForMe(arg1, arg2) {
-  // 🔥 supports BOTH call styles:
-  // fetchSharedTabsForMe(userId, email)
-  // fetchSharedTabsForMe({ userId, email })
+export async function listTeamShares(ownerId) {
+  if (!ownerId) throw new Error("Missing owner ID.");
 
+  const { data, error } = await supabase
+    .from("tab_shares")
+    .select(`
+      id,
+      tab_id,
+      account_id,
+      owner_id,
+      invited_email,
+      invited_user_id,
+      shared_with_id,
+      shared_by_id,
+      role,
+      accepted,
+      status,
+      created_at,
+      calendar_tabs (
+        id,
+        name,
+        color
+      )
+    `)
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listTeamMembers(ownerId) {
+  const shares = await listTeamShares(ownerId);
+
+  const map = new Map();
+
+  for (const share of shares) {
+    const email = normalizeEmail(share.invited_email);
+    const userId = share.shared_with_id || share.invited_user_id || null;
+    const key = userId ? `user:${userId}` : `email:${email}`;
+
+    if (!key || (!userId && !email)) continue;
+
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, {
+        key,
+        userId,
+        email,
+        status: share.accepted || share.status === "accepted" ? "accepted" : "pending",
+        role: share.role || "viewer",
+        shares: [share],
+        tabCount: 1,
+        createdAt: share.created_at,
+      });
+      continue;
+    }
+
+    existing.shares.push(share);
+    existing.tabCount += 1;
+
+    if (share.accepted || share.status === "accepted") {
+      existing.status = "accepted";
+    }
+
+    if (existing.role !== "editor" && share.role === "editor") {
+      existing.role = "editor";
+    }
+
+    if (
+      share.created_at &&
+      (!existing.createdAt || new Date(share.created_at) < new Date(existing.createdAt))
+    ) {
+      existing.createdAt = share.created_at;
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === "accepted" ? -1 : 1;
+    }
+
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  });
+}
+
+export async function removeTeamMember({ ownerId, userId, email }) {
+  if (!ownerId) throw new Error("Missing owner ID.");
+
+  const normalizedEmail = normalizeEmail(email);
+
+  let query = supabase.from("tab_shares").delete().eq("owner_id", ownerId);
+
+  if (userId) {
+    query = query.or(`shared_with_id.eq.${userId},invited_user_id.eq.${userId}`);
+  } else if (normalizedEmail) {
+    query = query.eq("invited_email", normalizedEmail);
+  } else {
+    throw new Error("Missing user or email to remove.");
+  }
+
+  const { error } = await query;
+
+  if (error) throw error;
+
+  await syncAccountSeatUsage(ownerId);
+  return true;
+}
+
+export async function fetchSharedTabsForMe(arg1, arg2) {
   let userId;
   let email;
 
@@ -294,7 +296,6 @@ export async function fetchSharedTabsForMe(arg1, arg2) {
     email = arg2;
   }
 
-  // 🔥 force correct types
   const safeUserId = typeof userId === "string" ? userId : userId?.id || "";
   const normalizedEmail = normalizeEmail(email);
 

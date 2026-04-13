@@ -1,163 +1,206 @@
-import { supabase } from "./supabase";
-import { applyFamilyPlanDefaults, applyFreePlanDefaults, syncAccountSeatUsage } from "./entitlements";
+import { supabase } from "@/lib/supabase";
 
-export async function getAccountSeatCount(accountId) {
-  if (!accountId) return 0;
+function resolveOwnerId(input) {
+  if (!input) return null;
 
-  const { count, error } = await supabase
-    .from("account_members")
-    .select("*", { count: "exact", head: true })
-    .eq("account_id", accountId);
+  if (typeof input === "string") return input;
 
-  if (error) throw error;
-  return count ?? 0;
-}
-
-export async function ensureAccountForUser(user) {
-  if (!user?.id) return null;
-
-  const { data: existing, error: readError } = await supabase
-    .from("accounts")
-    .select("*")
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  if (readError) throw readError;
-
-  if (existing) {
-    const { data: membership } = await supabase
-      .from("account_members")
-      .select("id")
-      .eq("account_id", existing.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership) {
-      const { error: memberInsertError } = await supabase
-        .from("account_members")
-        .insert({
-          account_id: existing.id,
-          user_id: user.id,
-          role: "owner",
-        });
-
-      if (memberInsertError) throw memberInsertError;
-    }
-
-    await syncAccountSeatUsage(existing.id);
-    return existing;
+  if (typeof input === "object") {
+    if (typeof input.id === "string") return input.id;
+    if (typeof input.user_id === "string") return input.user_id;
+    if (typeof input.owner_id === "string") return input.owner_id;
   }
 
-  const { data: created, error: createError } = await supabase
+  return null;
+}
+
+export async function ensureAccountForUser(ownerInput) {
+  const ownerId = resolveOwnerId(ownerInput);
+
+  if (!ownerId) {
+    throw new Error("Missing owner ID.");
+  }
+
+  const { data: existing, error: existingError } = await supabase
     .from("accounts")
-    .insert({
-  owner_id: user.id,
-  plan_tier: "free",
-  plan_status: "expired",
-  billing_source: "none",
-  is_comped: false,
-  seat_limit: 1,
-  seats_used: 0,
-  storage_limit_mb: 1024,
-  storage_used_mb: 0,
-})
+    .select("*")
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existing) return existing;
+
+  const payload = {
+    owner_id: ownerId,
+    plan_tier: "free",
+    billing_source: "none",
+    plan_status: "canceled",
+    seat_limit: 1,
+    seats_used: 1,
+    storage_limit_mb: 1024,
+    storage_used_mb: 0,
+    is_comped: false,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("accounts")
+    .upsert(payload, { onConflict: "owner_id" })
     .select("*")
     .single();
 
-  if (createError) throw createError;
-
-  const { error: memberError } = await supabase.from("account_members").insert({
-    account_id: created.id,
-    user_id: user.id,
-    role: "owner",
-  });
-
-  if (memberError) throw memberError;
-
-  await syncAccountSeatUsage(created.id);
-  return created;
+  if (error) throw error;
+  return data;
 }
 
-export async function fetchMyAccount(userId) {
-  if (!userId) return null;
+export async function fetchMyAccount(ownerInput) {
+  const ownerId = resolveOwnerId(ownerInput);
+
+  if (!ownerId) {
+    throw new Error("Missing owner ID.");
+  }
 
   const { data, error } = await supabase
     .from("accounts")
     .select("*")
-    .eq("owner_id", userId)
+    .eq("owner_id", ownerId)
     .maybeSingle();
 
   if (error) throw error;
-  return data ?? null;
+
+  if (data) return data;
+
+  return ensureAccountForUser(ownerId);
 }
 
-export async function fetchAccountMembers(accountId) {
-  if (!accountId) return [];
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
 
-  const { data, error } = await supabase
-    .from("account_members")
-    .select("*")
-    .eq("account_id", accountId)
-    .order("created_at", { ascending: true });
+function normalizeId(value) {
+  return value ? String(value).trim() : "";
+}
+
+function isCountableInvite(row) {
+  const status = String(row?.status || "").toLowerCase();
+  const accepted = row?.accepted === true;
+
+  if (accepted) return true;
+
+  return status === "pending" || status === "accepted";
+}
+
+export async function fetchAccountMembersSummary(ownerInput) {
+  const ownerId = resolveOwnerId(ownerInput);
+
+  if (!ownerId) {
+    throw new Error("Missing owner ID.");
+  }
+
+  const { data: shares, error } = await supabase
+    .from("tab_shares")
+    .select(
+      "id, invited_email, invited_user_id, shared_with_id, status, accepted, owner_id"
+    )
+    .eq("owner_id", ownerId);
 
   if (error) throw error;
-  return data ?? [];
+
+  const rows = shares ?? [];
+
+  const uniquePeople = new Set();
+  const uniquePendingEmails = new Set();
+
+  for (const row of rows) {
+    if (!isCountableInvite(row)) continue;
+
+    const sharedWithId = normalizeId(row.shared_with_id);
+    const invitedUserId = normalizeId(row.invited_user_id);
+    const email = normalizeEmail(row.invited_email);
+
+    const resolvedUserId = sharedWithId || invitedUserId;
+
+    if (resolvedUserId) {
+      uniquePeople.add(`user:${resolvedUserId}`);
+      continue;
+    }
+
+    if (email) {
+      uniquePendingEmails.add(`email:${email}`);
+    }
+  }
+
+  const memberSeatCount = uniquePeople.size + uniquePendingEmails.size;
+
+  return {
+    memberSeatCount,
+    uniquePeople: Array.from(uniquePeople),
+    uniquePendingEmails: Array.from(uniquePendingEmails),
+    rows,
+  };
 }
 
-export async function updateAccount(id, updates) {
+export async function syncAccountSeatUsage(ownerInput) {
+  const ownerId = resolveOwnerId(ownerInput);
+
+  if (!ownerId) {
+    throw new Error("Missing owner ID.");
+  }
+
+  const account = await ensureAccountForUser(ownerId);
+  const summary = await fetchAccountMembersSummary(ownerId);
+
+  const seatsUsed = Math.max(1 + summary.memberSeatCount, 1);
+
   const { data, error } = await supabase
     .from("accounts")
-    .update(updates)
-    .eq("id", id)
+    .upsert(
+      {
+        owner_id: ownerId,
+        seats_used: seatsUsed,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "owner_id" }
+    )
     .select("*")
     .single();
 
   if (error) throw error;
+
+  return {
+    account: data ?? account,
+    seatsUsed,
+    memberSeatCount: summary.memberSeatCount,
+    summary,
+  };
+}
+
+export async function syncAccountStorageUsage(ownerInput) {
+  const ownerId = resolveOwnerId(ownerInput);
+
+  if (!ownerId) {
+    throw new Error("Missing owner ID.");
+  }
+
+  await ensureAccountForUser(ownerId);
+
+  const { data, error } = await supabase
+    .from("accounts")
+    .upsert(
+      {
+        owner_id: ownerId,
+        storage_used_mb: 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "owner_id" }
+    )
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
   return data;
 }
 
-export async function grantComplimentaryFamilyAccess(accountId, reason = "family") {
-  const family = await applyFamilyPlanDefaults(accountId, "admin");
-
-  const { data, error } = await supabase
-    .from("accounts")
-    .update({
-      is_comped: true,
-      comp_reason: reason,
-      comp_expires_at: null,
-    })
-    .eq("id", accountId)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return data ?? family;
-}
-
-export async function revokeComplimentaryAccess(accountId) {
-  await applyFreePlanDefaults(accountId);
-
-  const { data, error } = await supabase
-    .from("accounts")
-    .update({
-      is_comped: false,
-      comp_reason: null,
-      comp_expires_at: null,
-    })
-    .eq("id", accountId)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-
-  await syncAccountSeatUsage(accountId);
-  return data;
-}
-
-export async function deleteMyAccount() {
-  const { error } = await supabase.rpc("delete_my_account");
-  if (error) throw error;
-
-  const { error: signOutError } = await supabase.auth.signOut();
-  if (signOutError) throw signOutError;
-}
+export { resolveOwnerId };

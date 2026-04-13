@@ -1,50 +1,151 @@
-// supabase/functions/stripe-webhook/index.ts
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.25.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+import Stripe from "https://esm.sh/stripe@14.25.0?target=deno";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-04-10",
 });
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") || "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const PLAN_BY_PRICE_ID: Record<string, string> = {
-  // replace these with your real Stripe price IDs
-  "price_plus_monthly": "plus",
-  "price_family_team_monthly": "family_team",
-  "price_business_monthly": "business",
-};
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
-async function updateAccountFromSubscription(subscription: Stripe.Subscription) {
+function getPlanFromPriceId(priceId: string | null) {
+  const plus = Deno.env.get("STRIPE_PRICE_PLUS") || "";
+  const family = Deno.env.get("STRIPE_PRICE_FAMILY") || "";
+  const business = Deno.env.get("STRIPE_PRICE_BUSINESS") || "";
+
+  if (priceId === plus) {
+    return {
+      plan_tier: "plus",
+      seat_limit: 1,
+      storage_limit_mb: 5 * 1024,
+    };
+  }
+
+  if (priceId === family) {
+    return {
+      plan_tier: "family_team",
+      seat_limit: 5,
+      storage_limit_mb: 25 * 1024,
+    };
+  }
+
+  if (priceId === business) {
+    return {
+      plan_tier: "business",
+      seat_limit: 15,
+      storage_limit_mb: 100 * 1024,
+    };
+  }
+
+  return {
+    plan_tier: "free",
+    seat_limit: 1,
+    storage_limit_mb: 1024,
+  };
+}
+
+async function upsertAccountBillingFromSubscription(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
-      : subscription.customer.id;
+      : subscription.customer?.id;
 
-  const priceId = subscription.items.data[0]?.price?.id;
-  const planTier = priceId ? PLAN_BY_PRICE_ID[priceId] ?? "free" : "free";
+  if (!customerId) {
+    throw new Error("Subscription missing customer ID.");
+  }
+
+  const priceId =
+    subscription.items.data?.[0]?.price?.id ||
+    null;
+
+  const plan = getPlanFromPriceId(priceId);
 
   const status = subscription.status;
 
-  const update: Record<string, unknown> = {
-    stripe_subscription_id: subscription.id,
-    stripe_price_id: priceId ?? null,
-    plan_tier:
-      status === "active" || status === "trialing" ? planTier : "free",
-    plan_status: status,
-    billing_source: "stripe",
-    updated_at: new Date().toISOString(),
-  };
+  const planStatus =
+    status === "active" || status === "trialing"
+      ? "active"
+      : status === "past_due"
+        ? "past_due"
+        : status === "canceled" || status === "unpaid" || status === "incomplete_expired"
+          ? "canceled"
+          : status;
+
+  const paid =
+    status === "active" || status === "trialing" || status === "past_due";
+
+  const update = paid
+    ? {
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        billing_source: "stripe",
+        plan_status: planStatus,
+        plan_tier: plan.plan_tier,
+        seat_limit: plan.seat_limit,
+        storage_limit_mb: plan.storage_limit_mb,
+      }
+    : {
+        stripe_customer_id: customerId,
+        stripe_subscription_id: null,
+        billing_source: "none",
+        plan_status: "canceled",
+        plan_tier: "free",
+        seat_limit: 1,
+        storage_limit_mb: 1024,
+      };
 
   const { error } = await supabase
     .from("accounts")
     .update(update)
+    .eq("stripe_customer_id", customerId);
+
+  if (!error) return;
+
+  const { data: accountBySub, error: findBySubError } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  if (findBySubError) {
+    throw findBySubError;
+  }
+
+  if (!accountBySub?.id) {
+    throw error;
+  }
+
+  const { error: fallbackError } = await supabase
+    .from("accounts")
+    .update(update)
+    .eq("id", accountBySub.id);
+
+  if (fallbackError) {
+    throw fallbackError;
+  }
+}
+
+async function cancelAccountBillingByCustomerId(customerId: string) {
+  const { error } = await supabase
+    .from("accounts")
+    .update({
+      billing_source: "none",
+      plan_status: "canceled",
+      plan_tier: "free",
+      stripe_subscription_id: null,
+      seat_limit: 1,
+      storage_limit_mb: 1024,
+    })
     .eq("stripe_customer_id", customerId);
 
   if (error) {
@@ -52,39 +153,74 @@ async function updateAccountFromSubscription(subscription: Stripe.Subscription) 
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const signature = req.headers.get("stripe-signature");
+  if (!signature) {
+    return json({ error: "Missing stripe-signature header" }, 400);
+  }
+
+  const body = await req.text();
+
+  let event: Stripe.Event;
+
   try {
-    const signature = req.headers.get("stripe-signature");
-    if (!signature) {
-      return new Response("Missing stripe-signature", { status: 400 });
-    }
-
-    const body = await req.text();
-
-    const event = await stripe.webhooks.constructEventAsync(
+    event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       webhookSecret
     );
+  } catch (err) {
+    return json(
+      { error: `Webhook signature verification failed: ${err.message}` },
+      400
+    );
+  }
 
+  try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        if (session.customer && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
-            String(session.subscription)
-          );
-          await updateAccountFromSubscription(subscription);
+        if (session.mode !== "subscription") {
+          break;
         }
+
+        const subscriptionId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription?.id;
+
+        if (!subscriptionId) {
+          break;
+        }
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await upsertAccountBillingFromSubscription(subscription);
         break;
       }
 
       case "customer.subscription.created":
-      case "customer.subscription.updated":
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await upsertAccountBillingFromSubscription(subscription);
+        break;
+      }
+
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await updateAccountFromSubscription(subscription);
+
+        const customerId =
+          typeof subscription.customer === "string"
+            ? subscription.customer
+            : subscription.customer?.id;
+
+        if (customerId) {
+          await cancelAccountBillingByCustomerId(customerId);
+        }
         break;
       }
 
@@ -92,21 +228,12 @@ serve(async (req) => {
         break;
     }
 
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    console.error("stripe-webhook error:", error);
-
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Webhook error",
-      }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
+    return json({ received: true });
+  } catch (err) {
+    console.error("stripe-webhook error", err);
+    return json(
+      { error: err instanceof Error ? err.message : "Unknown webhook error" },
+      500
     );
   }
 });

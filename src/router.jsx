@@ -15,11 +15,11 @@ import AuthCallback from "./pages/AuthCallback";
 import Onboarding from "./pages/Onboarding";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Team from "./pages/Team";
 
 export default function AppRouter() {
   return (
     <Routes>
-      {/* public / minimal-chrome routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/privacy" element={<Privacy />} />
@@ -28,7 +28,6 @@ export default function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* protected routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/onboarding" element={<Onboarding />} />
 
@@ -38,6 +37,7 @@ export default function AppRouter() {
           <Route path="/plans" element={<Plans />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/shared" element={<SharedWithMe />} />
+          <Route path="/team" element={<Team />} />
         </Route>
       </Route>
 

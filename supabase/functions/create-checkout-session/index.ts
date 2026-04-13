@@ -17,12 +17,21 @@ function json(data: unknown, status = 200) {
   });
 }
 
+const BLOCKED_SUBSCRIPTION_STATUSES = new Set([
+  "trialing",
+  "active",
+  "past_due",
+  "unpaid",
+  "incomplete",
+]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
   }
 
   try {
@@ -31,12 +40,8 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!stripeSecretKey) {
-      return json({ error: "Missing STRIPE_SECRET_KEY" }, 500);
-    }
-
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-      return json({ error: "Missing Supabase environment variables" }, 500);
+    if (!stripeSecretKey || !supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+      return json({ error: "Missing required env vars" }, 500);
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -48,54 +53,46 @@ serve(async (req) => {
       apiVersion: "2024-04-10",
     });
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
+    // Auth client (user)
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: authHeader } },
     });
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    // Admin client (DB writes)
+    const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const {
-  data: { user },
-  error: userError,
-} = await userClient.auth.getUser();
+      data: { user },
+      error: userError,
+    } = await supabaseUser.auth.getUser();
 
-if (userError) {
-  return json({ error: `Auth error: ${userError.message}` }, 401);
-}
-
-if (!user) {
-  return json({ error: "No authenticated user found." }, 401);
-}
+    if (userError || !user) {
+      return json({ error: "Unauthorized user" }, 401);
+    }
 
     const body = await req.json().catch(() => null);
+
     const priceId = body?.priceId;
     const successUrl = body?.successUrl;
     const cancelUrl = body?.cancelUrl;
 
-    if (!priceId) {
-      return json({ error: "Missing priceId" }, 400);
+    if (!priceId || !successUrl || !cancelUrl) {
+      return json({ error: "Missing required parameters" }, 400);
     }
 
-    if (!successUrl || !cancelUrl) {
-      return json({ error: "Missing successUrl or cancelUrl" }, 400);
-    }
-
-    const { data: account, error: accountError } = await adminClient
+    // 🔍 Get account
+    const { data: account } = await adminClient
       .from("accounts")
-      .select("id, stripe_customer_id")
+      .select("id, owner_id, stripe_customer_id")
       .eq("owner_id", user.id)
       .maybeSingle();
 
-    if (accountError) {
-      return json({ error: accountError.message }, 500);
-    }
-
     let stripeCustomerId = account?.stripe_customer_id ?? null;
 
+    // 🧠 Create Stripe customer if needed
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -106,7 +103,7 @@ if (!user) {
 
       stripeCustomerId = customer.id;
 
-      const { error: updateAccountError } = await adminClient
+      const { error: updateError } = await adminClient
         .from("accounts")
         .upsert(
           {
@@ -117,27 +114,55 @@ if (!user) {
           { onConflict: "owner_id" }
         );
 
-      if (updateAccountError) {
-        return json({ error: updateAccountError.message }, 500);
+      if (updateError) {
+        return json({ error: "Failed to save Stripe customer" }, 500);
       }
     }
 
-    const checkoutSession = await stripe.checkout.sessions.create({
+    // 🚫 Prevent duplicate subscriptions
+    const existingSubscriptions = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 20,
+    });
+
+    const blockingSubscription = existingSubscriptions.data.find((sub) =>
+      BLOCKED_SUBSCRIPTION_STATUSES.has(sub.status)
+    );
+
+    if (blockingSubscription) {
+      return json(
+        {
+          error: "Already subscribed. Use Manage Billing.",
+          code: "subscription_exists",
+        },
+        409
+      );
+    }
+
+    // 🚀 Create checkout session
+    const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
+
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
+
       success_url: successUrl,
       cancel_url: cancelUrl,
+
       allow_promotion_codes: true,
+
       client_reference_id: user.id,
+
       metadata: {
         supabase_user_id: user.id,
       },
+
       subscription_data: {
         metadata: {
           supabase_user_id: user.id,
@@ -146,8 +171,8 @@ if (!user) {
     });
 
     return json({
-      url: checkoutSession.url,
-      sessionId: checkoutSession.id,
+      url: session.url,
+      sessionId: session.id,
     });
   } catch (error) {
     console.error("create-checkout-session error:", error);
