@@ -852,10 +852,6 @@ const [searchParams, setSearchParams] = useSearchParams();
 
         queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
 
-        toast({
-          title: "Table created",
-          description: "Default tabs were added.",
-        });
       } catch (e) {
         toast({
           title: "Couldn’t create default tabs",
