@@ -22,7 +22,7 @@ entrypoint = "./functions/create-customer-portal-session/index.ts"
 
 [functions.reset-test-billing]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/reset-test-billing/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -33,7 +33,7 @@ entrypoint = "./functions/reset-test-billing/index.ts"
 
 [functions.change-subscription-plan]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/change-subscription-plan/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx

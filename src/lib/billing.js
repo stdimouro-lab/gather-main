@@ -1,6 +1,21 @@
 import { supabase } from "@/lib/supabase";
+import {
+  hasAppleBillingBridge,
+  startAppleUpgrade,
+  restoreApplePurchases as restoreApplePurchasesBridge,
+} from "@/lib/appleBillingBridge";
 
-async function getBaseUrl() {
+function getFunctionsBaseUrl() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  if (!supabaseUrl) {
+    throw new Error("Missing VITE_SUPABASE_URL.");
+  }
+
+  return `${supabaseUrl}/functions/v1`;
+}
+
+function getSiteBaseUrl() {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
   }
@@ -8,32 +23,66 @@ async function getBaseUrl() {
   return import.meta.env.VITE_SITE_URL || "";
 }
 
-async function authedJson(url, options = {}) {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+export function isNativeBillingEnvironment() {
+  return hasAppleBillingBridge();
+}
 
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-  };
+async function getFreshAccessToken() {
+  const { data: refreshData, error: refreshError } =
+    await supabase.auth.refreshSession();
 
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
+  if (refreshError) {
+    throw new Error(refreshError.message || "Could not refresh auth session.");
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
+  const refreshedToken = refreshData?.session?.access_token;
+  if (refreshedToken) {
+    return refreshedToken;
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(sessionError.message || "Could not read auth session.");
+  }
+
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("You are not signed in. Please sign in again.");
+  }
+
+  return accessToken;
+}
+
+async function authedJson(path, options = {}) {
+  const accessToken = await getFreshAccessToken();
+
+  const response = await fetch(`${getFunctionsBaseUrl()}${path}`, {
+    method: options.method || "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      ...(options.headers || {}),
+    },
+    body:
+      options.body !== undefined
+        ? typeof options.body === "string"
+          ? options.body
+          : JSON.stringify(options.body)
+        : undefined,
   });
 
-  let payload = null;
-  const text = await response.text();
+  const raw = await response.text();
 
+  let payload = null;
   try {
-    payload = text ? JSON.parse(text) : null;
+    payload = raw ? JSON.parse(raw) : null;
   } catch {
-    payload = { raw: text };
+    payload = raw ? { error: raw } : null;
   }
 
   if (!response.ok) {
@@ -47,75 +96,88 @@ async function authedJson(url, options = {}) {
   return payload;
 }
 
-export async function startCheckout({ priceId }) {
+export async function startCheckout({ priceId, plan = "family" }) {
+  if (isNativeBillingEnvironment()) {
+    return startAppleUpgrade(plan);
+  }
+
   if (!priceId) {
     throw new Error("Missing Stripe price ID.");
   }
 
-  const baseUrl = await getBaseUrl();
+  const baseUrl = getSiteBaseUrl();
 
-  const successUrl = `${baseUrl}/plans?checkout=success&source=stripe`;
-  const cancelUrl = `${baseUrl}/plans?checkout=canceled&source=stripe`;
-
-  const payload = await authedJson(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        priceId,
-        successUrl,
-        cancelUrl,
-      }),
-    }
-  );
+  const payload = await authedJson("/create-checkout-session", {
+    method: "POST",
+    body: {
+      priceId,
+      successUrl: `${baseUrl}/plans?checkout=success&source=stripe`,
+      cancelUrl: `${baseUrl}/plans?checkout=canceled&source=stripe`,
+    },
+  });
 
   if (!payload?.url) {
     throw new Error("Checkout session did not return a redirect URL.");
   }
 
   window.location.href = payload.url;
+  return payload;
 }
 
 export async function openCustomerPortal() {
-  const baseUrl = await getBaseUrl();
+  if (isNativeBillingEnvironment()) {
+    throw new Error(
+      "Billing portal is not available for Apple-managed subscriptions in the app."
+    );
+  }
 
-  const payload = await authedJson(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-customer-portal-session`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        returnUrl: `${baseUrl}/plans`,
-      }),
-    }
-  );
+  const baseUrl = getSiteBaseUrl();
+
+  const payload = await authedJson("/create-customer-portal-session", {
+    method: "POST",
+    body: {
+      returnUrl: `${baseUrl}/plans`,
+    },
+  });
 
   if (!payload?.url) {
     throw new Error("Billing portal did not return a redirect URL.");
   }
 
   window.location.href = payload.url;
+  return payload;
 }
 
-export async function changeSubscriptionPlan({ priceId }) {
+export async function changeSubscriptionPlan({ priceId, plan = "family" }) {
+  if (isNativeBillingEnvironment()) {
+    return startAppleUpgrade(plan);
+  }
+
   if (!priceId) {
     throw new Error("Missing Stripe price ID.");
   }
 
-  return authedJson(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/change-subscription-plan`,
-    {
-      method: "POST",
-      body: JSON.stringify({ priceId }),
-    }
-  );
+  return authedJson("/change-subscription-plan", {
+    method: "POST",
+    body: { priceId },
+  });
+}
+
+export async function restoreApplePurchases() {
+  if (!isNativeBillingEnvironment()) {
+    throw new Error("Restore Purchases is only available in the native iOS app.");
+  }
+
+  return restoreApplePurchasesBridge();
 }
 
 export async function resetTestBilling() {
-  return authedJson(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-test-billing`,
-    {
-      method: "POST",
-      body: JSON.stringify({}),
-    }
-  );
+  if (isNativeBillingEnvironment()) {
+    throw new Error("Test billing reset is only available for Stripe web billing.");
+  }
+
+  return authedJson("/reset-test-billing", {
+    method: "POST",
+    body: {},
+  });
 }

@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
+import UsageBar from "@/components/UsageBar";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import useEntitlement from "@/hooks/useEntitlement";
@@ -23,7 +24,7 @@ export default function Settings() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
-    const {
+  const {
     planTier,
     isComped,
     billingSource,
@@ -44,6 +45,12 @@ export default function Settings() {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
+
+  const storageUsedGb = Number(((storageUsedMb || 0) / 1024).toFixed(1));
+  const storageLimitGb = Number(((storageLimitMb || 0) / 1024).toFixed(1));
+  const storageUsageRatio =
+    storageLimitMb > 0 ? (storageUsedMb || 0) / storageLimitMb : 0;
+  const seatUsageRatio = seatLimit > 0 ? (seatsUsed || 0) / seatLimit : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -304,70 +311,105 @@ export default function Settings() {
           </div>
         </section>
 
-<section className="rounded-2xl border bg-white p-6 shadow-sm">
-  <div className="flex items-center gap-2">
-    <Users className="h-5 w-5 text-slate-700" />
-    <h2 className="text-xl font-semibold text-slate-900">Billing</h2>
-  </div>
+        <section className="rounded-2xl border bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-slate-700" />
+            <h2 className="text-xl font-semibold text-slate-900">Billing</h2>
+          </div>
 
-  <p className="mt-1 text-sm text-slate-500">
-    Your Gather plan, seats, storage, and purchase recovery options.
-  </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Your Gather plan, seats, storage, and purchase recovery options.
+          </p>
 
-  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    <div className="rounded-xl border bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">Plan</p>
-      <p className="mt-1 font-medium text-slate-900 capitalize">
-        {isComped ? "Complimentary" : planTier}
-      </p>
-    </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Plan</p>
+              <p className="mt-1 font-medium text-slate-900 capitalize">
+                {isComped ? "Complimentary" : planTier}
+              </p>
+            </div>
 
-    <div className="rounded-xl border bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">Billing source</p>
-      <p className="mt-1 font-medium text-slate-900 capitalize">
-        {billingSource}
-      </p>
-    </div>
+            <div className="rounded-xl border bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Billing source</p>
+              <p className="mt-1 font-medium text-slate-900 capitalize">
+                {billingSource}
+              </p>
+            </div>
+          </div>
 
-    <div className="rounded-xl border bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">Seats</p>
-      <p className="mt-1 font-medium text-slate-900">
-        {seatsUsed} / {seatLimit}
-      </p>
-    </div>
+          <div className="mt-4 space-y-4">
+            <UsageBar
+              label="Storage"
+              used={storageUsedGb}
+              limit={storageLimitGb || 0.1}
+              unit="GB"
+            />
 
-    <div className="rounded-xl border bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">Storage</p>
-      <p className="mt-1 font-medium text-slate-900">
-        {(storageUsedMb / 1024).toFixed(1)} / {(storageLimitMb / 1024).toFixed(1)} GB
-      </p>
-    </div>
-  </div>
+            <UsageBar
+              label="Seats"
+              used={seatsUsed || 0}
+              limit={seatLimit || 1}
+            />
 
-  <div className="mt-4 flex flex-wrap gap-3">
-    <button
-  type="button"
-  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-  onClick={async () => {
-    try {
-      await restoreApplePurchases();
-    } catch (error) {
-      alert(error?.message ?? "Restore Purchases is not connected yet.");
-    }
-  }}
->
-  Restore Purchases
-</button>
+            {storageUsageRatio >= 0.95 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Your storage is almost full. Upgrade soon to keep adding memories
+                and files.
+              </div>
+            )}
 
-    <button
-      type="button"
-      onClick={() => navigate("/plans")}
-      className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-    >
-      View plans
-    </button>
-  </div>
-</section>
+            {storageUsageRatio >= 0.8 && storageUsageRatio < 0.95 && (
+              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
+                You’re getting close to your storage limit.
+              </div>
+            )}
+
+            {seatUsageRatio >= 1 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                You’ve reached your seat limit for this plan.
+              </div>
+            )}
+
+            {seatUsageRatio >= 0.8 && seatUsageRatio < 1 && (
+              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
+                You’re getting close to your seat limit.
+              </div>
+            )}
+
+            {planTier === "free" && (
+              <div className="rounded-xl border bg-slate-50 p-4">
+                <p className="text-sm text-slate-700">
+                  Upgrade to unlock more storage, more seats, and better shared
+                  planning for families and teams.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              onClick={async () => {
+                try {
+                  await restoreApplePurchases();
+                } catch (error) {
+                  alert(error?.message ?? "Restore Purchases is not connected yet.");
+                }
+              }}
+            >
+              Restore Purchases
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/plans")}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              View plans
+            </button>
+          </div>
+        </section>
 
         <DeleteAccountSection />
       </div>

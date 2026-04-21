@@ -1,6 +1,7 @@
 // src/pages/calendar.jsx
 import { generateSuggestions } from "@/lib/ai/suggestions";
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -93,6 +94,7 @@ export default function CalendarPage() {
 
   const queryClient = useQueryClient();
 
+const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const [view, setView] = useState(isMobile ? "week" : "month");
@@ -807,6 +809,22 @@ export default function CalendarPage() {
     }
   }, [allTabs, activeTabs.length]);
 
+  useEffect(() => {
+  const requestedTabId = searchParams.get("tab");
+  if (!requestedTabId) return;
+  if (!allTabs.length) return;
+
+  const tabExists = allTabs.some((t) => t.id === requestedTabId);
+  if (!tabExists) return;
+
+  setActiveTabs([requestedTabId]);
+  setSelectedTab(null);
+
+  const nextParams = new URLSearchParams(searchParams);
+  nextParams.delete("tab");
+  setSearchParams(nextParams, { replace: true });
+}, [allTabs, searchParams, setSearchParams]);
+
   // Auto-create default tabs for new users (first run)
   useEffect(() => {
     if (!user || isLoadingTabs) return;
@@ -849,23 +867,17 @@ export default function CalendarPage() {
   }, [user, isLoadingTabs, ownedTabs.length, queryClient]);
 
   useEffect(() => {
-    async function syncInvites() {
-      if (!user?.id || !user?.email) return;
+  const handleInviteSync = () => {
+    queryClient.invalidateQueries({ queryKey: ["tabs", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user?.id] });
+  };
 
-      try {
-        await claimTabInvitesForUser({
-          userId: user.id,
-          email: user.email,
-        });
-        queryClient.invalidateQueries({ queryKey: ["tabs"] });
-        queryClient.invalidateQueries({ queryKey: ["shared-tabs"] });
-      } catch (error) {
-        console.error("Failed to sync tab invites", error);
-      }
-    }
+  window.addEventListener("gather:invites-claimed", handleInviteSync);
 
-    syncInvites();
-  }, [user?.id, user?.email, queryClient]);
+  return () => {
+    window.removeEventListener("gather:invites-claimed", handleInviteSync);
+  };
+}, [queryClient, user?.id]);
 
   // ---------- EVENTS (Supabase) ----------
   const range = useMemo(() => {
@@ -1190,53 +1202,19 @@ const bridgeNotConnected = (msg = "Not connected yet (coming next).") => {
 
 const shareTabMutation = useMutation({
   mutationFn: async ({ tabId, email, role }) => {
-    const normalizedEmail = String(email ?? "").trim().toLowerCase();
-
-    if (!normalizedEmail) {
-      throw new Error("Enter an email address to invite.");
-    }
-
     if (!hasPaidAccess) {
-      throw new Error("Inviting people is part of the Family plan.");
+      throw new Error("Inviting people requires a paid plan.");
     }
 
-    if (normalizedEmail === String(user?.email ?? "").trim().toLowerCase()) {
-      throw new Error("You are already on this account.");
+    if (remainingSeats <= 0) {
+      throw new Error("Your plan has reached its seat limit.");
     }
 
-    // Re-sync seat usage before checking limits so stale UI does not allow extra invites
-    if (account?.id) {
-      await syncAccountSeatUsage(account.id);
-      await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+    if (!email || !email.includes("@")) {
+      throw new Error("Enter a valid email.");
     }
 
-    const freshAccount = await queryClient.fetchQuery({
-      queryKey: ["account", user.id],
-      queryFn: () => fetchMyAccount(user.id),
-    });
-
-    const freshSeatLimit =
-      typeof freshAccount?.seat_limit === "number" && freshAccount.seat_limit > 0
-        ? freshAccount.seat_limit
-        : seatLimit;
-
-    const freshSeatsUsed =
-      typeof freshAccount?.seats_used === "number" && freshAccount.seats_used >= 0
-        ? freshAccount.seats_used
-        : seatsUsed;
-
-    const freshRemainingSeats = Math.max(freshSeatLimit - freshSeatsUsed, 0);
-
-    if (freshRemainingSeats <= 0) {
-      throw new Error("Your account has reached its current seat limit.");
-    }
-
-    return inviteToTab({
-      tabId,
-      ownerId: user.id,
-      email: normalizedEmail,
-      role,
-    });
+    return inviteToTab({ tabId, ownerId: user.id, email, role });
   },
 
   onSuccess: async () => {
@@ -1246,9 +1224,8 @@ const shareTabMutation = useMutation({
       await syncAccountSeatUsage(account.id);
     }
 
-    await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
+    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+    queryClient.invalidateQueries({ queryKey: ["account", user.id] });
   },
 
   onError: (e) =>

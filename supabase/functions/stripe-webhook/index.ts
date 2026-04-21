@@ -42,7 +42,7 @@ function getPlanFromPriceId(priceId: string | null) {
   if (priceId === business) {
     return {
       plan_tier: "business",
-      seat_limit: 15,
+      seat_limit: 25,
       storage_limit_mb: 100 * 1024,
     };
   }
@@ -54,7 +54,56 @@ function getPlanFromPriceId(priceId: string | null) {
   };
 }
 
-async function upsertAccountBillingFromSubscription(subscription: Stripe.Subscription) {
+async function findAccountByCustomerOrMetadata(input: {
+  customerId?: string | null;
+  subscription?: Stripe.Subscription | null;
+  checkoutSession?: Stripe.Checkout.Session | null;
+}) {
+  const { customerId, subscription, checkoutSession } = input;
+
+  if (customerId) {
+    const { data: byCustomer, error: byCustomerError } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+
+    if (byCustomerError) throw byCustomerError;
+    if (byCustomer) return byCustomer;
+  }
+
+  const metadataUserId =
+    subscription?.metadata?.supabase_user_id ||
+    checkoutSession?.metadata?.supabase_user_id ||
+    checkoutSession?.client_reference_id ||
+    null;
+
+  if (metadataUserId) {
+    const { data: byOwner, error: byOwnerError } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("owner_id", metadataUserId)
+      .maybeSingle();
+
+    if (byOwnerError) throw byOwnerError;
+    if (byOwner) return byOwner;
+  }
+
+  if (subscription?.id) {
+    const { data: bySub, error: bySubError } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("stripe_subscription_id", subscription.id)
+      .maybeSingle();
+
+    if (bySubError) throw bySubError;
+    if (bySub) return bySub;
+  }
+
+  return null;
+}
+
+async function applySubscriptionToAccount(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
@@ -64,11 +113,17 @@ async function upsertAccountBillingFromSubscription(subscription: Stripe.Subscri
     throw new Error("Subscription missing customer ID.");
   }
 
-  const priceId =
-    subscription.items.data?.[0]?.price?.id ||
-    null;
-
+  const priceId = subscription.items.data?.[0]?.price?.id || null;
   const plan = getPlanFromPriceId(priceId);
+
+  const account = await findAccountByCustomerOrMetadata({
+    customerId,
+    subscription,
+  });
+
+  if (!account?.owner_id) {
+    throw new Error("Could not find account for Stripe subscription.");
+  }
 
   const status = subscription.status;
 
@@ -77,80 +132,121 @@ async function upsertAccountBillingFromSubscription(subscription: Stripe.Subscri
       ? "active"
       : status === "past_due"
         ? "past_due"
-        : status === "canceled" || status === "unpaid" || status === "incomplete_expired"
+        : status === "canceled" ||
+            status === "unpaid" ||
+            status === "incomplete_expired"
           ? "canceled"
           : status;
 
-  const paid =
+  const shouldHavePaidPlan =
     status === "active" || status === "trialing" || status === "past_due";
 
-  const update = paid
+  const update = shouldHavePaidPlan
     ? {
+        owner_id: account.owner_id,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
+        stripe_price_id: priceId,
         billing_source: "stripe",
         plan_status: planStatus,
         plan_tier: plan.plan_tier,
         seat_limit: plan.seat_limit,
         storage_limit_mb: plan.storage_limit_mb,
+        updated_at: new Date().toISOString(),
       }
     : {
+        owner_id: account.owner_id,
         stripe_customer_id: customerId,
         stripe_subscription_id: null,
+        stripe_price_id: null,
         billing_source: "none",
         plan_status: "canceled",
         plan_tier: "free",
         seat_limit: 1,
         storage_limit_mb: 1024,
+        updated_at: new Date().toISOString(),
       };
 
   const { error } = await supabase
     .from("accounts")
-    .update(update)
-    .eq("stripe_customer_id", customerId);
+    .upsert(update, { onConflict: "owner_id" });
 
-  if (!error) return;
-
-  const { data: accountBySub, error: findBySubError } = await supabase
-    .from("accounts")
-    .select("id")
-    .eq("stripe_subscription_id", subscription.id)
-    .maybeSingle();
-
-  if (findBySubError) {
-    throw findBySubError;
-  }
-
-  if (!accountBySub?.id) {
-    throw error;
-  }
-
-  const { error: fallbackError } = await supabase
-    .from("accounts")
-    .update(update)
-    .eq("id", accountBySub.id);
-
-  if (fallbackError) {
-    throw fallbackError;
-  }
+  if (error) throw error;
 }
 
-async function cancelAccountBillingByCustomerId(customerId: string) {
+async function applyCheckoutSessionToAccount(session: Stripe.Checkout.Session) {
+  const customerId =
+    typeof session.customer === "string" ? session.customer : session.customer?.id;
+
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription?.id;
+
+  if (!subscriptionId) return;
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  if (customerId) {
+    const existing = await findAccountByCustomerOrMetadata({
+      customerId,
+      subscription,
+      checkoutSession: session,
+    });
+
+    if (existing?.owner_id) {
+      const { error } = await supabase
+        .from("accounts")
+        .upsert(
+          {
+            owner_id: existing.owner_id,
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "owner_id" }
+        );
+
+      if (error) throw error;
+    }
+  }
+
+  await applySubscriptionToAccount(subscription);
+}
+
+async function cancelAccountBySubscription(subscription: Stripe.Subscription) {
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer?.id;
+
+  const account = await findAccountByCustomerOrMetadata({
+    customerId,
+    subscription,
+  });
+
+  if (!account?.owner_id) {
+    throw new Error("Could not find account to cancel.");
+  }
+
   const { error } = await supabase
     .from("accounts")
-    .update({
-      billing_source: "none",
-      plan_status: "canceled",
-      plan_tier: "free",
-      stripe_subscription_id: null,
-      seat_limit: 1,
-      storage_limit_mb: 1024,
-    })
-    .eq("stripe_customer_id", customerId);
+    .upsert(
+      {
+        owner_id: account.owner_id,
+        stripe_customer_id: customerId || account.stripe_customer_id || null,
+        stripe_subscription_id: null,
+        stripe_price_id: null,
+        billing_source: "none",
+        plan_status: "canceled",
+        plan_tier: "free",
+        seat_limit: 1,
+        storage_limit_mb: 1024,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "owner_id" }
+    );
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 }
 
 Deno.serve(async (req) => {
@@ -175,7 +271,11 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     return json(
-      { error: `Webhook signature verification failed: ${err.message}` },
+      {
+        error: `Webhook signature verification failed: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+      },
       400
     );
   }
@@ -185,42 +285,22 @@ Deno.serve(async (req) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        if (session.mode !== "subscription") {
-          break;
+        if (session.mode === "subscription") {
+          await applyCheckoutSessionToAccount(session);
         }
-
-        const subscriptionId =
-          typeof session.subscription === "string"
-            ? session.subscription
-            : session.subscription?.id;
-
-        if (!subscriptionId) {
-          break;
-        }
-
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await upsertAccountBillingFromSubscription(subscription);
         break;
       }
 
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        await upsertAccountBillingFromSubscription(subscription);
+        await applySubscriptionToAccount(subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-
-        const customerId =
-          typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer?.id;
-
-        if (customerId) {
-          await cancelAccountBillingByCustomerId(customerId);
-        }
+        await cancelAccountBySubscription(subscription);
         break;
       }
 
@@ -231,8 +311,11 @@ Deno.serve(async (req) => {
     return json({ received: true });
   } catch (err) {
     console.error("stripe-webhook error", err);
+
     return json(
-      { error: err instanceof Error ? err.message : "Unknown webhook error" },
+      {
+        error: err instanceof Error ? err.message : "Unknown webhook error",
+      },
       500
     );
   }

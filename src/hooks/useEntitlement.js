@@ -1,8 +1,12 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthProvider";
 import { fetchMyAccount } from "@/lib/account";
 import { getPlanConfig } from "@/lib/entitlements";
+import {
+  hasAppleBillingBridge,
+  syncAppleEntitlements,
+} from "@/lib/appleBillingBridge";
 
 function isNumber(value) {
   return typeof value === "number" && !Number.isNaN(value);
@@ -15,7 +19,7 @@ function normalizeSeatLimit(value, fallback) {
 
 function normalizeSeatsUsed(value) {
   if (isNumber(value) && value >= 0) return value;
-  return 1; // owner counts as one seat by default
+  return 1;
 }
 
 function normalizeStorageLimit(value, fallback) {
@@ -34,6 +38,7 @@ export function getAccountQueryKey(userId) {
 
 export default function useEntitlement() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const userId = user?.id ?? null;
 
   const accountQuery = useQuery({
@@ -45,6 +50,33 @@ export default function useEntitlement() {
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+  useEffect(() => {
+    if (!userId) return;
+    if (!hasAppleBillingBridge()) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        await syncAppleEntitlements();
+
+        if (cancelled) return;
+
+        await queryClient.invalidateQueries({
+          queryKey: getAccountQueryKey(userId),
+        });
+      } catch (error) {
+        console.warn("Apple entitlement sync skipped:", error);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient, userId]);
 
   const { data: account, isLoading, isFetching, error, refetch } = accountQuery;
 
@@ -68,7 +100,6 @@ export default function useEntitlement() {
       account?.storage_limit_mb,
       config.storageLimitMb
     );
-
     const storageUsedMb = normalizeStorageUsed(account?.storage_used_mb);
 
     const remainingSeats = Math.max(seatLimit - seatsUsed, 0);
@@ -76,6 +107,13 @@ export default function useEntitlement() {
 
     const isAtSeatLimit = seatsUsed >= seatLimit;
     const isOverSeatLimit = seatsUsed > seatLimit;
+    const isAtStorageLimit = storageUsedMb >= storageLimitMb;
+    const isOverStorageLimit = storageUsedMb > storageLimitMb;
+
+    const isStripeBilling = billingSource === "stripe";
+    const isAppleBilling = billingSource === "apple";
+    const isAdminBilling = billingSource === "admin";
+    const isFreeBilling = billingSource === "none";
 
     return {
       account,
@@ -93,6 +131,12 @@ export default function useEntitlement() {
       storageLimitMb,
       storageUsedMb,
       storageRemainingMb,
+      isAtStorageLimit,
+      isOverStorageLimit,
+      isStripeBilling,
+      isAppleBilling,
+      isAdminBilling,
+      isFreeBilling,
     };
   }, [account]);
 

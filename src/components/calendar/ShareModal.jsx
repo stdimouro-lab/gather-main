@@ -281,100 +281,111 @@ export default function ShareModal({
 
           <div className="space-y-3">
             <Label className="text-xs font-medium text-slate-500">
-              People with access
-            </Label>
+  People with access
+</Label>
 
-            {shares.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                No one has been invited yet.
+{shares.length === 0 ? (
+  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+    No one has access yet. Invite someone above to collaborate.
+  </div>
+) : (
+  <div className="space-y-2">
+    <AnimatePresence>
+      {shares.map((share) => {
+        const shareEmail = getShareEmail(share);
+        const isPending =
+          !share.accepted || share.status === "pending";
+
+        return (
+          <motion.div
+            key={share.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-200 hover:shadow-sm"
+          >
+            {/* LEFT SIDE */}
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="bg-slate-100 text-xs font-medium text-slate-600">
+                  {getInitials(shareEmail)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-800">
+                  {shareEmail}
+                </p>
+
+                <div className="flex items-center gap-2 mt-0.5">
+                  {isPending ? (
+                    <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-[10px] px-2 py-0">
+                      Pending
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0">
+                      Active
+                    </Badge>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <AnimatePresence>
-                  {shares.map((share) => {
-                    const shareEmail = getShareEmail(share);
-                    const isPending = !share.accepted || share.status === "pending";
+            </div>
 
-                    return (
-                      <motion.div
-                        key={share.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback className="bg-slate-100 text-xs font-medium text-slate-600">
-                              {getInitials(shareEmail)}
-                            </AvatarFallback>
-                          </Avatar>
+            {/* RIGHT SIDE */}
+            <div className="flex shrink-0 items-center gap-2">
+              <Select
+                value={share.role || "viewer"}
+                disabled={isPending}
+                onValueChange={(newRole) => {
+                  onUpdateShare(share.id, newRole);
 
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-700">
-                              {shareEmail}
-                            </p>
-                            {isPending && (
-                              <p className="text-xs text-amber-600">Pending invite</p>
-                            )}
-                          </div>
-                        </div>
+                  toast({
+                    title: "Access updated",
+                    description: `Now ${newRole}`,
+                  });
+                }}
+              >
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                </SelectContent>
+              </Select>
 
-                        <div className="flex shrink-0 items-center gap-2">
-                          <Select
-                            value={share.role || "viewer"}
-                            disabled={isPending}
-                            onValueChange={(newRole) => {
-                              onUpdateShare(share.id, newRole);
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                onClick={async () => {
+                  try {
+                    await onRemoveShare(share.id);
 
-                              toast({
-                                title: "Access updated",
-                                description: `Role changed to ${newRole}.`,
-                              });
-                            }}
-                          >
-                            <SelectTrigger className="h-8 w-24 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              <SelectItem value="editor">Editor</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                            onClick={async () => {
-                              try {
-                                await onRemoveShare(share.id);
-
-                                toast({
-                                  title: "Access removed",
-                                  description:
-                                    "User no longer has access to this tab.",
-                                });
-                              } catch (err) {
-                                toast({
-                                  title: "Remove failed",
-                                  description:
-                                    err?.message ?? "Something went wrong.",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
+                    toast({
+                      title: "Access removed",
+                      description: "User removed from this table.",
+                    });
+                  } catch (err) {
+                    toast({
+                      title: "Remove failed",
+                      description:
+                        err?.message ?? "Something went wrong.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </motion.div>
+        );
+      })}
+    </AnimatePresence>
+  </div>
+)}
           </div>
         </div>
       </DialogContent>

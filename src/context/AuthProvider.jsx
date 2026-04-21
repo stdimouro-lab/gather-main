@@ -339,8 +339,8 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log("onAuthStateChange", event, !!newSession?.user);
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      console.log("onAuthStateChange", _event, !!newSession?.user);
 
       safeSet(() => setLoading(true));
 
@@ -359,21 +359,31 @@ export function AuthProvider({ children }) {
   }, [clearAuthState, hydrateFromSession, safeSet]);
 
   useEffect(() => {
-    if (!user?.id || !user?.email || !session) return;
+  if (!user?.id || !user?.email || !session) return;
 
-    const claimKey = `${user.id}:${user.email.toLowerCase().trim()}`;
-    if (claimedInviteKeyRef.current === claimKey) return;
+  const claimKey = `${user.id}:${user.email.toLowerCase().trim()}`;
+  if (claimedInviteKeyRef.current === claimKey) return;
 
-    claimedInviteKeyRef.current = claimKey;
+  claimedInviteKeyRef.current = claimKey;
 
-    claimTabInvitesForUser({
-      userId: user.id,
-      email: user.email,
-    }).catch((e) => {
+  (async () => {
+    try {
+      const claimed = await claimTabInvitesForUser({
+        userId: user.id,
+        email: user.email,
+      });
+
+      // 🔥 FORCE UI SYNC if anything was claimed
+      if (claimed?.length) {
+        console.log("Invites claimed, refreshing UI...");
+        window.dispatchEvent(new Event("gather:invites-claimed"));
+      }
+    } catch (e) {
       console.error("Failed to claim tab invites:", e);
       claimedInviteKeyRef.current = null;
-    });
-  }, [user?.id, user?.email, session]);
+    }
+  })();
+}, [user?.id, user?.email, session]);
 
   const signIn = async ({ email, password }) => {
     return await supabase.auth.signInWithPassword({
@@ -457,3 +467,5 @@ export function useAuth() {
   }
   return ctx;
 }
+
+export default AuthProvider;

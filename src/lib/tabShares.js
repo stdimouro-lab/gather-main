@@ -20,6 +20,16 @@ async function getTabById(tabId) {
 async function assertSeatAvailable(ownerId) {
   const result = await syncAccountSeatUsage(ownerId);
 
+  if (result.seatsUsed > result.account.seat_limit) {
+    const err = new Error(
+      "Your account is over its seat limit. Remove members or upgrade before inviting anyone new."
+    );
+    err.code = "ACCOUNT_OVER_SEAT_LIMIT";
+    err.seatLimit = result.account.seat_limit;
+    err.seatsUsed = result.seatsUsed;
+    throw err;
+  }
+
   if (result.seatsUsed >= result.account.seat_limit) {
     const err = new Error("Seat limit reached");
     err.code = "SEAT_LIMIT_REACHED";
@@ -31,19 +41,34 @@ async function assertSeatAvailable(ownerId) {
   return result;
 }
 
+async function findExistingInviteForTable(tabId, normalizedEmail) {
+  const { data, error } = await supabase
+    .from("tab_shares")
+    .select("*")
+    .eq("tab_id", tabId)
+    .eq("invited_email", normalizedEmail)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function claimTabInvitesForUser({ userId, email }) {
   const normalizedEmail = normalizeEmail(email);
   if (!userId || !normalizedEmail) return [];
 
+  // 🔒 ONLY claim true pending invites that are NOT already claimed
   const { data: invites, error: invitesError } = await supabase
     .from("tab_shares")
     .select("*")
     .eq("invited_email", normalizedEmail)
-    .in("status", ["pending", "accepted"]);
+    .eq("status", "pending")
+    .is("shared_with_id", null);
 
   if (invitesError) throw invitesError;
   if (!invites?.length) return [];
 
+  // ✅ Safe update (no overwrite of already accepted rows)
   const updates = invites.map((invite) => ({
     id: invite.id,
     invited_user_id: userId,
@@ -58,10 +83,11 @@ export async function claimTabInvitesForUser({ userId, email }) {
 
   if (updateError) throw updateError;
 
+  // 🔁 Sync seat usage (billing)
   const ownerIds = [...new Set(invites.map((i) => i.owner_id).filter(Boolean))];
   await Promise.all(ownerIds.map((id) => syncAccountSeatUsage(id)));
 
-  return invites;
+  return updates;
 }
 
 export async function inviteToTab({ tabId, email, role = "viewer", sharedById }) {
@@ -74,34 +100,18 @@ export async function inviteToTab({ tabId, email, role = "viewer", sharedById })
     throw new Error("Tab is missing account_id");
   }
 
-  const { data: existingShare, error: existingError } = await supabase
-    .from("tab_shares")
-    .select("*")
-    .eq("tab_id", tabId)
-    .eq("invited_email", normalizedEmail)
-    .maybeSingle();
+  const existingShare = await findExistingInviteForTable(tabId, normalizedEmail);
 
-  if (existingError) throw existingError;
+  if (existingShare?.accepted || existingShare?.status === "accepted") {
+    const err = new Error("This person already has access to this table.");
+    err.code = "ALREADY_HAS_ACCESS";
+    throw err;
+  }
 
-  if (existingShare) {
-    const { data, error } = await supabase
-      .from("tab_shares")
-      .update({
-        account_id: tab.account_id,
-        owner_id: tab.owner_id,
-        shared_by_id: sharedById,
-        role,
-        accepted: false,
-        status: "pending",
-      })
-      .eq("id", existingShare.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await syncAccountSeatUsage(tab.owner_id);
-    return data;
+  if (existingShare?.status === "pending" && !existingShare?.accepted) {
+    const err = new Error("There is already a pending invite for this table.");
+    err.code = "INVITE_ALREADY_PENDING";
+    throw err;
   }
 
   await assertSeatAvailable(tab.owner_id);
@@ -160,10 +170,7 @@ export async function removeTabShare(shareId) {
 
   if (existingError) throw existingError;
 
-  const { error } = await supabase
-    .from("tab_shares")
-    .delete()
-    .eq("id", shareId);
+  const { error } = await supabase.from("tab_shares").delete().eq("id", shareId);
 
   if (error) throw error;
 
@@ -207,7 +214,6 @@ export async function listTeamShares(ownerId) {
 
 export async function listTeamMembers(ownerId) {
   const shares = await listTeamShares(ownerId);
-
   const map = new Map();
 
   for (const share of shares) {
@@ -224,7 +230,8 @@ export async function listTeamMembers(ownerId) {
         key,
         userId,
         email,
-        status: share.accepted || share.status === "accepted" ? "accepted" : "pending",
+        status:
+          share.accepted || share.status === "accepted" ? "accepted" : "pending",
         role: share.role || "viewer",
         shares: [share],
         tabCount: 1,

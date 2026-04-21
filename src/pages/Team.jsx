@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock3,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import useEntitlement from "@/hooks/useEntitlement";
@@ -48,6 +49,7 @@ export default function Team() {
     seatLimit,
     seatsUsed,
     remainingSeats,
+    isOverSeatLimit,
     hasPaidAccess,
     planTier,
     account,
@@ -102,9 +104,20 @@ export default function Team() {
 
       const synced = await syncAccountSeatUsage(user.id);
       const freshSeatsUsed = synced?.seatsUsed ?? seatsUsed;
+      const freshSeatLimit = synced?.account?.seat_limit ?? seatLimit;
 
-      if (freshSeatsUsed >= seatLimit) {
-        throw new Error("Your account has reached its current seat limit.");
+      if (freshSeatsUsed > freshSeatLimit) {
+        const err = new Error(
+          "Your account is over its seat limit. Remove members or upgrade before inviting anyone new."
+        );
+        err.code = "ACCOUNT_OVER_SEAT_LIMIT";
+        throw err;
+      }
+
+      if (freshSeatsUsed >= freshSeatLimit) {
+        const err = new Error("Your account has reached its current seat limit.");
+        err.code = "SEAT_LIMIT_REACHED";
+        throw err;
       }
 
       return inviteToTab({
@@ -131,9 +144,23 @@ export default function Team() {
       });
     },
     onError: (err) => {
+      const code = err?.code;
+      let message = err?.message ?? "Something went wrong.";
+
+      if (code === "ALREADY_HAS_ACCESS") {
+        message = "That person already has access to this table.";
+      } else if (code === "INVITE_ALREADY_PENDING") {
+        message = "There is already a pending invite for that person on this table.";
+      } else if (code === "ACCOUNT_OVER_SEAT_LIMIT") {
+        message =
+          "Your account is over its seat limit. Remove members or upgrade before inviting anyone new.";
+      } else if (code === "SEAT_LIMIT_REACHED") {
+        message = "Your account has reached its current seat limit.";
+      }
+
       toast({
         title: "Could not send invite",
-        description: err?.message ?? "Something went wrong.",
+        description: message,
         variant: "destructive",
       });
     },
@@ -184,11 +211,16 @@ export default function Team() {
   const usagePercent =
     seatLimit > 0 ? Math.min((seatsUsed / seatLimit) * 100, 100) : 0;
 
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    normalizeEmail(inviteEmail)
+  );
+
   const canInvite =
     hasPaidAccess &&
     !!selectedTabId &&
-    !!normalizeEmail(inviteEmail) &&
+    emailLooksValid &&
     remainingSeats > 0 &&
+    !isOverSeatLimit &&
     !inviteMutation.isPending;
 
   return (
@@ -270,6 +302,23 @@ export default function Team() {
         </div>
       </div>
 
+      {isOverSeatLimit && (
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-red-700" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Your account is over the current seat limit.
+              </p>
+              <p className="mt-1 text-sm text-red-600">
+                Existing members still keep access, but you cannot invite anyone new
+                until you remove members or upgrade your plan.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-slate-900">Invite to a table</h2>
@@ -284,7 +333,7 @@ export default function Team() {
           </div>
         )}
 
-        {remainingSeats <= 0 && hasPaidAccess && (
+        {remainingSeats <= 0 && hasPaidAccess && !isOverSeatLimit && (
           <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             You have reached your current seat limit. Remove someone or upgrade to add more people.
           </div>
