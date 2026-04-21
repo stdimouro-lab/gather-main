@@ -4,12 +4,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
-import {
+ import {
   inviteToTab,
   updateTabShare,
   removeTabShare,
   fetchSharedTabsForMe,
   claimTabInvitesForUser,
+  listTeamShares,
 } from "../lib/tabShares";
 import { fetchTabs, createTab, updateTab, deleteTab } from "../lib/tabs";
 import {
@@ -916,8 +917,23 @@ const [searchParams, setSearchParams] = useSearchParams();
     staleTime: 15000,
   });
 
-  const tabShares = [];
-  const eventHistory = [];
+ const {
+  data: allTeamShares = [],
+  isLoading: isLoadingTeamShares,
+} = useQuery({
+  queryKey: ["teamShares", user?.id],
+  queryFn: () => listTeamShares(user.id),
+  enabled: !!user?.id,
+  refetchOnWindowFocus: false,
+  staleTime: 15000,
+});
+
+const tabShares = useMemo(() => {
+  if (!shareTab?.id) return [];
+  return allTeamShares.filter((share) => share.tab_id === shareTab.id);
+}, [allTeamShares, shareTab?.id]);
+
+const eventHistory = [];
 
   const suggestions = useMemo(() => {
     const rawSuggestions = generateSuggestions(events);
@@ -1210,38 +1226,39 @@ const shareTabMutation = useMutation({
       throw new Error("Enter a valid email.");
     }
 
-    return inviteToTab({ tabId, ownerId: user.id, email, role });
+    return inviteToTab({
+      tabId,
+      email,
+      role,
+      sharedById: user.id,
+    });
   },
 
   onSuccess: async () => {
-    toast({ title: "Invite sent" });
-
     if (account?.id) {
       await syncAccountSeatUsage(account.id);
     }
 
-    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-    queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
   },
+});
 
+  const updateShareMutation = useMutation({
+  mutationFn: ({ shareId, role }) =>
+    updateTabShare(shareId, { role }),
+  onSuccess: async () => {
+    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+    toast({ title: "Access updated" });
+  },
   onError: (e) =>
     toast({
-      title: "Invite failed",
+      title: "Update failed",
       description: e?.message ?? "Something went wrong.",
       variant: "destructive",
     }),
 });
-
-  const updateShareMutation = useMutation({
-    mutationFn: ({ shareId, role }) => updateTabShare({ shareId, role }),
-    onSuccess: () => toast({ title: "Access updated" }),
-    onError: (e) =>
-      toast({
-        title: "Update failed",
-        description: e?.message ?? "Something went wrong.",
-        variant: "destructive",
-      }),
-  });
 
   const removeShareMutation = useMutation({
     mutationFn: async ({ shareId }) => {
@@ -1253,11 +1270,12 @@ const shareTabMutation = useMutation({
 
       return result;
     },
-    onSuccess: () => {
-      toast({ title: "Access removed" });
-      queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-      queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-    },
+    onSuccess: async () => {
+  toast({ title: "Access removed" });
+  await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+  await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+  await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+},
     onError: (e) =>
       toast({
         title: "Remove failed",
@@ -2155,8 +2173,8 @@ const shareTabMutation = useMutation({
           limit: seatLimit ?? 1,
         }}
         onInvite={(email, role) =>
-          shareTabMutation.mutate({ tabId: shareTab.id, email, role })
-        }
+  shareTabMutation.mutateAsync({ tabId: shareTab.id, email, role })
+}
         onUpdateShare={(shareId, role) =>
           updateShareMutation.mutate({ shareId, role })
         }
