@@ -930,7 +930,7 @@ const [searchParams, setSearchParams] = useSearchParams();
 
 const tabShares = useMemo(() => {
   if (!shareTab?.id) return [];
-  return allTeamShares.filter((share) => share.tab_id === shareTab.id);
+  return allTeamShares.filter((s) => s.tab_id === shareTab.id);
 }, [allTeamShares, shareTab?.id]);
 
 const eventHistory = [];
@@ -1207,7 +1207,7 @@ const eventHistory = [];
     },
   });
 
-  // ---------- Bridge placeholders ----------
+ // ---------- Bridge placeholders ----------
 const bridgeNotConnected = (msg = "Not connected yet (coming next).") => {
   toast({ title: "Coming soon", description: msg });
 };
@@ -1243,15 +1243,23 @@ const shareTabMutation = useMutation({
     await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
     await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
   },
+
+  onError: (e) =>
+    toast({
+      title: "Invite failed",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    }),
 });
 
-  const updateShareMutation = useMutation({
-  mutationFn: ({ shareId, role }) =>
-    updateTabShare(shareId, { role }),
+const updateShareMutation = useMutation({
+  mutationFn: ({ shareId, role }) => updateTabShare(shareId, { role }),
+
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
     toast({ title: "Access updated" });
   },
+
   onError: (e) =>
     toast({
       title: "Update failed",
@@ -1260,50 +1268,52 @@ const shareTabMutation = useMutation({
     }),
 });
 
-  const removeShareMutation = useMutation({
-    mutationFn: async ({ shareId }) => {
-      const result = await removeTabShare({ shareId });
+const removeShareMutation = useMutation({
+  mutationFn: async ({ shareId }) => {
+    const result = await removeTabShare(shareId);
 
-      if (account?.id) {
-        await syncAccountSeatUsage(account.id);
-      }
+    if (account?.id) {
+      await syncAccountSeatUsage(account.id);
+    }
 
-      return result;
-    },
-    onSuccess: async () => {
-  toast({ title: "Access removed" });
-  await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
-  await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-  await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-},
-    onError: (e) =>
-      toast({
-        title: "Remove failed",
-        description: e?.message ?? "Something went wrong.",
-        variant: "destructive",
-      }),
-  });
+    return result;
+  },
 
-  const acceptSuggestionMutation = useMutation({
-    mutationFn: async () => {
-      bridgeNotConnected();
-      return null;
-    },
-  });
+  onSuccess: async () => {
+    toast({ title: "Access removed" });
+    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+    await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+  },
 
-  const rejectSuggestionMutation = useMutation({
-    mutationFn: async () => {
-      bridgeNotConnected();
-      return null;
-    },
-  });
+  onError: (e) =>
+    toast({
+      title: "Remove failed",
+      description: e?.message ?? "Something went wrong.",
+      variant: "destructive",
+    }),
+});
 
-  const updateSuggestionsSettingsMutation = useMutation({
-    mutationFn: async () => {
-      bridgeNotConnected();
-      return null;
-    },
-  });
+const acceptSuggestionMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
+
+const rejectSuggestionMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
+
+const updateSuggestionsSettingsMutation = useMutation({
+  mutationFn: async () => {
+    bridgeNotConnected();
+    return null;
+  },
+});
 
   // helpers preserved
   const getUserRole = () => "owner";
