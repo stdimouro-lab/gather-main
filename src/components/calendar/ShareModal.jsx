@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,11 +147,14 @@ export default function ShareModal({
         <div className={cn("h-2", colors.bg)} />
 
         <DialogHeader className="px-6 pb-2 pt-4">
-          <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900">
-            <Share2 className="h-5 w-5 text-slate-500" />
-            Share "{tab?.name}" Tab
-          </DialogTitle>
-        </DialogHeader>
+  <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-slate-900">
+    <Share2 className="h-5 w-5 text-slate-500" />
+    Share "{tab?.name}" Tab
+  </DialogTitle>
+  <DialogDescription className="sr-only">
+  Invite people to this table, manage roles, or remove access.
+</DialogDescription>
+</DialogHeader>
 
         <div className="space-y-6 px-6 pb-6">
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">

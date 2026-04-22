@@ -36,7 +36,7 @@ async function ensureProfile(user) {
 
   const { data: existingProfile, error: readError } = await withTimeout(
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    8000,
+   15000,
     "profiles read"
   );
 
@@ -63,7 +63,7 @@ async function ensureProfile(user) {
     supabase.from("profiles").upsert(payload, {
       onConflict: "id",
     }),
-    8000,
+    15000,
     "profiles upsert"
   );
 
@@ -74,7 +74,7 @@ async function ensureProfile(user) {
 
   const { data: profile, error: profileError } = await withTimeout(
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    8000,
+    15000,
     "profiles fetch"
   );
 
@@ -205,8 +205,8 @@ export function AuthProvider({ children }) {
         return null;
       }
 
-      await loadProfile(newSession.user);
       safeSet(() => setLoading(false));
+void loadProfile(newSession.user);
       return newSession;
     },
     [applySession, clearProfileState, loadProfile, safeSet]
@@ -341,8 +341,6 @@ export function AuthProvider({ children }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       console.log("onAuthStateChange", _event, !!newSession?.user);
-
-      safeSet(() => setLoading(true));
 
       try {
         await hydrateFromSession(newSession ?? null);

@@ -1269,7 +1269,7 @@ const updateShareMutation = useMutation({
 });
 
 const removeShareMutation = useMutation({
-  mutationFn: async ({ shareId }) => {
+  mutationFn: async (shareId) => {
     const result = await removeTabShare(shareId);
 
     if (account?.id) {
@@ -2186,9 +2186,9 @@ const updateSuggestionsSettingsMutation = useMutation({
   shareTabMutation.mutateAsync({ tabId: shareTab.id, email, role })
 }
         onUpdateShare={(shareId, role) =>
-          updateShareMutation.mutate({ shareId, role })
-        }
-        onRemoveShare={(shareId) => removeShareMutation.mutate({ shareId })}
+  updateShareMutation.mutateAsync({ shareId, role })
+}
+        onRemoveShare={(shareId) => removeShareMutation.mutateAsync(shareId)}
       />
 
       <EventHistoryPanel

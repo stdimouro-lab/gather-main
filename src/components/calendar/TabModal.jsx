@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,10 +80,15 @@ export default function TabModal({
         
         <form onSubmit={handleSubmit}>
           <DialogHeader className="px-6 pt-4 pb-2">
-            <DialogTitle className="text-xl font-semibold text-slate-900">
-              {tab ? "Edit Table" : "Create a New Table"}
-            </DialogTitle>
-          </DialogHeader>
+  <DialogTitle className="text-xl font-semibold text-slate-900">
+    {tab ? "Edit Table" : "Create a New Table"}
+  </DialogTitle>
+  <DialogDescription className="sr-only">
+  {tab
+    ? "Update your table settings, notifications, or delete it."
+    : "Create a new table to organize your events."}
+</DialogDescription>
+</DialogHeader>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
             <TabsList className="bg-slate-100 mb-4">
