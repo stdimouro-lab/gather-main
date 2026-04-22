@@ -249,7 +249,7 @@ void loadProfile(newSession.user);
     try {
       const { data, error } = await withTimeout(
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        8000,
+        15000,
         "refreshProfile"
       );
 
