@@ -1,76 +1,66 @@
 import { useEffect, useMemo, useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { Purchases } from "@revenuecat/purchases-capacitor";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthProvider";
+import { getAccountQueryKey } from "@/hooks/useEntitlement";
+import {
+  hasAppleBillingBridge,
+  startAppleUpgrade,
+  restoreApplePurchases,
+  getOfferings,
+} from "@/lib/appleBillingBridge";
 
-const RC_IOS_KEY = import.meta.env.VITE_REVENUECAT_IOS_API_KEY;
+const STRIPE_PRICES = {
+  plus: import.meta.env.VITE_STRIPE_PRICE_PLUS,
+  family_team: import.meta.env.VITE_STRIPE_PRICE_FAMILY_TEAM,
+  pro: import.meta.env.VITE_STRIPE_PRICE_PRO,
+};
 
 export default function Plans() {
-  const [loading, setLoading] = useState(false);
-  const [offerings, setOfferings] = useState(null);
-  const [error, setError] = useState("");
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const isIOS = useMemo(() => {
-    return Capacitor.getPlatform() === "ios" && Capacitor.isNativePlatform();
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [restoringPurchases, setRestoringPurchases] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [iosOffering, setIosOffering] = useState(null);
+
+  const isIOS = useMemo(() => hasAppleBillingBridge(), []);
 
   useEffect(() => {
-    async function setupRevenueCat() {
-      if (!isIOS) return;
-
-      try {
-        if (!RC_IOS_KEY) {
-          throw new Error("Missing VITE_REVENUECAT_IOS_API_KEY");
-        }
-
-        await Purchases.configure({
-          apiKey: RC_IOS_KEY,
-        });
-
-        const result = await Purchases.getOfferings();
-        setOfferings(result);
-      } catch (err) {
-        console.error("RevenueCat setup failed:", err);
-        setError(err?.message || "RevenueCat failed to load.");
-      }
-    }
-
-    setupRevenueCat();
+    if (!isIOS) return;
+    getOfferings()
+      .then((offerings) => setIosOffering(offerings?.current ?? null))
+      .catch((err) => console.warn("Could not load RC offerings:", err));
   }, [isIOS]);
+
+  function getApplePrice(packageType = "monthly") {
+    if (!iosOffering) return "Loading...";
+    const pkg = iosOffering[packageType] ?? iosOffering.availablePackages?.[0];
+    return pkg?.product?.priceString ?? "—";
+  }
 
   async function handleSubscribe(planName) {
     setError("");
+    setSuccessMessage("");
     setLoading(true);
 
     try {
       if (isIOS) {
-        const currentOffering = offerings?.current;
-
-        if (!currentOffering) {
-          throw new Error("No RevenueCat offering found.");
+        await startAppleUpgrade(planName);
+        if (user?.id) {
+          await queryClient.invalidateQueries({
+            queryKey: getAccountQueryKey(user.id),
+          });
         }
-
-        const pkg =
-          planName === "family_team"
-            ? currentOffering.annual || currentOffering.monthly || currentOffering.availablePackages?.[0]
-            : currentOffering.monthly || currentOffering.availablePackages?.[0];
-
-        if (!pkg) {
-          throw new Error("No RevenueCat package found for this plan.");
-        }
-
-        const result = await Purchases.purchasePackage({
-          aPackage: pkg,
-        });
-
-        console.log("RevenueCat purchase result:", result);
-
-        // Optional next step:
-        // call your Supabase function here to sync entitlement/account plan
-        // or rely on RevenueCat webhook -> Supabase.
+        setSuccessMessage("You're now subscribed! Welcome to Gather Plus.");
         return;
       }
 
-      // WEB ONLY: Stripe checkout
+      const priceId = STRIPE_PRICES[planName];
+      if (!priceId) throw new Error(`No Stripe price configured for plan: ${planName}`);
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
         {
@@ -80,24 +70,43 @@ export default function Plans() {
             apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({ plan: planName }),
+          body: JSON.stringify({ plan: planName, priceId }),
         }
       );
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Stripe checkout failed.");
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      if (!response.ok) throw new Error(data?.error || "Stripe checkout failed.");
+      if (data?.url) window.location.href = data.url;
     } catch (err) {
+      if (err?.code === "1" || err?.message?.includes("cancelled")) {
+        setLoading(false);
+        return;
+      }
       console.error("Subscribe failed:", err);
-      setError(err?.message || "Purchase failed.");
+      setError(err?.message || "Purchase failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRestorePurchases() {
+    setError("");
+    setSuccessMessage("");
+    setRestoringPurchases(true);
+
+    try {
+      await restoreApplePurchases();
+      if (user?.id) {
+        await queryClient.invalidateQueries({
+          queryKey: getAccountQueryKey(user.id),
+        });
+      }
+      setSuccessMessage("Purchases restored successfully.");
+    } catch (err) {
+      console.error("Restore failed:", err);
+      setError(err?.message || "Could not restore purchases. Please try again.");
+    } finally {
+      setRestoringPurchases(false);
     }
   }
 
@@ -108,7 +117,7 @@ export default function Plans() {
           <h1 className="text-2xl font-bold text-slate-900 sm:text-4xl">
             Choose your Gather plan
           </h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
+          <p className="mt-2 text-sm text-slate-500 sm:text-base">
             {isIOS
               ? "Purchases are handled securely through Apple."
               : "Purchases are handled securely through Stripe."}
@@ -121,6 +130,12 @@ export default function Plans() {
           </div>
         )}
 
+        {successMessage && (
+          <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <PlanCard
             title="Free"
@@ -130,58 +145,80 @@ export default function Plans() {
             buttonText="Current Plan"
             disabled
           />
-
           <PlanCard
             title="Plus"
-            price={isIOS ? "Apple price" : "$4.99/mo"}
+            price={isIOS ? getApplePrice("monthly") : "$4.99/mo"}
             description="For one person managing life and work."
-            features={["More tables", "More storage", "Event memories"]}
-            buttonText={loading ? "Loading..." : "Upgrade"}
+            features={["Unlimited tables", "1 seat", "Event memories", "5 GB storage"]}
+            buttonText={loading ? "Loading..." : "Upgrade to Plus"}
             disabled={loading}
             onClick={() => handleSubscribe("plus")}
+            highlighted
           />
-
           <PlanCard
-            title="Family / Team"
-            price={isIOS ? "Apple price" : "$9.99/mo"}
+            title="Family & Team"
+            price={isIOS ? "Coming soon" : "$9.99/mo"}
             description="For families or small teams."
-            features={["Shared tables", "More seats", "More storage"]}
-            buttonText={loading ? "Loading..." : "Upgrade"}
-            disabled={loading}
-            onClick={() => handleSubscribe("family_team")}
+            features={["Unlimited tables", "5 seats", "Shared tables", "15 GB storage"]}
+            buttonText={isIOS ? "Coming Soon" : "Upgrade"}
+            disabled={isIOS || loading}
+            onClick={() => !isIOS && handleSubscribe("family_team")}
           />
         </div>
+
+        {isIOS && (
+          <div className="mt-8 text-center">
+            <button
+              type="button"
+              onClick={handleRestorePurchases}
+              disabled={restoringPurchases}
+              className="text-sm text-slate-500 underline underline-offset-2 disabled:opacity-50"
+            >
+              {restoringPurchases ? "Restoring..." : "Restore Purchases"}
+            </button>
+            <p className="mt-2 text-xs text-slate-400">
+              Already subscribed? Tap above to restore your purchases.
+            </p>
+          </div>
+        )}
+
+        {isIOS && (
+          <p className="mt-6 text-center text-xs text-slate-400 leading-relaxed">
+            Subscriptions auto-renew unless cancelled at least 24 hours before
+            the end of the current period. Manage or cancel in your Apple ID settings.
+          </p>
+        )}
       </div>
     </main>
   );
 }
 
-function PlanCard({
-  title,
-  price,
-  description,
-  features,
-  buttonText,
-  onClick,
-  disabled,
-}) {
+function PlanCard({ title, price, description, features, buttonText, onClick, disabled, highlighted = false }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-      <p className="mt-2 text-3xl font-bold text-slate-900">{price}</p>
-      <p className="mt-2 text-sm text-slate-600">{description}</p>
-
-      <ul className="mt-4 space-y-2 text-sm text-slate-700">
+    <section
+      className={`rounded-2xl border p-5 shadow-sm ${
+        highlighted ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
+      }`}
+    >
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <p className={`mt-2 text-3xl font-bold ${highlighted ? "text-white" : "text-slate-900"}`}>
+        {price}
+      </p>
+      <p className={`mt-2 text-sm ${highlighted ? "text-slate-300" : "text-slate-600"}`}>
+        {description}
+      </p>
+      <ul className={`mt-4 space-y-2 text-sm ${highlighted ? "text-slate-200" : "text-slate-700"}`}>
         {features.map((feature) => (
-          <li key={feature}>• {feature}</li>
+          <li key={feature}>✓ {feature}</li>
         ))}
       </ul>
-
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        className={`mt-5 w-full rounded-xl px-4 py-3 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40 ${
+          highlighted ? "bg-white text-slate-900" : "bg-slate-900 text-white"
+        }`}
       >
         {buttonText}
       </button>

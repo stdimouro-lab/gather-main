@@ -1,3 +1,11 @@
+/**
+ * billing.js
+ * 
+ * Unified billing entry point for Gather.
+ * - iOS (native Capacitor): routes to RevenueCat via appleBillingBridge
+ * - Web: routes to Stripe via Supabase edge functions
+ */
+
 import { supabase } from "@/lib/supabase";
 import {
   hasAppleBillingBridge,
@@ -23,6 +31,9 @@ function getSiteBaseUrl() {
   return import.meta.env.VITE_SITE_URL || "";
 }
 
+/**
+ * Returns true when running as native iOS — use Apple IAP, not Stripe.
+ */
 export function isNativeBillingEnvironment() {
   return hasAppleBillingBridge();
 }
@@ -96,7 +107,12 @@ async function authedJson(path, options = {}) {
   return payload;
 }
 
-export async function startCheckout({ priceId, plan = "family" }) {
+/**
+ * Start a checkout/purchase flow.
+ * On iOS: opens RevenueCat Apple IAP sheet.
+ * On web: redirects to Stripe hosted checkout.
+ */
+export async function startCheckout({ priceId, plan = "plus" }) {
   if (isNativeBillingEnvironment()) {
     return startAppleUpgrade(plan);
   }
@@ -124,10 +140,14 @@ export async function startCheckout({ priceId, plan = "family" }) {
   return payload;
 }
 
+/**
+ * Open Stripe customer portal (web only).
+ * On iOS, direct users to Apple ID settings instead.
+ */
 export async function openCustomerPortal() {
   if (isNativeBillingEnvironment()) {
     throw new Error(
-      "Billing portal is not available for Apple-managed subscriptions in the app."
+      "To manage your subscription, go to Settings → Apple ID → Subscriptions on your iPhone."
     );
   }
 
@@ -148,7 +168,10 @@ export async function openCustomerPortal() {
   return payload;
 }
 
-export async function changeSubscriptionPlan({ priceId, plan = "family" }) {
+/**
+ * Change subscription plan (web only — iOS handles upgrades via RC).
+ */
+export async function changeSubscriptionPlan({ priceId, plan = "plus" }) {
   if (isNativeBillingEnvironment()) {
     return startAppleUpgrade(plan);
   }
@@ -163,6 +186,9 @@ export async function changeSubscriptionPlan({ priceId, plan = "family" }) {
   });
 }
 
+/**
+ * Restore Apple purchases (iOS only).
+ */
 export async function restoreApplePurchases() {
   if (!isNativeBillingEnvironment()) {
     throw new Error("Restore Purchases is only available in the native iOS app.");
@@ -171,6 +197,9 @@ export async function restoreApplePurchases() {
   return restoreApplePurchasesBridge();
 }
 
+/**
+ * Reset test billing (web/Stripe only — for development).
+ */
 export async function resetTestBilling() {
   if (isNativeBillingEnvironment()) {
     throw new Error("Test billing reset is only available for Stripe web billing.");

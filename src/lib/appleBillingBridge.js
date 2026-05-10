@@ -1,84 +1,212 @@
-function getAppleBridge() {
-  if (typeof window === "undefined") return null;
+/**
+ * billing.js
+ * 
+ * Unified billing entry point for Gather.
+ * - iOS (native Capacitor): routes to RevenueCat via appleBillingBridge
+ * - Web: routes to Stripe via Supabase edge functions
+ */
 
-  if (
-    window.__gatherAppleBilling &&
-    typeof window.__gatherAppleBilling === "object"
-  ) {
-    return window.__gatherAppleBilling;
+import { supabase } from "@/lib/supabase";
+import {
+  hasAppleBillingBridge,
+  startAppleUpgrade,
+  restoreApplePurchases as restoreApplePurchasesBridge,
+} from "@/lib/appleBillingBridge";
+
+function getFunctionsBaseUrl() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  if (!supabaseUrl) {
+    throw new Error("Missing VITE_SUPABASE_URL.");
   }
 
-  return null;
+  return `${supabaseUrl}/functions/v1`;
 }
 
-export function hasAppleBillingBridge() {
-  return !!getAppleBridge();
+function getSiteBaseUrl() {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return import.meta.env.VITE_SITE_URL || "";
 }
 
-export function isNativeAppleBillingAvailable() {
+/**
+ * Returns true when running as native iOS — use Apple IAP, not Stripe.
+ */
+export function isNativeBillingEnvironment() {
   return hasAppleBillingBridge();
 }
 
-export async function startAppleUpgrade(plan = "family") {
-  const bridge = getAppleBridge();
+async function getFreshAccessToken() {
+  const { data: refreshData, error: refreshError } =
+    await supabase.auth.refreshSession();
 
-  if (!bridge) {
-    throw new Error("Apple billing is not connected in this build yet.");
+  if (refreshError) {
+    throw new Error(refreshError.message || "Could not refresh auth session.");
   }
 
-  const normalizedPlan = String(plan || "family").toLowerCase();
-
-  if (typeof bridge.purchasePlan === "function") {
-    return bridge.purchasePlan(normalizedPlan);
+  const refreshedToken = refreshData?.session?.access_token;
+  if (refreshedToken) {
+    return refreshedToken;
   }
 
-  if (
-    normalizedPlan === "family" &&
-    typeof bridge.purchaseFamily === "function"
-  ) {
-    return bridge.purchaseFamily();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(sessionError.message || "Could not read auth session.");
   }
 
-  if (normalizedPlan === "plus" && typeof bridge.purchasePlus === "function") {
-    return bridge.purchasePlus();
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("You are not signed in. Please sign in again.");
   }
 
-  if (
-    normalizedPlan === "business" &&
-    typeof bridge.purchaseBusiness === "function"
-  ) {
-    return bridge.purchaseBusiness();
-  }
-
-  throw new Error(
-    `Apple billing is connected, but purchase flow for "${normalizedPlan}" is not available yet.`
-  );
+  return accessToken;
 }
 
+async function authedJson(path, options = {}) {
+  const accessToken = await getFreshAccessToken();
+
+  const response = await fetch(`${getFunctionsBaseUrl()}${path}`, {
+    method: options.method || "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      ...(options.headers || {}),
+    },
+    body:
+      options.body !== undefined
+        ? typeof options.body === "string"
+          ? options.body
+          : JSON.stringify(options.body)
+        : undefined,
+  });
+
+  const raw = await response.text();
+
+  let payload = null;
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    payload = raw ? { error: raw } : null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error ||
+        payload?.message ||
+        `Request failed with status ${response.status}`
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Start a checkout/purchase flow.
+ * On iOS: opens RevenueCat Apple IAP sheet.
+ * On web: redirects to Stripe hosted checkout.
+ */
+export async function startCheckout({ priceId, plan = "plus" }) {
+  if (isNativeBillingEnvironment()) {
+    return startAppleUpgrade(plan);
+  }
+
+  if (!priceId) {
+    throw new Error("Missing Stripe price ID.");
+  }
+
+  const baseUrl = getSiteBaseUrl();
+
+  const payload = await authedJson("/create-checkout-session", {
+    method: "POST",
+    body: {
+      priceId,
+      successUrl: `${baseUrl}/plans?checkout=success&source=stripe`,
+      cancelUrl: `${baseUrl}/plans?checkout=canceled&source=stripe`,
+    },
+  });
+
+  if (!payload?.url) {
+    throw new Error("Checkout session did not return a redirect URL.");
+  }
+
+  window.location.href = payload.url;
+  return payload;
+}
+
+/**
+ * Open Stripe customer portal (web only).
+ * On iOS, direct users to Apple ID settings instead.
+ */
+export async function openCustomerPortal() {
+  if (isNativeBillingEnvironment()) {
+    throw new Error(
+      "To manage your subscription, go to Settings → Apple ID → Subscriptions on your iPhone."
+    );
+  }
+
+  const baseUrl = getSiteBaseUrl();
+
+  const payload = await authedJson("/create-customer-portal-session", {
+    method: "POST",
+    body: {
+      returnUrl: `${baseUrl}/plans`,
+    },
+  });
+
+  if (!payload?.url) {
+    throw new Error("Billing portal did not return a redirect URL.");
+  }
+
+  window.location.href = payload.url;
+  return payload;
+}
+
+/**
+ * Change subscription plan (web only — iOS handles upgrades via RC).
+ */
+export async function changeSubscriptionPlan({ priceId, plan = "plus" }) {
+  if (isNativeBillingEnvironment()) {
+    return startAppleUpgrade(plan);
+  }
+
+  if (!priceId) {
+    throw new Error("Missing Stripe price ID.");
+  }
+
+  return authedJson("/change-subscription-plan", {
+    method: "POST",
+    body: { priceId },
+  });
+}
+
+/**
+ * Restore Apple purchases (iOS only).
+ */
 export async function restoreApplePurchases() {
-  const bridge = getAppleBridge();
-
-  if (!bridge || typeof bridge.restorePurchases !== "function") {
-    throw new Error("Restore Purchases is not connected in this build yet.");
+  if (!isNativeBillingEnvironment()) {
+    throw new Error("Restore Purchases is only available in the native iOS app.");
   }
 
-  return bridge.restorePurchases();
+  return restoreApplePurchasesBridge();
 }
 
-export async function syncAppleEntitlements() {
-  const bridge = getAppleBridge();
-
-  if (!bridge) {
-    throw new Error("Apple billing is not connected in this build yet.");
+/**
+ * Reset test billing (web/Stripe only — for development).
+ */
+export async function resetTestBilling() {
+  if (isNativeBillingEnvironment()) {
+    throw new Error("Test billing reset is only available for Stripe web billing.");
   }
 
-  if (typeof bridge.syncEntitlements === "function") {
-    return bridge.syncEntitlements();
-  }
-
-  if (typeof bridge.getEntitlements === "function") {
-    return bridge.getEntitlements();
-  }
-
-  return null;
+  return authedJson("/reset-test-billing", {
+    method: "POST",
+    body: {},
+  });
 }
