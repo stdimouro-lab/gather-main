@@ -42,9 +42,9 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-safe-top pb-safe-bottom">
-      <nav className="sticky top-0 z-30 border-b border-slate-200/50 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
-        <div className="mx-auto flex max-w-screen-2xl items-center justify-between">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 pt-safe-top pb-safe-bottom">
+      <nav className="sticky top-0 z-30 w-full border-b border-slate-200/50 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between">
           <div className="flex items-center gap-6">
             <Link
               to="/calendar"
@@ -167,11 +167,12 @@ export default function AppLayout() {
         </div>
       </nav>
 
-      <main className="min-h-[calc(100vh-120px)]">
+      <main className="min-h-[calc(100vh-120px)] w-full overflow-x-hidden">
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-200 bg-white px-4 py-6">
+      {/* Footer hidden on mobile/iOS — not needed in native app context */}
+      <footer className="hidden md:block border-t border-slate-200 bg-white px-4 py-6">
         <div className="mx-auto flex max-w-screen-2xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>© {new Date().getFullYear()} Gather</span>
