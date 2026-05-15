@@ -185,30 +185,42 @@ export default function LoginPage() {
   }
 
   async function handleOAuth(provider) {
-    setOauthLoading(provider);
-    setError("");
-    setMessage("");
+  setOauthLoading(provider);
+  setError("");
+  setMessage("");
 
-    try {
-      const options = {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
         redirectTo: callbackUrl,
-      };
+        skipBrowserRedirect: true,
+        ...(provider === "google" && { scopes: "openid email profile" }),
+      },
+    });
 
-      if (provider === "google") {
-        options.scopes = "openid email profile";
+    if (error) throw error;
+
+    if (data?.url) {
+      const { Capacitor } = await import("@capacitor/core");
+      
+      if (Capacitor.isNativePlatform()) {
+        // Use in-app browser on iOS
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ 
+          url: data.url,
+          presentationStyle: "popover",
+        });
+      } else {
+        // Normal redirect on web
+        window.location.href = data.url;
       }
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options,
-      });
-
-      if (error) throw error;
-    } catch (err) {
-      setError(err?.message || `Could not start ${provider} sign-in.`);
-      setOauthLoading(null);
     }
+  } catch (err) {
+    setError(err?.message || `Could not start ${provider} sign-in.`);
+    setOauthLoading(null);
   }
+}
 
   return (
     <div className="min-h-screen bg-slate-950">
