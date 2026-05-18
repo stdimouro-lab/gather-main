@@ -221,6 +221,39 @@ export default function LoginPage() {
     setOauthLoading(null);
   }
 }
+useEffect(() => {
+  let browserListener = null;
+
+  async function setupBrowserListener() {
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      if (!Capacitor.isNativePlatform()) return;
+
+      const { Browser } = await import("@capacitor/browser");
+      
+      browserListener = await Browser.addListener(
+        "browserFinished",
+        async () => {
+          // Browser closed — check if user is now signed in
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const destination = await getPostAuthRedirect(session.user.id);
+            navigate(destination, { replace: true });
+          }
+          setOauthLoading(null);
+        }
+      );
+    } catch (e) {
+      console.warn("Browser listener setup failed:", e);
+    }
+  }
+
+  setupBrowserListener();
+
+  return () => {
+    if (browserListener) browserListener.remove();
+  };
+}, [navigate]);
 
   return (
     <div className="min-h-screen bg-slate-950">

@@ -13,6 +13,7 @@ const config: CapacitorConfig = {
     allowsLinkPreview: false,
     scrollEnabled: true,
     limitsNavigationsToAppBoundDomains: false,
+    scheme: 'gather',
   },
   server: {
     iosScheme: 'capacitor',
