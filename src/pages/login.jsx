@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import {
   CalendarDays,
   Users,
@@ -15,33 +18,17 @@ import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
 function GoogleIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
-      <path
-        fill="#EA4335"
-        d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c6.9 0 9.2-4.8 9.2-7.3 0-.5-.1-.9-.1-1.3H12z"
-      />
-      <path
-        fill="#34A853"
-        d="M3.5 7.4l3.2 2.4C7.6 8 9.6 6.6 12 6.6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 8.3 2.4 5.1 4.5 3.5 7.4z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M12 21.6c2.6 0 4.8-.9 6.4-2.5l-3-2.4c-.8.6-1.9 1-3.4 1-3.9 0-5.3-2.6-5.5-3.8l-3.2 2.5c1.6 3 4.7 5.2 8.7 5.2z"
-      />
-      <path
-        fill="#4285F4"
-        d="M21.2 14.3c0-.5-.1-.9-.1-1.3H12v3.9h5.5c-.3 1.3-1.1 2.3-2.1 3l3 2.4c1.8-1.6 2.8-4 2.8-8z"
-      />
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c6.9 0 9.2-4.8 9.2-7.3 0-.5-.1-.9-.1-1.3H12z" />
+      <path fill="#34A853" d="M3.5 7.4l3.2 2.4C7.6 8 9.6 6.6 12 6.6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.4 14.7 2.4 12 2.4 8.3 2.4 5.1 4.5 3.5 7.4z" />
+      <path fill="#FBBC05" d="M12 21.6c2.6 0 4.8-.9 6.4-2.5l-3-2.4c-.8.6-1.9 1-3.4 1-3.9 0-5.3-2.6-5.5-3.8l-3.2 2.5c1.6 3 4.7 5.2 8.7 5.2z" />
+      <path fill="#4285F4" d="M21.2 14.3c0-.5-.1-.9-.1-1.3H12v3.9h5.5c-.3 1.3-1.1 2.3-2.1 3l3 2.4c1.8-1.6 2.8-4 2.8-8z" />
     </svg>
   );
 }
 
 function AppleIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-5 w-5 fill-current"
-    >
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-current">
       <path d="M16.7 12.8c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.8 0-1.9-.9-3.1-.9-1.6 0-3.1.9-4 2.2-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 2.9 2.4 1.1 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.2-2.6 1.2-2.7 0 0-2.3-.9-2.3-3.8zM14.4 5.9c.7-.8 1.2-1.9 1.1-3-.9 0-2 .6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2-.5 2.6-1.3z" />
     </svg>
   );
@@ -49,16 +36,8 @@ function AppleIcon() {
 
 function BrandLogo({ mobile = false }) {
   return (
-    <div
-      className={`flex items-center justify-center ${
-        mobile ? "h-20 w-20" : "h-24 w-24"
-      }`}
-    >
-      <img
-        src={gatherLogo}
-        alt="Gather logo"
-        className="h-full w-full object-contain drop-shadow-lg"
-      />
+    <div className={`flex items-center justify-center ${mobile ? "h-20 w-20" : "h-24 w-24"}`}>
+      <img src={gatherLogo} alt="Gather logo" className="h-full w-full object-contain drop-shadow-lg" />
     </div>
   );
 }
@@ -98,7 +77,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const callbackUrl = `${window.location.origin}/auth/callback`;
+  const callbackUrl = useMemo(() => {
+    return Capacitor.isNativePlatform()
+      ? "gather://auth/callback"
+      : `${window.location.origin}/auth/callback`;
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -108,9 +91,7 @@ export default function LoginPage() {
       if (!userId || !mounted) return;
 
       const destination = await getPostAuthRedirect(userId);
-      if (mounted) {
-        navigate(destination, { replace: true });
-      }
+      if (mounted) navigate(destination, { replace: true });
     }
 
     async function checkSession() {
@@ -138,6 +119,55 @@ export default function LoginPage() {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let listener;
+
+    async function setupAppUrlListener() {
+      listener = await App.addListener("appUrlOpen", async ({ url }) => {
+        if (!url || !url.startsWith("gather://auth/callback")) return;
+
+        try {
+          await Browser.close();
+
+          const parsedUrl = new URL(url);
+          const code = parsedUrl.searchParams.get("code");
+          const urlError = parsedUrl.searchParams.get("error");
+          const errorDescription =
+            parsedUrl.searchParams.get("error_description") ||
+            parsedUrl.searchParams.get("errorDescription");
+
+          if (urlError) {
+            throw new Error(errorDescription || urlError);
+          }
+
+          if (!code) {
+            throw new Error("Login could not be completed. Please try again.");
+          }
+
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+
+          const destination = await getPostAuthRedirect(data?.session?.user?.id);
+          navigate(destination || "/calendar", { replace: true });
+        } catch (err) {
+          console.error("OAuth callback error:", err);
+          setError(err?.message || "Authentication failed.");
+        } finally {
+          setOauthLoading(null);
+          setLoading(false);
+        }
+      });
+    }
+
+    setupAppUrlListener();
+
+    return () => {
+      if (listener) listener.remove();
     };
   }, [navigate]);
 
@@ -174,9 +204,7 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      setMessage(
-        "Check your email to confirm your account, then come back and sign in."
-      );
+      setMessage("Check your email to confirm your account, then come back and sign in.");
     } catch (err) {
       setError(err?.message || "Authentication failed.");
     } finally {
@@ -185,75 +213,40 @@ export default function LoginPage() {
   }
 
   async function handleOAuth(provider) {
-  setOauthLoading(provider);
-  setError("");
-  setMessage("");
+    setOauthLoading(provider);
+    setError("");
+    setMessage("");
 
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: callbackUrl,
-        skipBrowserRedirect: true,
-        ...(provider === "google" && { scopes: "openid email profile" }),
-      },
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: callbackUrl,
+          skipBrowserRedirect: true,
+          ...(provider === "google" && { scopes: "openid email profile" }),
+        },
+      });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    if (data?.url) {
-      const { Capacitor } = await import("@capacitor/core");
-      
+      if (!data?.url) {
+        throw new Error(`Could not start ${provider} sign-in.`);
+      }
+
       if (Capacitor.isNativePlatform()) {
-        // Use in-app browser on iOS
-        const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ 
+        await Browser.open({
           url: data.url,
-          presentationStyle: "popover",
+          presentationStyle: "fullscreen",
         });
       } else {
-        // Normal redirect on web
         window.location.href = data.url;
       }
-    }
-  } catch (err) {
-    setError(err?.message || `Could not start ${provider} sign-in.`);
-    setOauthLoading(null);
-  }
-}
-useEffect(() => {
-  let browserListener = null;
-
-  async function setupBrowserListener() {
-    try {
-      const { Capacitor } = await import("@capacitor/core");
-      if (!Capacitor.isNativePlatform()) return;
-
-      const { Browser } = await import("@capacitor/browser");
-      
-      browserListener = await Browser.addListener(
-        "browserFinished",
-        async () => {
-          // Browser closed — check if user is now signed in
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const destination = await getPostAuthRedirect(session.user.id);
-            navigate(destination, { replace: true });
-          }
-          setOauthLoading(null);
-        }
-      );
-    } catch (e) {
-      console.warn("Browser listener setup failed:", e);
+    } catch (err) {
+      console.error("OAuth start error:", err);
+      setError(err?.message || `Could not start ${provider} sign-in.`);
+      setOauthLoading(null);
     }
   }
-
-  setupBrowserListener();
-
-  return () => {
-    if (browserListener) browserListener.remove();
-  };
-}, [navigate]);
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -266,12 +259,8 @@ useEffect(() => {
             <div className="flex items-center gap-5">
               <BrandLogo />
               <div>
-                <p className="text-2xl font-semibold tracking-tight text-white">
-                  Gather
-                </p>
-                <p className="text-sm text-slate-300">
-                  Where life meets around the table.
-                </p>
+                <p className="text-2xl font-semibold tracking-tight text-white">Gather</p>
+                <p className="text-sm text-slate-300">Where life meets around the table.</p>
               </div>
             </div>
 
@@ -286,9 +275,8 @@ useEffect(() => {
               </h1>
 
               <p className="mt-5 max-w-lg text-lg leading-8 text-slate-300">
-                Gather helps families, teams, co-parents, and busy lives stay
-                connected with shared tables, calendars, plans, and memories in
-                one calm place.
+                Gather helps families, teams, co-parents, and busy lives stay connected with shared tables,
+                calendars, plans, and memories in one calm place.
               </p>
 
               <div className="mt-10 grid gap-4">
@@ -310,9 +298,7 @@ useEffect(() => {
               </div>
             </div>
 
-            <div className="text-sm text-slate-400">
-              One calendar. Multiple tables. More clarity.
-            </div>
+            <div className="text-sm text-slate-400">One calendar. Multiple tables. More clarity.</div>
           </div>
         </section>
 
@@ -322,12 +308,8 @@ useEffect(() => {
               <div className="mb-5 flex items-center gap-4">
                 <BrandLogo mobile />
                 <div>
-                  <p className="text-2xl font-semibold text-slate-900">
-                    Gather
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    Where life meets around the table.
-                  </p>
+                  <p className="text-2xl font-semibold text-slate-900">Gather</p>
+                  <p className="text-sm text-slate-600">Where life meets around the table.</p>
                 </div>
               </div>
 
@@ -335,19 +317,14 @@ useEffect(() => {
                 Bring your life together.
               </h1>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                A shared organizer for family, work, co-parenting, and
-                everything in between.
+                A shared organizer for family, work, co-parenting, and everything in between.
               </p>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="mb-6 text-center">
                 <div className="mb-4 flex justify-center lg:hidden">
-                  <img
-                    src={gatherLogo}
-                    alt="Gather logo"
-                    className="h-24 w-24 object-contain drop-shadow-sm"
-                  />
+                  <img src={gatherLogo} alt="Gather logo" className="h-24 w-24 object-contain drop-shadow-sm" />
                 </div>
 
                 <h2 className="text-2xl font-semibold text-slate-900">
@@ -361,14 +338,8 @@ useEffect(() => {
               </div>
 
               <div className="mb-5 flex flex-wrap justify-center gap-2">
-                <TrustPill
-                  icon={ShieldCheck}
-                  text="Privacy-minded design"
-                />
-                <TrustPill
-                  icon={HeartHandshake}
-                  text="Built for families and teams"
-                />
+                <TrustPill icon={ShieldCheck} text="Privacy-minded design" />
+                <TrustPill icon={HeartHandshake} text="Built for families and teams" />
               </div>
 
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
@@ -380,9 +351,7 @@ useEffect(() => {
                     setMessage("");
                   }}
                   className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    mode === "signin"
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-600"
+                    mode === "signin" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
                   }`}
                 >
                   Sign in
@@ -395,9 +364,7 @@ useEffect(() => {
                     setMessage("");
                   }}
                   className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                    mode === "signup"
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-600"
+                    mode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
                   }`}
                 >
                   Create account
@@ -412,11 +379,7 @@ useEffect(() => {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   <GoogleIcon />
-                  <span>
-                    {oauthLoading === "google"
-                      ? "Starting Google…"
-                      : "Continue with Google"}
-                  </span>
+                  <span>{oauthLoading === "google" ? "Starting Google…" : "Continue with Google"}</span>
                 </button>
 
                 <button
@@ -426,11 +389,7 @@ useEffect(() => {
                   className="flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-60"
                 >
                   <AppleIcon />
-                  <span>
-                    {oauthLoading === "apple"
-                      ? "Starting Apple…"
-                      : "Continue with Apple"}
-                  </span>
+                  <span>{oauthLoading === "apple" ? "Starting Apple…" : "Continue with Apple"}</span>
                 </button>
               </div>
 
@@ -439,18 +398,14 @@ useEffect(() => {
                   <div className="w-full border-t border-slate-200" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase tracking-wide">
-                  <span className="bg-white px-2 text-slate-500">
-                    or use email
-                  </span>
+                  <span className="bg-white px-2 text-slate-500">or use email</span>
                 </div>
               </div>
 
               <form onSubmit={handleEmailAuth} className="space-y-4">
                 {mode === "signup" && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">
-                      Full name
-                    </label>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Full name</label>
                     <input
                       type="text"
                       value={fullName}
@@ -463,9 +418,7 @@ useEffect(() => {
                 )}
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Email
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
                   <input
                     type="email"
                     value={email}
@@ -478,18 +431,14 @@ useEffect(() => {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Password
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
                     placeholder="••••••••"
-                    autoComplete={
-                      mode === "signin" ? "current-password" : "new-password"
-                    }
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
                     required
                   />
                 </div>
@@ -522,10 +471,7 @@ useEffect(() => {
               </form>
 
               <div className="mt-4 text-center text-sm">
-                <Link
-                  to="/forgot-password"
-                  className="text-slate-700 underline hover:text-slate-900"
-                >
+                <Link to="/forgot-password" className="text-slate-700 underline hover:text-slate-900">
                   Forgot password?
                 </Link>
               </div>
