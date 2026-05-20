@@ -409,7 +409,7 @@ void loadProfile(newSession.user);
 
   const sendPasswordReset = async (email) => {
     return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: "https://gatherapp.me/reset-password",
     });
   };
 

@@ -19,10 +19,13 @@ import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import useEntitlement from "@/hooks/useEntitlement";
 import { restoreApplePurchases } from "@/lib/appleBillingBridge";
+import { useToast } from "@/components/ui/use-toast";
+
 
 export default function Settings() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  
 
   const {
     planTier,
@@ -192,25 +195,24 @@ export default function Settings() {
             Notification settings for reminders and shared activity.
           </p>
 
-          <div className="mt-4 space-y-3">
-            <div className="rounded-xl border bg-slate-50 p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900">Event reminders</p>
-                <p className="text-sm text-slate-500">Coming soon in V1.1</p>
-              </div>
-              <input type="checkbox" disabled />
-            </div>
+          <div className="mt-4 rounded-xl border bg-slate-50 p-5">
+  <div className="flex items-start justify-between gap-4">
+    <div>
+      <p className="font-medium text-slate-900">
+        Notifications are coming soon
+      </p>
 
-            <div className="rounded-xl border bg-slate-50 p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900">
-                  Shared calendar updates
-                </p>
-                <p className="text-sm text-slate-500">Coming soon in V1.1</p>
-              </div>
-              <input type="checkbox" disabled />
-            </div>
-          </div>
+      <p className="mt-1 text-sm text-slate-500">
+        Event reminders, shared calendar activity, and smarter notification
+        controls are planned for an upcoming update.
+      </p>
+    </div>
+
+    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+      Soon
+    </span>
+  </div>
+</div>
         </section>
 
         <section className="rounded-2xl border bg-white p-6 shadow-sm">
@@ -394,7 +396,10 @@ export default function Settings() {
                 try {
                   await restoreApplePurchases();
                 } catch (error) {
-                  alert(error?.message ?? "Restore Purchases is not connected yet.");
+                  toast({
+  title: "Restore purchases coming soon",
+description: "Apple subscription restore is almost ready and will be available in an upcoming update.",
+});
                 }
               }}
             >

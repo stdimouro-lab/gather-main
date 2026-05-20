@@ -233,14 +233,7 @@ export default function LoginPage() {
         throw new Error(`Could not start ${provider} sign-in.`);
       }
 
-      if (Capacitor.isNativePlatform()) {
-        await Browser.open({
-          url: data.url,
-          presentationStyle: "fullscreen",
-        });
-      } else {
-        window.location.href = data.url;
-      }
+      window.location.href = data.url;
     } catch (err) {
       console.error("OAuth start error:", err);
       setError(err?.message || `Could not start ${provider} sign-in.`);
