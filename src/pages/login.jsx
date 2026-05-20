@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { App } from "@capacitor/app";
-import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import {
   CalendarDays,
@@ -132,9 +131,7 @@ export default function LoginPage() {
         if (!url || !url.startsWith("gather://auth/callback")) return;
 
         try {
-  try {
-    await Browser.close();
-  } catch {}
+  
 
   const parsedUrl = new URL(url);
   const code = parsedUrl.searchParams.get("code");
@@ -215,37 +212,39 @@ export default function LoginPage() {
   }
 
   async function handleOAuth(provider) {
-    setOauthLoading(provider);
-    setError("");
-    setMessage("");
+  setOauthLoading(provider);
+  setError("");
+  setMessage("");
 
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: callbackUrl,
-          skipBrowserRedirect: true,
-          ...(provider === "google" && { scopes: "openid email profile" }),
-        },
-      });
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: callbackUrl,
+        skipBrowserRedirect: true,
+        ...(provider === "google" && {
+          scopes: "openid email profile",
+        }),
+      },
+    });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      if (!data?.url) {
-        throw new Error(`Could not start ${provider} sign-in.`);
-      }
-
-     if (Capacitor.isNativePlatform()) {
-  window.open(data.url, "_system");
-} else {
-  window.location.href = data.url;
-}
-    } catch (err) {
-      console.error("OAuth start error:", err);
-      setError(err?.message || `Could not start ${provider} sign-in.`);
-      setOauthLoading(null);
+    if (!data?.url) {
+      throw new Error(`Could not start ${provider} sign-in.`);
     }
+
+    if (Capacitor.isNativePlatform()) {
+      window.location.href = data.url;
+    } else {
+      window.location.href = data.url;
+    }
+  } catch (err) {
+    console.error("OAuth start error:", err);
+    setError(err?.message || `Could not start ${provider} sign-in.`);
+    setOauthLoading(null);
   }
+}
 
   return (
     <div className="min-h-screen bg-slate-950">
