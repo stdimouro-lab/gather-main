@@ -132,35 +132,37 @@ export default function LoginPage() {
         if (!url || !url.startsWith("gather://auth/callback")) return;
 
         try {
-          await Browser.close();
+  try {
+    await Browser.close();
+  } catch {}
 
-          const parsedUrl = new URL(url);
-          const code = parsedUrl.searchParams.get("code");
-          const urlError = parsedUrl.searchParams.get("error");
-          const errorDescription =
-            parsedUrl.searchParams.get("error_description") ||
-            parsedUrl.searchParams.get("errorDescription");
+  const parsedUrl = new URL(url);
+  const code = parsedUrl.searchParams.get("code");
+  const urlError = parsedUrl.searchParams.get("error");
+  const errorDescription =
+    parsedUrl.searchParams.get("error_description") ||
+    parsedUrl.searchParams.get("errorDescription");
 
-          if (urlError) {
-            throw new Error(errorDescription || urlError);
-          }
+  if (urlError) {
+    throw new Error(errorDescription || urlError);
+  }
 
-          if (!code) {
-            throw new Error("Login could not be completed. Please try again.");
-          }
+  if (!code) {
+    throw new Error("Login could not be completed. Please try again.");
+  }
 
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) throw error;
 
-          const destination = await getPostAuthRedirect(data?.session?.user?.id);
-          navigate(destination || "/calendar", { replace: true });
-        } catch (err) {
-          console.error("OAuth callback error:", err);
-          setError(err?.message || "Authentication failed.");
-        } finally {
-          setOauthLoading(null);
-          setLoading(false);
-        }
+  const destination = await getPostAuthRedirect(data?.session?.user?.id);
+  navigate(destination || "/calendar", { replace: true });
+} catch (err) {
+  console.error("OAuth callback error:", err);
+  setError(err?.message || "Authentication failed.");
+} finally {
+  setOauthLoading(null);
+  setLoading(false);
+}
       });
     }
 
@@ -234,10 +236,7 @@ export default function LoginPage() {
       }
 
      if (Capacitor.isNativePlatform()) {
-  await Browser.open({
-    url: data.url,
-    presentationStyle: "fullscreen",
-  });
+  window.open(data.url, "_system");
 } else {
   window.location.href = data.url;
 }
