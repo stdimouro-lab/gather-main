@@ -222,24 +222,27 @@ export default function LoginPage() {
       options: {
         redirectTo: callbackUrl,
         skipBrowserRedirect: true,
-        ...(provider === "google" && {
-          scopes: "openid email profile",
-        }),
+        ...(provider === "google" && { scopes: "openid email profile" }),
       },
     });
 
     if (error) throw error;
 
-    if (data?.url) {
-  if (Capacitor.isNativePlatform()) {
-    await Browser.open({
-      url: data.url,
-      presentationStyle: "fullscreen",
-    });
-  } else {
-    window.location.href = data.url;
-  }
-}
+    if (!data?.url) {
+      throw new Error(`Could not start ${provider} sign-in.`);
+    }
+
+    const { Capacitor } = await import("@capacitor/core");
+
+    if (Capacitor.isNativePlatform()) {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({
+        url: data.url,
+        presentationStyle: "fullscreen",
+      });
+    } else {
+      window.location.href = data.url;
+    }
   } catch (err) {
     console.error("OAuth start error:", err);
     setError(err?.message || `Could not start ${provider} sign-in.`);
