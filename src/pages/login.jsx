@@ -230,17 +230,15 @@ export default function LoginPage() {
 
     if (error) throw error;
 
-    if (!data?.url) {
-      throw new Error(`Could not start ${provider} sign-in.`);
-    }
-
-    if (Capacitor.isNativePlatform()) {
-  await Browser.open({
-    url: data.url,
-    presentationStyle: "fullscreen",
-  });
-} else {
-  window.location.href = data.url;
+    if (data?.url) {
+  if (Capacitor.isNativePlatform()) {
+    await Browser.open({
+      url: data.url,
+      presentationStyle: "fullscreen",
+    });
+  } else {
+    window.location.href = data.url;
+  }
 }
   } catch (err) {
     console.error("OAuth start error:", err);
