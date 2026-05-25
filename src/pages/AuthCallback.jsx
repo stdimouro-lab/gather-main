@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const location = useLocation();
   const ranRef = useRef(false);
 
   const [status, setStatus] = useState("loading");
@@ -14,6 +14,11 @@ export default function AuthCallback() {
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
+
+    const finishRedirect = async (userId) => {
+      const destination = await getPostAuthRedirect(userId);
+      navigate(destination || "/onboarding", { replace: true });
+    };
 
     const handleAuth = async () => {
       try {
@@ -25,20 +30,16 @@ export default function AuthCallback() {
         });
 
         const url = new URL(window.location.href);
+        const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(
           window.location.hash.startsWith("#")
             ? window.location.hash.slice(1)
             : window.location.hash
         );
 
-        const searchParams = url.searchParams;
-        const next =
-          searchParams.get("next") ||
-          new URLSearchParams(location.search).get("next") ||
-          "/calendar";
-
         const urlError =
           searchParams.get("error") || hashParams.get("error") || null;
+
         const urlErrorDescription =
           searchParams.get("error_description") ||
           searchParams.get("errorDescription") ||
@@ -51,7 +52,10 @@ export default function AuthCallback() {
             urlError,
             urlErrorDescription,
           });
-          setErrorMessage(urlErrorDescription || urlError || "Authentication failed.");
+
+          setErrorMessage(
+            urlErrorDescription || urlError || "Authentication failed."
+          );
           setStatus("error");
           return;
         }
@@ -79,9 +83,10 @@ export default function AuthCallback() {
             hasUser: !!data?.session?.user,
           });
 
-          window.history.replaceState({}, document.title, `/auth/callback?next=${encodeURIComponent(next)}`);
+          window.history.replaceState({}, document.title, "/auth/callback");
+
           setStatus("success");
-          navigate(next, { replace: true });
+          await finishRedirect(data?.session?.user?.id);
           return;
         }
 
@@ -90,7 +95,8 @@ export default function AuthCallback() {
         if (code) {
           console.log("AuthCallback: exchanging code for session");
 
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } =
+            await supabase.auth.exchangeCodeForSession(code);
 
           if (error) {
             console.error("Auth callback exchange failure:", error);
@@ -105,7 +111,7 @@ export default function AuthCallback() {
           });
 
           setStatus("success");
-          navigate(next, { replace: true });
+          await finishRedirect(data?.session?.user?.id);
           return;
         }
 
@@ -121,7 +127,7 @@ export default function AuthCallback() {
         if (session?.user) {
           console.log("AuthCallback: existing session already present");
           setStatus("success");
-          navigate(next, { replace: true });
+          await finishRedirect(session.user.id);
           return;
         }
 
@@ -135,13 +141,15 @@ export default function AuthCallback() {
     };
 
     void handleAuth();
-  }, [location.search, navigate]);
+  }, [navigate]);
 
   if (status === "error") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-6">
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-900">Sign-in failed</h1>
+          <h1 className="text-xl font-semibold text-slate-900">
+            Sign-in failed
+          </h1>
           <p className="mt-3 text-sm text-slate-600">
             {errorMessage || "We could not complete your login."}
           </p>
