@@ -12,11 +12,9 @@ export async function getPostAuthRedirect(userId) {
 
     if (error) throw error;
 
-    if (!profile) {
-      return "/onboarding";
-    }
+    if (!profile) return "/onboarding";
 
-    return profile.onboarding_completed === true ? "/calendar" : "/onboarding";
+    return profile.onboarding_completed === true ? "/home" : "/onboarding";
   } catch (error) {
     console.error("getPostAuthRedirect error:", error);
     return "/onboarding";
