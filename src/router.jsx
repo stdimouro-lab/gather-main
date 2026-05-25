@@ -4,7 +4,9 @@ import Layout from "./Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/login";
+import Home from "./pages/Home";
 import Calendar from "./pages/calendar";
+import Memories from "./pages/Memories";
 import Plans from "./pages/Plans";
 import Settings from "./pages/Settings";
 import SharedWithMe from "./pages/SharedWithMe";
@@ -32,8 +34,10 @@ export default function AppRouter() {
         <Route path="/onboarding" element={<Onboarding />} />
 
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/calendar" replace />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/memories" element={<Memories />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/shared" element={<SharedWithMe />} />
@@ -41,7 +45,7 @@ export default function AppRouter() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/calendar" replace />} />
+      <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   );
 }

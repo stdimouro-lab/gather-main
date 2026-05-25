@@ -1,40 +1,79 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Calendar, Share2, LogOut, Settings } from "lucide-react";
-
+  Calendar,
+  Home,
+  Image,
+  LogOut,
+  NotebookText,
+  Plus,
+  Settings,
+  Users,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import gatherLogo from "@/assets/gather-logo.png";
+
+const tableColorMap = {
+  indigo: "#6C63FF",
+  violet: "#8B5CF6",
+  emerald: "#2EC4B6",
+  orange: "#F4A261",
+  blue: "#3B82F6",
+  rose: "#F43F5E",
+  teal: "#14B8A6",
+  slate: "#64748B",
+  amber: "#F59E0B",
+  gray: "#94A3B8",
+};
+
+function NavItem({ to, icon: Icon, label }) {
+  const location = useLocation();
+  const active = location.pathname.startsWith(to);
+
+  return (
+    <Link
+      to={to}
+      className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] transition ${
+        active
+          ? "bg-[#EEEDFE] text-[#534AB7]"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
+  );
+}
 
 export default function AppLayout() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
+  const [tables, setTables] = useState([]);
 
-  const getInitials = (nameOrEmail) => {
-    if (!nameOrEmail) return "U";
-    const base = nameOrEmail.includes("@")
-      ? nameOrEmail.split("@")[0]
-      : nameOrEmail;
+  useEffect(() => {
+    let mounted = true;
 
-    return base
-      .split(/[.\s_-]+/)
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+    async function loadTables() {
+      if (!user?.id) return;
 
-  const isActive = (path) => location.pathname.startsWith(path);
+      const { data, error } = await supabase
+        .from("calendar_tabs")
+        .select("id, name, color")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (!mounted) return;
+
+      if (!error) setTables(data || []);
+    }
+
+    loadTables();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -42,166 +81,95 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 pt-safe-top pb-safe-bottom">
-      <nav className="sticky top-0 z-30 w-full border-b border-slate-200/50 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-screen-2xl items-center justify-between">
-          <div className="flex items-center gap-6">
+    <div className="flex min-h-screen bg-slate-100 text-slate-900">
+      <aside className="hidden w-[200px] shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-4 md:flex">
+        <Link to="/home" className="mb-3 flex items-center gap-2 px-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6C63FF]">
+            <img
+              src={gatherLogo}
+              alt="Gather"
+              className="h-6 w-6 object-contain"
+            />
+          </div>
+          <span className="text-[15px] font-medium text-slate-900">
+            Gather
+          </span>
+        </Link>
+
+        <nav className="space-y-1">
+          <NavItem to="/home" icon={Home} label="Home" />
+          <NavItem to="/calendar" icon={Calendar} label="Calendar" />
+          <NavItem to="/memories" icon={Image} label="Memories" />
+          <NavItem to="/team" icon={Users} label="People" />
+          <NavItem to="/shared" icon={NotebookText} label="Notes" />
+        </nav>
+
+        <div className="mt-4">
+          <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            My tables
+          </div>
+
+          <div className="space-y-1">
+            {tables.slice(0, 6).map((table) => (
+              <Link
+                key={table.id}
+                to="/calendar"
+                className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    background:
+                      tableColorMap[table.color] || table.color || "#6C63FF",
+                  }}
+                />
+                <span className="truncate">{table.name}</span>
+              </Link>
+            ))}
+
             <Link
               to="/calendar"
-              className="flex items-center gap-2 transition-opacity hover:opacity-80"
+              className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg">
-                <Calendar className="h-5 w-5 text-white" />
-              </div>
-              <span className="hidden text-lg font-semibold text-slate-900 sm:block">
-                Gather
-              </span>
-            </Link>
-
-            <div className="ml-4 hidden items-center gap-1 md:flex">
-              <Link to="/calendar">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-sm ${
-                    isActive("/calendar")
-                      ? "bg-slate-100 text-slate-900"
-                      : "text-slate-600"
-                  }`}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  My Tables
-                </Button>
-              </Link>
-
-              <Link to="/shared">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-sm ${
-                    isActive("/shared")
-                      ? "bg-slate-100 text-slate-900"
-                      : "text-slate-600"
-                  }`}
-                >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Invited Tables
-                </Button>
-              </Link>
-
-              <Link to="/settings">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-sm ${
-                    isActive("/settings")
-                      ? "bg-slate-100 text-slate-900"
-                      : "text-slate-600"
-                  }`}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-indigo-100 font-medium text-indigo-700">
-                      {getInitials(user?.user_metadata?.full_name || user?.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium text-slate-900">
-                    {user?.user_metadata?.full_name || "Account"}
-                  </p>
-                  <p className="text-xs text-slate-500">{user?.email}</p>
-                </div>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem className="md:hidden" asChild>
-                  <Link to="/calendar" className="flex items-center">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    My Tables
-                  </Link>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem className="md:hidden" asChild>
-                  <Link to="/shared" className="flex items-center">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Invited Tables
-                  </Link>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator className="md:hidden" />
-
-                <DropdownMenuItem asChild>
-                  <Link to="/settings" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="text-red-600"
-                  disabled={loading}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </nav>
-
-      <main className="min-h-[calc(100vh-120px)] w-full overflow-x-hidden">
-        <Outlet />
-      </main>
-
-      {/* Footer hidden on mobile/iOS — not needed in native app context */}
-      <footer className="hidden md:block border-t border-slate-200 bg-white px-4 py-6">
-        <div className="mx-auto flex max-w-screen-2xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span>© {new Date().getFullYear()} Gather</span>
-            <span className="text-slate-300">·</span>
-            <span>Where life meets around the table.</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm">
-            <Link
-              to="/privacy"
-              className="text-slate-500 transition-colors hover:text-slate-700"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              to="/terms"
-              className="text-slate-500 transition-colors hover:text-slate-700"
-            >
-              Terms of Service
-            </Link>
-            <Link
-              to="/support"
-              className="text-slate-500 transition-colors hover:text-slate-700"
-            >
-              Support
+              <Plus className="h-4 w-4" />
+              New table
             </Link>
           </div>
         </div>
-      </footer>
+
+        <div className="mt-auto space-y-1">
+          <NavItem to="/settings" icon={Settings} label="Settings" />
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[13px] text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+          <Link to="/home" className="flex items-center gap-2">
+            <img src={gatherLogo} alt="Gather" className="h-8 w-8" />
+            <span className="font-semibold">Gather</span>
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            className="text-sm font-medium text-slate-500"
+          >
+            Log out
+          </button>
+        </div>
+
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
