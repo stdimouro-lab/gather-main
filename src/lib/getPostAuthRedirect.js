@@ -6,17 +6,19 @@ export async function getPostAuthRedirect(userId) {
   try {
     const { data: profile, error } = await supabase
       .from("profiles")
-      .select("onboarding_completed")
+      .select("id, onboarding_completed")
       .eq("id", userId)
       .maybeSingle();
 
     if (error) throw error;
 
-    const onboardingCompleted = profile?.onboarding_completed === true;
+    if (!profile) {
+      return "/onboarding";
+    }
 
-    return onboardingCompleted ? "/calendar" : "/onboarding";
+    return profile.onboarding_completed === true ? "/calendar" : "/onboarding";
   } catch (error) {
     console.error("getPostAuthRedirect error:", error);
-    return "/calendar";
+    return "/onboarding";
   }
 }
