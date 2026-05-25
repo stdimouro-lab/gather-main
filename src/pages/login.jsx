@@ -222,7 +222,12 @@ export default function LoginPage() {
       options: {
         redirectTo: callbackUrl,
         skipBrowserRedirect: true,
-        ...(provider === "google" && { scopes: "openid email profile" }),
+        ...(provider === "google" && {
+  scopes: "openid email profile",
+  queryParams: {
+    prompt: "select_account",
+  },
+}),
       },
     });
 
