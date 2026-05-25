@@ -1,16 +1,18 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Bell,
+  CalendarDays,
+  CreditCard,
+  FileText,
+  HelpCircle,
+  Image,
+  Lock,
+  LogOut,
   Rocket,
-  UserCircle,
   Shield,
   Sparkles,
-  Bell,
-  LifeBuoy,
-  FileText,
-  Info,
-  LogOut,
-  PencilLine,
-  CalendarDays,
+  UserCircle,
   Users,
 } from "lucide-react";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
@@ -21,11 +23,100 @@ import useEntitlement from "@/hooks/useEntitlement";
 import { restoreApplePurchases } from "@/lib/appleBillingBridge";
 import { useToast } from "@/components/ui/use-toast";
 
+const settingsSections = [
+  {
+    label: "Account",
+    items: [
+      { id: "profile", label: "Profile", icon: UserCircle },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "privacy", label: "Privacy", icon: Lock },
+      { id: "security", label: "Security", icon: Shield },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { id: "getting-started", label: "Getting Started", icon: Rocket },
+      { id: "tables", label: "Tables", icon: CalendarDays },
+      { id: "memories", label: "Memories", icon: Image },
+    ],
+  },
+  {
+    label: "Billing",
+    items: [
+      { id: "billing", label: "Plan & billing", icon: CreditCard },
+      { id: "usage", label: "Usage", icon: Users },
+    ],
+  },
+  {
+    label: "More",
+    items: [
+      { id: "support", label: "Help & support", icon: HelpCircle },
+      { id: "legal", label: "Legal", icon: FileText },
+    ],
+  },
+];
+
+function SettingNavItem({ item, activeSection, setActiveSection }) {
+  const Icon = item.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setActiveSection(item.id)}
+      className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px] transition ${
+        activeSection === item.id
+          ? "bg-[#EEEDFE] text-[#534AB7]"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {item.label}
+    </button>
+  );
+}
+
+function SettingsCard({ children }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      {children}
+    </div>
+  );
+}
+
+function SettingsRow({ label, sub, right }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3 last:border-0">
+      <div>
+        <div className="text-[13px] font-medium text-slate-900">{label}</div>
+        {sub ? <div className="mt-0.5 text-[11px] text-slate-500">{sub}</div> : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">{right}</div>
+    </div>
+  );
+}
+
+function Toggle({ on = true }) {
+  return (
+    <div
+      className={`relative h-5 w-9 rounded-full ${
+        on ? "bg-[#6C63FF]" : "bg-slate-300"
+      }`}
+    >
+      <div
+        className={`absolute top-[3px] h-3.5 w-3.5 rounded-full bg-white transition ${
+          on ? "left-[19px]" : "left-[3px]"
+        }`}
+      />
+    </div>
+  );
+}
 
 export default function Settings() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  
+  const { toast } = useToast();
+  const [activeSection, setActiveSection] = useState("profile");
 
   const {
     planTier,
@@ -42,12 +133,22 @@ export default function Settings() {
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email?.split("@")[0] ||
-    "";
+    "Gather User";
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
+  const initials =
+    displayName
+      .split(/[.\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "G";
+
+  const planLabel = isComped
+    ? "Complimentary"
+    : planTier
+    ? `${planTier}`.replace("_", " ")
+    : "Free";
 
   const storageUsedGb = Number(((storageUsedMb || 0) / 1024).toFixed(1));
   const storageLimitGb = Number(((storageLimitMb || 0) / 1024).toFixed(1));
@@ -55,37 +156,173 @@ export default function Settings() {
     storageLimitMb > 0 ? (storageUsedMb || 0) / storageLimitMb : 0;
   const seatUsageRatio = seatLimit > 0 ? (seatsUsed || 0) / seatLimit : 0;
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Manage your account, revisit setup, and keep Gather working the way
-          your life works.
-        </p>
-      </div>
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/login", { replace: true });
+  };
 
-      <div className="space-y-6">
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="rounded-2xl bg-slate-100 p-3">
-              <Rocket className="h-5 w-5 text-slate-700" />
+  return (
+    <div className="flex min-h-screen bg-slate-100">
+      <aside className="hidden w-[190px] shrink-0 border-r border-slate-200 bg-white px-2.5 py-5 md:block">
+        {settingsSections.map((section) => (
+          <div key={section.label} className="mb-3">
+            <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+              {section.label}
             </div>
 
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-slate-900">
-                Getting Started
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Revisit setup, refresh your workspace, and review how Gather is
-                designed to work.
+            <div className="space-y-1">
+              {section.items.map((item) => (
+                <SettingNavItem
+                  key={item.id}
+                  item={item}
+                  activeSection={activeSection}
+                  setActiveSection={setActiveSection}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="mt-4 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px] text-red-600 transition hover:bg-red-50"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
+      </aside>
+
+      <main className="min-w-0 flex-1 p-4 md:p-7">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-6">
+            <h1 className="text-xl font-medium text-slate-900">Settings</h1>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Manage your account, tables, billing, privacy, and Gather setup.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <section id="profile">
+              <h2 className="text-base font-medium text-slate-900">Profile</h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                How you appear to others in Gather.
               </p>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <SettingsCard>
+                <SettingsRow
+                  label="Display name"
+                  sub="Shown to people you share tables with"
+                  right={
+                    <>
+                      <span className="text-[12px] text-slate-500">
+                        {displayName}
+                      </span>
+                      <button className="text-[12px] font-medium text-[#6C63FF]">
+                        Edit
+                      </button>
+                    </>
+                  }
+                />
+                <SettingsRow
+                  label="Email address"
+                  sub="Used for sign in and notifications"
+                  right={
+                    <>
+                      <span className="text-[12px] text-slate-500">
+                        {user?.email || "Loading..."}
+                      </span>
+                    </>
+                  }
+                />
+                <SettingsRow
+                  label="Profile photo"
+                  sub="Visible to people in your circle"
+                  right={
+                    <>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EEEDFE] text-[11px] font-semibold text-[#534AB7]">
+                        {initials}
+                      </div>
+                      <button className="text-[12px] font-medium text-[#6C63FF]">
+                        Change
+                      </button>
+                    </>
+                  }
+                />
+                <SettingsRow
+                  label="Time zone"
+                  sub="Used for event reminders and calendar times"
+                  right={
+                    <>
+                      <span className="text-[12px] text-slate-500">
+                        Eastern Time
+                      </span>
+                      <button className="text-[12px] font-medium text-[#6C63FF]">
+                        Change
+                      </button>
+                    </>
+                  }
+                />
+              </SettingsCard>
+            </section>
+
+            <section id="notifications">
+              <h2 className="text-base font-medium text-slate-900">
+                Notifications
+              </h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Choose how and when Gather reaches you.
+              </p>
+
+              <SettingsCard>
+                <SettingsRow
+                  label="Event reminders"
+                  sub="Alert before upcoming events"
+                  right={
+                    <>
+                      <span className="text-[12px] text-slate-500">
+                        30 min before
+                      </span>
+                      <Toggle on />
+                    </>
+                  }
+                />
+                <SettingsRow
+                  label="Shared table activity"
+                  sub="When someone adds or edits an event"
+                  right={<Toggle on />}
+                />
+                <SettingsRow
+                  label="Invite accepted"
+                  sub="When someone joins your table"
+                  right={<Toggle on />}
+                />
+                <SettingsRow
+                  label="Smart suggestions"
+                  sub="Conflict alerts and scheduling nudges"
+                  right={<Toggle on />}
+                />
+                <SettingsRow
+                  label="Memory added"
+                  sub="When someone adds photos to a shared event"
+                  right={<Toggle on={false} />}
+                />
+              </SettingsCard>
+            </section>
+
+            <section id="getting-started">
+              <h2 className="text-base font-medium text-slate-900">
+                Getting Started
+              </h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Revisit setup and review how Gather works.
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => navigate("/onboarding")}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-3 text-[13px] font-medium text-white"
                 >
                   <Sparkles className="h-4 w-4" />
                   Revisit onboarding
@@ -93,331 +330,216 @@ export default function Settings() {
 
                 <Link
                   to="/support"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  <LifeBuoy className="h-4 w-4" />
+                  <HelpCircle className="h-4 w-4" />
                   View support
                 </Link>
               </div>
+            </section>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <UserCircle className="h-4 w-4 text-slate-700" />
-                    <p className="font-medium text-slate-900">Profile setup</p>
+            <section id="tables">
+              <h2 className="text-base font-medium text-slate-900">Tables</h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Manage your tables and who has access.
+              </p>
+
+              <SettingsCard>
+                <SettingsRow
+                  label="Manage tables"
+                  sub="Create, rename, delete, and share tables from Calendar"
+                  right={
+                    <button
+                      onClick={() => navigate("/calendar")}
+                      className="text-[12px] font-medium text-[#6C63FF]"
+                    >
+                      Open Calendar
+                    </button>
+                  }
+                />
+                <SettingsRow
+                  label="People and permissions"
+                  sub="Review people connected to your shared tables"
+                  right={
+                    <button
+                      onClick={() => navigate("/team")}
+                      className="text-[12px] font-medium text-[#6C63FF]"
+                    >
+                      Open People
+                    </button>
+                  }
+                />
+              </SettingsCard>
+            </section>
+
+            <section id="billing">
+              <h2 className="text-base font-medium text-slate-900">
+                Plan & billing
+              </h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Your Gather plan, seats, storage, and purchases.
+              </p>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="mb-4 flex items-start justify-between">
+                  <div>
+                    <div className="text-sm font-medium capitalize text-slate-900">
+                      {planLabel} plan
+                    </div>
+                    <div className="mt-1 text-[12px] text-slate-500 capitalize">
+                      Billing source: {billingSource || "none"}
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-500">
-                    Keep your display name and setup experience up to date.
-                  </p>
+
+                  <span className="rounded-full bg-[#EEEDFE] px-3 py-1 text-[11px] font-medium text-[#534AB7]">
+                    Active
+                  </span>
                 </div>
 
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-slate-700" />
-                    <p className="font-medium text-slate-900">How tables work</p>
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    Organize family, personal life, and work into separate but
-                    connected tables.
-                  </p>
+                <div className="space-y-4">
+                  <UsageBar
+                    label="Storage"
+                    used={storageUsedGb}
+                    limit={storageLimitGb || 0.1}
+                    unit="GB"
+                  />
+
+                  <UsageBar
+                    label="Seats"
+                    used={seatsUsed || 0}
+                    limit={seatLimit || 1}
+                  />
                 </div>
 
-                <div className="rounded-xl border bg-slate-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-slate-700" />
-                    <p className="font-medium text-slate-900">Privacy controls</p>
+                {storageUsageRatio >= 0.95 && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    Your storage is almost full. Upgrade soon to keep adding
+                    memories and files.
                   </div>
-                  <p className="text-sm text-slate-500">
-                    Share what people need to know while keeping sensitive
-                    details private.
-                  </p>
+                )}
+
+                {storageUsageRatio >= 0.8 && storageUsageRatio < 0.95 && (
+                  <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
+                    You’re getting close to your storage limit.
+                  </div>
+                )}
+
+                {seatUsageRatio >= 1 && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    You’ve reached your seat limit for this plan.
+                  </div>
+                )}
+
+                {seatUsageRatio >= 0.8 && seatUsageRatio < 1 && (
+                  <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
+                    You’re getting close to your seat limit.
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/plans")}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-2.5 text-[13px] font-medium text-white"
+                  >
+                    View plans
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await restoreApplePurchases();
+                      } catch {
+                        toast({
+                          title: "Restore purchases coming soon",
+                          description:
+                            "Apple subscription restore is almost ready and will be available in an upcoming update.",
+                        });
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Restore purchases
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <UserCircle className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">Account</h2>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-1">
-            Your Gather identity and sign-in details.
-          </p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Display name</p>
-              <p className="font-medium mt-1 text-slate-900">
-                {displayName || "Not set"}
+            <section id="support">
+              <h2 className="text-base font-medium text-slate-900">
+                Help & support
+              </h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Get help with Gather.
               </p>
-            </div>
 
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Signed in as</p>
-              <p className="font-medium mt-1 text-slate-900">
-                {user?.email || "Loading..."}
-              </p>
-            </div>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  to="/support"
+                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    Help & Support
+                  </p>
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    Get help or contact support.
+                  </p>
+                </Link>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/onboarding")}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              <PencilLine className="h-4 w-4" />
-              Update setup
-            </button>
-
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">
-              Notifications
-            </h2>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-1">
-            Notification settings for reminders and shared activity.
-          </p>
-
-          <div className="mt-4 rounded-xl border bg-slate-50 p-5">
-  <div className="flex items-start justify-between gap-4">
-    <div>
-      <p className="font-medium text-slate-900">
-        Notifications are coming soon
-      </p>
-
-      <p className="mt-1 text-sm text-slate-500">
-        Event reminders, shared calendar activity, and smarter notification
-        controls are planned for an upcoming update.
-      </p>
-    </div>
-
-    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
-      Soon
-    </span>
-  </div>
-</div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">
-              Sharing & Collaboration
-            </h2>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-1">
-            Gather is built for families, shared routines, co-parenting, and
-            teamwork.
-          </p>
-
-          <div className="mt-4 rounded-xl border bg-slate-50 p-4">
-            <p className="font-medium text-slate-900">Viewer and editor access</p>
-            <p className="text-sm text-slate-500 mt-1">
-              Share tables with the right level of visibility and control. More
-              collaboration tools are coming soon.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <LifeBuoy className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">Support</h2>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-1">Get help with Gather.</p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Link
-              to="/support"
-              className="rounded-xl border bg-slate-50 p-4 transition hover:bg-slate-100"
-            >
-              <p className="font-medium text-slate-900">Help & Support</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Get help or contact support.
-              </p>
-            </Link>
-
-            <Link
-              to="/support"
-              className="rounded-xl border bg-slate-50 p-4 transition hover:bg-slate-100"
-            >
-              <p className="font-medium text-slate-900">Report a Bug</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Let us know if something is broken.
-              </p>
-            </Link>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">Legal</h2>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-1">
-            Important policies and terms.
-          </p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Link
-              to="/privacy"
-              className="rounded-xl border bg-slate-50 p-4 transition hover:bg-slate-100"
-            >
-              <p className="font-medium text-slate-900">Privacy Policy</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Read how we collect and use data.
-              </p>
-            </Link>
-
-            <Link
-              to="/terms"
-              className="rounded-xl border bg-slate-50 p-4 transition hover:bg-slate-100"
-            >
-              <p className="font-medium text-slate-900">Terms of Service</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Review the rules for using Gather.
-              </p>
-            </Link>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Info className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">App Info</h2>
-          </div>
-
-          <div className="mt-4 rounded-xl border bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">Version</p>
-            <p className="font-medium mt-1 text-slate-900">Gather V1 Beta</p>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-slate-700" />
-            <h2 className="text-xl font-semibold text-slate-900">Billing</h2>
-          </div>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Your Gather plan, seats, storage, and purchase recovery options.
-          </p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Plan</p>
-              <p className="mt-1 font-medium text-slate-900 capitalize">
-                {isComped ? "Complimentary" : planTier}
-              </p>
-            </div>
-
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Billing source</p>
-              <p className="mt-1 font-medium text-slate-900 capitalize">
-                {billingSource}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <UsageBar
-              label="Storage"
-              used={storageUsedGb}
-              limit={storageLimitGb || 0.1}
-              unit="GB"
-            />
-
-            <UsageBar
-              label="Seats"
-              used={seatsUsed || 0}
-              limit={seatLimit || 1}
-            />
-
-            {storageUsageRatio >= 0.95 && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                Your storage is almost full. Upgrade soon to keep adding memories
-                and files.
+                <Link
+                  to="/support"
+                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    Report a bug
+                  </p>
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    Let us know if something is broken.
+                  </p>
+                </Link>
               </div>
-            )}
+            </section>
 
-            {storageUsageRatio >= 0.8 && storageUsageRatio < 0.95 && (
-              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                You’re getting close to your storage limit.
-              </div>
-            )}
+            <section id="legal">
+              <h2 className="text-base font-medium text-slate-900">Legal</h2>
+              <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                Important policies and terms.
+              </p>
 
-            {seatUsageRatio >= 1 && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                You’ve reached your seat limit for this plan.
-              </div>
-            )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  to="/privacy"
+                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    Privacy Policy
+                  </p>
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    Read how Gather handles data.
+                  </p>
+                </Link>
 
-            {seatUsageRatio >= 0.8 && seatUsageRatio < 1 && (
-              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                You’re getting close to your seat limit.
+                <Link
+                  to="/terms"
+                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    Terms of Service
+                  </p>
+                  <p className="mt-1 text-[12px] text-slate-500">
+                    Review the rules for using Gather.
+                  </p>
+                </Link>
               </div>
-            )}
+            </section>
 
-            {planTier === "free" && (
-              <div className="rounded-xl border bg-slate-50 p-4">
-                <p className="text-sm text-slate-700">
-                  Upgrade to unlock more storage, more seats, and better shared
-                  planning for families and teams.
-                </p>
-              </div>
-            )}
+            <section id="danger">
+              <DeleteAccountSection />
+            </section>
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              onClick={async () => {
-                try {
-                  await restoreApplePurchases();
-                } catch (error) {
-                  toast({
-  title: "Restore purchases coming soon",
-description: "Apple subscription restore is almost ready and will be available in an upcoming update.",
-});
-                }
-              }}
-            >
-              Restore Purchases
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/plans")}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              View plans
-            </button>
-          </div>
-        </section>
-
-        <DeleteAccountSection />
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import Onboarding from "./pages/Onboarding";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Team from "./pages/Team";
+import Notes from "./pages/Notes";
 
 export default function AppRouter() {
   return (
@@ -42,6 +43,7 @@ export default function AppRouter() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/shared" element={<SharedWithMe />} />
           <Route path="/team" element={<Team />} />
+          <Route path="/notes" element={<Notes />} />
         </Route>
       </Route>
 

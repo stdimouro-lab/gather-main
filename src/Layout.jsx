@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -6,26 +6,12 @@ import {
   Image,
   LogOut,
   NotebookText,
-  Plus,
   Settings,
   Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import gatherLogo from "@/assets/gather-logo.png";
-
-const tableColorMap = {
-  indigo: "#6C63FF",
-  violet: "#8B5CF6",
-  emerald: "#2EC4B6",
-  orange: "#F4A261",
-  blue: "#3B82F6",
-  rose: "#F43F5E",
-  teal: "#14B8A6",
-  slate: "#64748B",
-  amber: "#F59E0B",
-  gray: "#94A3B8",
-};
 
 function NavItem({ to, icon: Icon, label }) {
   const location = useLocation();
@@ -49,31 +35,21 @@ function NavItem({ to, icon: Icon, label }) {
 export default function AppLayout() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [tables, setTables] = useState([]);
 
-  useEffect(() => {
-    let mounted = true;
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "Gather User";
 
-    async function loadTables() {
-      if (!user?.id) return;
-
-      const { data, error } = await supabase
-        .from("calendar_tabs")
-        .select("id, name, color")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: true });
-
-      if (!mounted) return;
-
-      if (!error) setTables(data || []);
-    }
-
-    loadTables();
-
-    return () => {
-      mounted = false;
-    };
-  }, [user?.id]);
+  const initials =
+    displayName
+      ?.split(/[.\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "G";
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -83,7 +59,7 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
       <aside className="hidden w-[200px] shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-4 md:flex">
-        <Link to="/home" className="mb-3 flex items-center gap-2 px-1">
+        <Link to="/home" className="mb-4 flex items-center gap-2 px-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6C63FF]">
             <img
               src={gatherLogo}
@@ -101,44 +77,26 @@ export default function AppLayout() {
           <NavItem to="/calendar" icon={Calendar} label="Calendar" />
           <NavItem to="/memories" icon={Image} label="Memories" />
           <NavItem to="/team" icon={Users} label="People" />
-          <NavItem to="/shared" icon={NotebookText} label="Notes" />
+          <NavItem to="/notes" icon={NotebookText} label="Notes" />
         </nav>
 
-        <div className="mt-4">
-          <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-            My tables
-          </div>
-
-          <div className="space-y-1">
-            {tables.slice(0, 6).map((table) => (
-              <Link
-                key={table.id}
-                to="/calendar"
-                className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background:
-                      tableColorMap[table.color] || table.color || "#6C63FF",
-                  }}
-                />
-                <span className="truncate">{table.name}</span>
-              </Link>
-            ))}
-
-            <Link
-              to="/calendar"
-              className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            >
-              <Plus className="h-4 w-4" />
-              New table
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-auto space-y-1">
+        <div className="mt-auto space-y-1 border-t border-slate-200 pt-3">
           <NavItem to="/settings" icon={Settings} label="Settings" />
+
+          <div className="flex items-center gap-2 rounded-lg px-2 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEEDFE] text-[11px] font-semibold text-[#534AB7]">
+              {initials}
+            </div>
+
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-medium text-slate-900">
+                {displayName}
+              </div>
+              <div className="truncate text-[10px] text-slate-400">
+                {user?.email || "Account"}
+              </div>
+            </div>
+          </div>
 
           <button
             type="button"

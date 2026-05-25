@@ -1,595 +1,244 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useState } from "react";
 import {
-  Loader2,
+  Calendar,
+  Clock,
+  UserPlus,
   Users,
-  UserMinus,
-  Mail,
-  CheckCircle2,
-  Clock3,
-  Send,
-  AlertTriangle,
 } from "lucide-react";
-import { useAuth } from "@/context/AuthProvider";
-import useEntitlement from "@/hooks/useEntitlement";
-import {
-  listTeamMembers,
-  removeTeamMember,
-  inviteToTab,
-} from "@/lib/tabShares";
-import { syncAccountSeatUsage } from "@/lib/account";
-import { fetchTabs } from "@/lib/tabs";
-import { toast } from "@/components/ui/use-toast";
 
-function formatRole(role) {
-  if (!role) return "Viewer";
-  return role.charAt(0).toUpperCase() + role.slice(1);
+const filters = [
+  "Everyone",
+  "Co-parent",
+  "Family",
+  "Work",
+  "Pending",
+];
+
+const people = [
+  {
+    initials: "JD",
+    name: "Jessica D.",
+    role: "Co-parent",
+    status: "Active",
+    statusColor: "bg-green-100 text-green-700",
+    avatarColor: "bg-[#FBEAF0] text-[#993556]",
+    tables: [
+      {
+        label: "Family",
+        bg: "bg-[#E1F5EE]",
+        text: "text-[#085041]",
+        dot: "#2EC4B6",
+      },
+      {
+        label: "Boys schedules",
+        bg: "bg-[#EEEDFE]",
+        text: "text-[#3C3489]",
+        dot: "#6C63FF",
+      },
+    ],
+    footerAction: "View shared events",
+    footerTime: "Active today",
+  },
+  {
+    initials: "MM",
+    name: "Mom",
+    role: "Family",
+    status: "Active",
+    statusColor: "bg-green-100 text-green-700",
+    avatarColor: "bg-[#E1F5EE] text-[#085041]",
+    tables: [
+      {
+        label: "Family",
+        bg: "bg-[#E1F5EE]",
+        text: "text-[#085041]",
+        dot: "#2EC4B6",
+      },
+    ],
+    footerAction: "View shared events",
+    footerTime: "Active 2 days ago",
+  },
+  {
+    initials: "SR",
+    name: "Sarah (sister)",
+    role: "Family",
+    status: "Pending",
+    statusColor: "bg-amber-100 text-amber-700",
+    avatarColor: "bg-[#FAEEDA] text-[#633806]",
+    tables: [
+      {
+        label: "Family",
+        bg: "bg-[#E1F5EE]",
+        text: "text-[#085041]",
+        dot: "#2EC4B6",
+      },
+    ],
+    footerAction: "Resend invite",
+    footerTime: "Invited 3 days ago",
+  },
+  {
+    initials: "TM",
+    name: "Tom M.",
+    role: "Work",
+    status: "Active",
+    statusColor: "bg-green-100 text-green-700",
+    avatarColor: "bg-[#EEEDFE] text-[#3C3489]",
+    tables: [
+      {
+        label: "Work",
+        bg: "bg-[#EEEDFE]",
+        text: "text-[#3C3489]",
+        dot: "#6C63FF",
+      },
+    ],
+    footerAction: "View shared events",
+    footerTime: "Active 1 week ago",
+  },
+  {
+    initials: "AN",
+    name: "Aunt Nicole",
+    role: "Family",
+    status: "Active",
+    statusColor: "bg-green-100 text-green-700",
+    avatarColor: "bg-[#FAECE7] text-[#712B13]",
+    tables: [
+      {
+        label: "Family",
+        bg: "bg-[#E1F5EE]",
+        text: "text-[#085041]",
+        dot: "#2EC4B6",
+      },
+    ],
+    footerAction: "View shared events",
+    footerTime: "Active 4 days ago",
+  },
+];
+
+function PersonCard({ person }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${person.avatarColor}`}
+        >
+          {person.initials}
+        </div>
+
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-medium text-slate-900">
+            {person.name}
+          </div>
+
+          <div className="text-[11px] text-slate-500">
+            {person.role}
+          </div>
+        </div>
+
+        <div className="ml-auto">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] ${person.statusColor}`}
+          >
+            {person.status}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {person.tables.map((table) => (
+          <div
+            key={table.label}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] ${table.bg} ${table.text}`}
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: table.dot }}
+            />
+            {table.label}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+        <button className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6C63FF]">
+          <Calendar className="h-3 w-3" />
+          {person.footerAction}
+        </button>
+
+        <div className="text-[10px] text-slate-400">
+          {person.footerTime}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function getDisplayName(member) {
-  if (member.email) return member.email;
-  if (member.userId) return member.userId;
-  return "Unknown member";
-}
+function InviteCard() {
+  return (
+    <button className="flex min-h-[170px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white transition hover:border-[#6C63FF] hover:bg-slate-50">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EEEDFE]">
+        <UserPlus className="h-4 w-4 text-[#6C63FF]" />
+      </div>
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
+      <div className="text-[12px] text-slate-500">
+        Invite someone to a table
+      </div>
+    </button>
+  );
 }
 
 export default function Team() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("viewer");
-  const [selectedTabId, setSelectedTabId] = useState("");
-
-  const {
-    seatLimit,
-    seatsUsed,
-    remainingSeats,
-    isOverSeatLimit,
-    hasPaidAccess,
-    planTier,
-    account,
-  } = useEntitlement();
-
-  const {
-    data: members = [],
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["teamMembers", user?.id],
-    queryFn: async () => {
-      await syncAccountSeatUsage(user.id);
-      return listTeamMembers(user.id);
-    },
-    enabled: !!user?.id,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-
-  const {
-    data: tabs = [],
-    isLoading: tabsLoading,
-  } = useQuery({
-    queryKey: ["tabs", user?.id],
-    queryFn: () => fetchTabs(user.id),
-    enabled: !!user?.id,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: async () => {
-      const email = normalizeEmail(inviteEmail);
-
-      if (!hasPaidAccess) {
-        throw new Error("Inviting people is part of a paid plan.");
-      }
-
-      if (!selectedTabId) {
-        throw new Error("Please select a table to share.");
-      }
-
-      if (!email) {
-        throw new Error("Please enter an email address.");
-      }
-
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(email)) {
-        throw new Error("Please enter a valid email address.");
-      }
-
-      const synced = await syncAccountSeatUsage(user.id);
-      const freshSeatsUsed = synced?.seatsUsed ?? seatsUsed;
-      const freshSeatLimit = synced?.account?.seat_limit ?? seatLimit;
-
-      if (freshSeatsUsed > freshSeatLimit) {
-        const err = new Error(
-          "Your account is over its seat limit. Remove members or upgrade before inviting anyone new."
-        );
-        err.code = "ACCOUNT_OVER_SEAT_LIMIT";
-        throw err;
-      }
-
-      if (freshSeatsUsed >= freshSeatLimit) {
-        const err = new Error("Your account has reached its current seat limit.");
-        err.code = "SEAT_LIMIT_REACHED";
-        throw err;
-      }
-
-      return inviteToTab({
-        tabId: selectedTabId,
-        email,
-        role: inviteRole,
-        sharedById: user.id,
-      });
-    },
-    onSuccess: async () => {
-      await syncAccountSeatUsage(user.id);
-
-      setInviteEmail("");
-      setInviteRole("viewer");
-
-      await queryClient.invalidateQueries({ queryKey: ["teamMembers", user.id] });
-      await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-      await queryClient.invalidateQueries({ queryKey: ["sharedTabs"] });
-      await queryClient.invalidateQueries({ queryKey: ["tabs"] });
-
-      toast({
-        title: "Invite sent",
-        description: "The table invite was created successfully.",
-      });
-    },
-    onError: (err) => {
-      const code = err?.code;
-      let message = err?.message ?? "Something went wrong.";
-
-      if (code === "ALREADY_HAS_ACCESS") {
-        message = "That person already has access to this table.";
-      } else if (code === "INVITE_ALREADY_PENDING") {
-        message = "There is already a pending invite for that person on this table.";
-      } else if (code === "ACCOUNT_OVER_SEAT_LIMIT") {
-        message =
-          "Your account is over its seat limit. Remove members or upgrade before inviting anyone new.";
-      } else if (code === "SEAT_LIMIT_REACHED") {
-        message = "Your account has reached its current seat limit.";
-      }
-
-      toast({
-        title: "Could not send invite",
-        description: message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: async (member) => {
-      return removeTeamMember({
-        ownerId: user.id,
-        userId: member.userId,
-        email: member.email,
-      });
-    },
-    onSuccess: async () => {
-      await syncAccountSeatUsage(user.id);
-
-      await queryClient.invalidateQueries({ queryKey: ["teamMembers", user.id] });
-      await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-      await queryClient.invalidateQueries({ queryKey: ["accountMembers"] });
-      await queryClient.invalidateQueries({ queryKey: ["accountShares"] });
-      await queryClient.invalidateQueries({ queryKey: ["sharedTabs"] });
-      await queryClient.invalidateQueries({ queryKey: ["tabs"] });
-
-      toast({
-        title: "Member removed",
-        description: "Access and seat usage have been updated.",
-      });
-    },
-    onError: (err) => {
-      toast({
-        title: "Could not remove member",
-        description: err?.message ?? "Something went wrong.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const acceptedMembers = useMemo(
-    () => members.filter((member) => member.status === "accepted"),
-    [members]
-  );
-
-  const pendingMembers = useMemo(
-    () => members.filter((member) => member.status !== "accepted"),
-    [members]
-  );
-
-  const usagePercent =
-    seatLimit > 0 ? Math.min((seatsUsed / seatLimit) * 100, 100) : 0;
-
-  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    normalizeEmail(inviteEmail)
-  );
-
-  const canInvite =
-    hasPaidAccess &&
-    !!selectedTabId &&
-    emailLooksValid &&
-    remainingSeats > 0 &&
-    !isOverSeatLimit &&
-    !inviteMutation.isPending;
+  const [activeFilter, setActiveFilter] = useState("Everyone");
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Team</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Manage shared access, pending invites, and seat usage.
-          </p>
+    <div className="min-h-screen bg-slate-100 p-4 md:p-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-medium text-slate-900">
+              <Users className="h-5 w-5 text-[#6C63FF]" />
+              People
+            </h1>
+
+            <p className="mt-1 text-[13px] text-slate-500">
+              6 people in your circle · 1 invite pending
+            </p>
+          </div>
+
+          <button className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#6C63FF] px-3.5 py-2 text-[13px] font-medium text-white transition hover:opacity-95">
+            <UserPlus className="h-4 w-4" />
+            Invite someone
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link
-            to="/plans"
-            className="rounded-xl border px-4 py-2 text-sm text-slate-700"
-          >
-            Back to plans
-          </Link>
-          <Link
-            to="/settings"
-            className="rounded-xl border px-4 py-2 text-sm text-slate-700"
-          >
-            Back to settings
-          </Link>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-600">
-            <Users className="h-4 w-4" />
-            <span className="text-sm">Current plan</span>
-          </div>
-          <p className="mt-2 text-lg font-semibold capitalize text-slate-900">
-            {planTier}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {hasPaidAccess
-              ? "Shared access is enabled."
-              : "Upgrade to share with others."}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-600">Seats used</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900">
-            {seatsUsed} / {seatLimit}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {remainingSeats} remaining
-          </p>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-600">Account</p>
-          <p className="mt-2 text-lg font-semibold text-slate-900">
-            {account?.billing_source || "none"}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            Owner seat is included in usage.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-slate-700">Seat usage</p>
-          <p className="text-sm text-slate-500">
-            {seatsUsed} of {seatLimit}
-          </p>
-        </div>
-
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-slate-900 transition-all"
-            style={{ width: `${usagePercent}%` }}
-          />
-        </div>
-      </div>
-
-      {isOverSeatLimit && (
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-red-700" />
-            <div>
-              <p className="text-sm font-medium text-red-700">
-                Your account is over the current seat limit.
-              </p>
-              <p className="mt-1 text-sm text-red-600">
-                Existing members still keep access, but you cannot invite anyone new
-                until you remove members or upgrade your plan.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Invite to a table</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Share one of your tables with a viewer or editor.
-          </p>
-        </div>
-
-        {!hasPaidAccess && (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Upgrade your plan to invite people to your tables.
-          </div>
-        )}
-
-        {remainingSeats <= 0 && hasPaidAccess && !isOverSeatLimit && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            You have reached your current seat limit. Remove someone or upgrade to add more people.
-          </div>
-        )}
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Email
-            </label>
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-0 placeholder:text-slate-400 focus:border-slate-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Role
-            </label>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400"
+          {filters.map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setActiveFilter(filter)}
+              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[12px] transition ${
+                activeFilter === filter
+                  ? "border-[#AFA9EC] bg-[#EEEDFE] text-[#534AB7]"
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              }`}
             >
-              <option value="viewer">Viewer</option>
-              <option value="editor">Editor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Table
-            </label>
-            <select
-              value={selectedTabId}
-              onChange={(e) => setSelectedTabId(e.target.value)}
-              disabled={tabsLoading}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400 disabled:opacity-60"
-            >
-              <option value="">{tabsLoading ? "Loading..." : "Select a table"}</option>
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              {filter === "Pending" && <Clock className="h-3 w-3" />}
+              {filter}
+            </button>
+          ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
-            Invites are sent per table and count toward seat usage.
-          </p>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-400">
+          Your circle
+        </div>
 
-          <button
-            type="button"
-            onClick={() => inviteMutation.mutate()}
-            disabled={!canInvite}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {inviteMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Send invite
-              </>
-            )}
-          </button>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {people.map((person) => (
+            <PersonCard key={person.name} person={person} />
+          ))}
+
+          <InviteCard />
         </div>
       </div>
-
-      {isLoading && (
-        <div className="mt-8 rounded-2xl border bg-white p-8 text-center shadow-sm">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-500" />
-          <p className="mt-3 text-sm text-slate-600">Loading team members...</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">
-            {error?.message ?? "Could not load team members."}
-          </p>
-        </div>
-      )}
-
-      {!isLoading && !error && (
-        <>
-          <section className="mt-8">
-            <div className="mb-4 flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-slate-700" />
-              <h2 className="text-xl font-semibold text-slate-900">
-                Active members
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      {user?.email || "Account owner"}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Owner • Always counts as one seat
-                    </p>
-                  </div>
-
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                    Owner
-                  </span>
-                </div>
-              </div>
-
-              {acceptedMembers.length === 0 ? (
-                <div className="rounded-2xl border bg-white p-6 text-sm text-slate-500 shadow-sm">
-                  No active members yet.
-                </div>
-              ) : (
-                acceptedMembers.map((member) => (
-                  <div
-                    key={member.key}
-                    className="rounded-2xl border bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium text-slate-900">
-                          {getDisplayName(member)}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            {formatRole(member.role)}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            {member.tabCount} shared tab{member.tabCount === 1 ? "" : "s"}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            Active
-                          </span>
-                        </div>
-
-                        {member.shares?.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {member.shares.map((share) => (
-                              <span
-                                key={share.id}
-                                className="rounded-full border px-2 py-1 text-xs text-slate-600"
-                              >
-                                {share.calendar_tabs?.name || "Unnamed table"}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => removeMutation.mutate(member)}
-                        disabled={removeMutation.isPending}
-                        className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {removeMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <UserMinus className="h-4 w-4" />
-                        )}
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="mt-10">
-            <div className="mb-4 flex items-center gap-2">
-              <Clock3 className="h-5 w-5 text-slate-700" />
-              <h2 className="text-xl font-semibold text-slate-900">
-                Pending invites
-              </h2>
-            </div>
-
-            {pendingMembers.length === 0 ? (
-              <div className="rounded-2xl border bg-white p-6 text-sm text-slate-500 shadow-sm">
-                No pending invites right now.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingMembers.map((member) => (
-                  <div
-                    key={member.key}
-                    className="rounded-2xl border bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-500" />
-                          <p className="font-medium text-slate-900">
-                            {getDisplayName(member)}
-                          </p>
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            {formatRole(member.role)}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-2 py-1">
-                            {member.tabCount} shared tab{member.tabCount === 1 ? "" : "s"}
-                          </span>
-                          <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">
-                            Pending
-                          </span>
-                        </div>
-
-                        {member.shares?.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {member.shares.map((share) => (
-                              <span
-                                key={share.id}
-                                className="rounded-full border px-2 py-1 text-xs text-slate-600"
-                              >
-                                {share.calendar_tabs?.name || "Unnamed table"}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => removeMutation.mutate(member)}
-                        disabled={removeMutation.isPending}
-                        className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {removeMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <UserMinus className="h-4 w-4" />
-                        )}
-                        Cancel invite
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
     </div>
   );
 }
