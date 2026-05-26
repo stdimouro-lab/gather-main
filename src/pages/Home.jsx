@@ -111,10 +111,10 @@ function WeekEventRow({ event }) {
 
 function WeekDayRow({ day, events, isToday }) {
   return (
-    <div className="flex border-b border-slate-100 last:border-0">
+    <div className="flex border-b border-slate-100 last:border-0 min-h-[68px]">
       <div
         className={`w-[88px] shrink-0 border-r border-slate-100 px-4 py-3 ${
-          isToday ? "bg-[#F7F6FF]" : ""
+          isToday ? "bg-[#F4F2FF]" : ""
         }`}
       >
         <div
@@ -133,9 +133,9 @@ function WeekDayRow({ day, events, isToday }) {
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-2.5">
         {events.length === 0 ? (
-          <div className="text-[12px] text-slate-400">No events</div>
+          <div className="text-[11px] text-slate-400">No events</div>
         ) : (
           events.map((event) => <WeekEventRow key={event.id} event={event} />)
         )}
