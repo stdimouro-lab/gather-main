@@ -1,15 +1,13 @@
 // src/pages/calendar.jsx
-import { generateSuggestions } from "@/lib/ai/suggestions";
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
- import {
+import {
   inviteToTab,
   updateTabShare,
   removeTabShare,
   fetchSharedTabsForMe,
-  claimTabInvitesForUser,
   listTeamShares,
 } from "../lib/tabShares";
 import { fetchTabs, createTab, updateTab, deleteTab } from "../lib/tabs";
@@ -21,7 +19,6 @@ import {
   editSingleOccurrence,
   deleteSingleOccurrence,
 } from "../lib/events";
-import { fetchNotes, createNote, updateNote, deleteNote } from "../lib/notes";
 import CalendarHeader from "../components/calendar/CalendarHeader";
 import MonthView from "../components/calendar/MonthView";
 import WeekView from "../components/calendar/WeekView";
@@ -30,11 +27,6 @@ import EventModal from "../components/calendar/EventModal";
 import TabModal from "../components/calendar/TabModal";
 import ShareModal from "../components/calendar/ShareModal";
 import EventHistoryPanel from "../components/calendar/EventHistoryPanel";
-import SuggestionsInbox from "../components/calendar/SuggestionsInbox";
-import SuggestionsSettingsModal from "../components/calendar/SuggestionsSettingsModal";
-import SuggestionsComingSoon from "../components/calendar/SuggestionsComingSoon";
-import OnboardingFlow from "../components/calendar/OnboardingFlow";
-import TodayAtTheTable from "../components/calendar/TodayAtTheTable";
 import useEntitlement from "@/hooks/useEntitlement";
 
 import {
@@ -45,15 +37,13 @@ import {
   DialogDescription,
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { Loader2, Sparkles, Calendar } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { useAuth } from "../context/AuthProvider";
 import { supabase } from "../lib/supabase";
 import { ruleWithUntilBefore, ruleWithoutUntil } from "@/lib/recurrence_ops";
 import RecurrenceScopeModal from "../components/calendar/RecurrenceScopeModal";
 import { syncAccountSeatUsage } from "@/lib/entitlements";
-
-import { fetchMyAccount } from "@/lib/account";
 
 import {
   getRealEventId,
@@ -63,27 +53,8 @@ import {
 } from "@/lib/recurrenceUtils";
 
 export default function CalendarPage() {
-  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("gather_dismissed_suggestions") || "[]"
-      );
-    } catch {
-      return [];
-    }
-  });
-
-  const [snoozedSuggestions, setSnoozedSuggestions] = useState(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("gather_snoozed_suggestions") || "{}"
-      );
-    } catch {
-      return {};
-    }
-  });
-
   const { user, loading } = useAuth();
+
   const {
     account,
     hasPaidAccess,
@@ -94,8 +65,8 @@ export default function CalendarPage() {
   } = useEntitlement();
 
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const [view, setView] = useState(isMobile ? "week" : "month");
@@ -112,9 +83,6 @@ const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
 
-  const [editingNote, setEditingNote] = useState(null);
-  const [noteDraft, setNoteDraft] = useState({ title: "", body: "" });
-
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState(null);
 
@@ -122,11 +90,6 @@ const [searchParams, setSearchParams] = useSearchParams();
   const [shareTab, setShareTab] = useState(null);
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
-  const [isSuggestionsSettingsOpen, setIsSuggestionsSettingsOpen] =
-    useState(false);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-  const [isSuggestionsInfoOpen, setIsSuggestionsInfoOpen] = useState(false);
 
   const [editScopePromptOpen, setEditScopePromptOpen] = useState(false);
   const [pendingRecurringClick, setPendingRecurringClick] = useState(null);
@@ -173,12 +136,7 @@ const [searchParams, setSearchParams] = useSearchParams();
       id: ev?.id ?? ev?.event_id ?? ev?.eventId ?? null,
       recurringInstanceOf:
         ev?.recurringInstanceOf ?? ev?.recurrence_parent_id ?? null,
-
-      // IMPORTANT:
-      // Only keep true occurrence markers here.
-      // Do NOT fall back to start_date/start_at for normal events.
       originalStartAt: ev?.originalStartAt ?? ev?.original_start_at ?? null,
-
       start_date: ev?.start_date ?? ev?.start_at ?? null,
       end_date: ev?.end_date ?? ev?.end_at ?? null,
       start_at: ev?.start_at ?? ev?.start_date ?? null,
@@ -311,9 +269,7 @@ const [searchParams, setSearchParams] = useSearchParams();
       const occurrenceStartISO = getOccurrenceStartAt(ev);
       const master = await getMasterEventById(masterId);
 
-      if (!master) {
-        throw new Error("Could not resolve recurring master event.");
-      }
+      if (!master) throw new Error("Could not resolve recurring master event.");
 
       const masterStart = master.start_date ?? master.start_at ?? null;
       const masterEnd = master.end_date ?? master.end_at ?? null;
@@ -374,13 +330,8 @@ const [searchParams, setSearchParams] = useSearchParams();
         end_at: editEnd,
       });
 
-      // ======================
-      // ONE OCCURRENCE
-      // ======================
       if (scope === "one") {
-        if (!occurrenceStartISO) {
-          throw new Error("Missing occurrence start time.");
-        }
+        if (!occurrenceStartISO) throw new Error("Missing occurrence start time.");
 
         if (action === "move" || action === "resize") {
           if (!draggedStart || !draggedEnd) {
@@ -439,10 +390,7 @@ const [searchParams, setSearchParams] = useSearchParams();
             },
           });
         } else if (action === "delete") {
-          await deleteSingleOccurrence({
-            master,
-            occurrenceStartISO,
-          });
+          await deleteSingleOccurrence({ master, occurrenceStartISO });
         } else {
           throw new Error(`Unsupported recurrence action: ${action}`);
         }
@@ -453,9 +401,6 @@ const [searchParams, setSearchParams] = useSearchParams();
         return;
       }
 
-      // ======================
-      // ENTIRE SERIES
-      // ======================
       if (scope === "series") {
         if (action === "delete") {
           await deleteEvent(masterId);
@@ -494,18 +439,11 @@ const [searchParams, setSearchParams] = useSearchParams();
         return;
       }
 
-      // ======================
-      // THIS AND FOLLOWING
-      // ======================
       if (scope === "following") {
-        if (!occurrenceStartISO) {
-          throw new Error("Missing occurrence start time.");
-        }
+        if (!occurrenceStartISO) throw new Error("Missing occurrence start time.");
 
         const oldRule = master.recurrenceRule ?? master.recurrence_rule;
-        if (!oldRule) {
-          throw new Error("This event does not have a recurrence rule.");
-        }
+        if (!oldRule) throw new Error("This event does not have a recurrence rule.");
 
         const endedRule = ruleWithUntilBefore(oldRule, occurrenceStartISO);
 
@@ -531,9 +469,7 @@ const [searchParams, setSearchParams] = useSearchParams();
           newSeriesEnd = editEnd;
         }
 
-        if (!newSeriesStart) {
-          throw new Error("Missing new series start date.");
-        }
+        if (!newSeriesStart) throw new Error("Missing new series start date.");
 
         if (!newSeriesEnd) {
           newSeriesEnd = new Date(
@@ -592,40 +528,6 @@ const [searchParams, setSearchParams] = useSearchParams();
     }
   };
 
-  const handleDeleteEvent = async (ev = selectedEvent) => {
-    try {
-      if (!ev) return;
-
-      if (ev?.recurrenceParentId) {
-        await deleteEventMutation.mutateAsync(ev);
-        return;
-      }
-
-      const isRecurring =
-        ev?.recurrenceRule ||
-        ev?.recurrence_rule ||
-        ev?.recurringInstanceOf ||
-        (typeof ev?.id === "string" && ev.id.includes("__"));
-
-      const occurrenceStartISO =
-        ev?.originalStartAt ?? ev?.start_date ?? ev?.start_at ?? null;
-
-      if (isRecurring && occurrenceStartISO) {
-        openScopeChoice("delete", ev, {});
-        return;
-      }
-
-      await deleteEventMutation.mutateAsync(ev);
-    } catch (err) {
-      console.error("handleDeleteEvent error:", err);
-      toast({
-        title: "Error",
-        description: "Could not delete event.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleMoveEvent = async ({
     event,
     nextStart,
@@ -634,10 +536,7 @@ const [searchParams, setSearchParams] = useSearchParams();
   }) => {
     try {
       const ev = normalizeDraggedEvent(event);
-
-      if (!ev) {
-        throw new Error("Missing event payload for move.");
-      }
+      if (!ev) throw new Error("Missing event payload for move.");
 
       const movePayload = {
         newStartISO: nextStart,
@@ -650,13 +549,11 @@ const [searchParams, setSearchParams] = useSearchParams();
         allDay: nextAllDay,
       };
 
-      // 🔴 ALWAYS route recurring through scope modal
       if (isRecurringInstance(ev)) {
         openScopeChoice("move", ev, movePayload);
         return;
       }
 
-      // 🔒 GUARANTEE REAL DB ID
       const realId = assertRealDbId(ev);
 
       await updateEvent(realId, {
@@ -678,12 +575,9 @@ const [searchParams, setSearchParams] = useSearchParams();
     }
   };
 
-  // ---------- TABS (Supabase) ----------
   const {
     data: ownedTabs = [],
     isLoading: isLoadingTabs,
-    error: tabsError,
-    isError: isTabsError,
   } = useQuery({
     queryKey: ["tabs", user?.id],
     queryFn: () => fetchTabs(user.id),
@@ -699,9 +593,6 @@ const [searchParams, setSearchParams] = useSearchParams();
 
   const {
     data: sharedTabs = [],
-    isLoading: isLoadingSharedTabs,
-    error: sharedTabsError,
-    isError: isSharedTabsError,
   } = useQuery({
     queryKey: ["sharedTabs", user?.id, user?.email],
     queryFn: () =>
@@ -716,7 +607,10 @@ const [searchParams, setSearchParams] = useSearchParams();
   });
 
   const sharedWithMe = sharedTabs;
-  const allTabs = useMemo(() => [...ownedTabs, ...sharedTabs], [ownedTabs, sharedTabs]);
+  const allTabs = useMemo(
+    () => [...ownedTabs, ...sharedTabs],
+    [ownedTabs, sharedTabs]
+  );
 
   const visibleTabIds = useMemo(() => {
     return new Set(allTabs.map((t) => t.id));
@@ -742,7 +636,6 @@ const [searchParams, setSearchParams] = useSearchParams();
     setIsTabModalOpen(true);
   };
 
-  // real time update
   useEffect(() => {
     if (!user?.id) return;
     if (!allTabs.length) return;
@@ -803,7 +696,6 @@ const [searchParams, setSearchParams] = useSearchParams();
     };
   }, [user?.id, queryClient]);
 
-  // Initialize active tabs
   useEffect(() => {
     if (allTabs.length > 0 && activeTabs.length === 0) {
       setActiveTabs(allTabs.map((t) => t.id));
@@ -811,75 +703,35 @@ const [searchParams, setSearchParams] = useSearchParams();
   }, [allTabs, activeTabs.length]);
 
   useEffect(() => {
-  const requestedTabId = searchParams.get("tab");
-  if (!requestedTabId) return;
-  if (!allTabs.length) return;
+    const requestedTabId = searchParams.get("tab");
+    if (!requestedTabId) return;
+    if (!allTabs.length) return;
 
-  const tabExists = allTabs.some((t) => t.id === requestedTabId);
-  if (!tabExists) return;
+    const tabExists = allTabs.some((t) => t.id === requestedTabId);
+    if (!tabExists) return;
 
-  setActiveTabs([requestedTabId]);
-  setSelectedTab(null);
+    setActiveTabs([requestedTabId]);
+    setSelectedTab(null);
 
-  const nextParams = new URLSearchParams(searchParams);
-  nextParams.delete("tab");
-  setSearchParams(nextParams, { replace: true });
-}, [allTabs, searchParams, setSearchParams]);
-
-  // Auto-create default tabs for new users (first run)
-  useEffect(() => {
-    if (!user || isLoadingTabs) return;
-    if (ownedTabs.length > 0) return;
-
-    const defaults = [
-      { name: "Work", color: "indigo", is_default: true },
-      { name: "Personal", color: "violet", is_default: false },
-      { name: "Family", color: "emerald", is_default: false },
-    ];
-
-    (async () => {
-      try {
-        for (const tab of defaults) {
-          await createTab({
-            owner_id: user.id,
-            ...tab,
-            notification_settings: {
-              on_create: true,
-              on_update: true,
-              on_delete: true,
-            },
-          });
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
-
-      } catch (e) {
-        toast({
-          title: "Couldn’t create default tabs",
-          description: e?.message ?? "Something went wrong.",
-          variant: "destructive",
-        });
-      }
-    })();
-  }, [user, isLoadingTabs, ownedTabs.length, queryClient]);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("tab");
+    setSearchParams(nextParams, { replace: true });
+  }, [allTabs, searchParams, setSearchParams]);
 
   useEffect(() => {
-  const handleInviteSync = () => {
-    queryClient.invalidateQueries({ queryKey: ["tabs", user?.id] });
-    queryClient.invalidateQueries({ queryKey: ["sharedTabs", user?.id] });
-  };
+    const handleInviteSync = () => {
+      queryClient.invalidateQueries({ queryKey: ["tabs", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["sharedTabs", user?.id] });
+    };
 
-  window.addEventListener("gather:invites-claimed", handleInviteSync);
+    window.addEventListener("gather:invites-claimed", handleInviteSync);
 
-  return () => {
-    window.removeEventListener("gather:invites-claimed", handleInviteSync);
-  };
-}, [queryClient, user?.id]);
+    return () => {
+      window.removeEventListener("gather:invites-claimed", handleInviteSync);
+    };
+  }, [queryClient, user?.id]);
 
-  // ---------- EVENTS (Supabase) ----------
   const range = useMemo(() => {
-    // MonthView needs a calendar grid range; WeekView needs week range.
-    // We'll just fetch a safe window around currentDate:
     const start = new Date(currentDate);
     start.setDate(1);
     start.setHours(0, 0, 0, 0);
@@ -907,149 +759,35 @@ const [searchParams, setSearchParams] = useSearchParams();
     staleTime: 15000,
   });
 
-  // ---------- NOTES (Supabase) ----------
-  const { data: notes = [], isLoading: isLoadingNotes } = useQuery({
-    queryKey: ["notes", user?.id, activeTabs],
-    queryFn: () => fetchNotes({ ownerId: user.id, tabIds: activeTabs }),
-    enabled: !!user?.id && !isLoadingTabs,
+  const {
+    data: allTeamShares = [],
+  } = useQuery({
+    queryKey: ["teamShares", user?.id],
+    queryFn: () => listTeamShares(user.id),
+    enabled: !!user?.id,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
     staleTime: 15000,
   });
 
- const {
-  data: allTeamShares = [],
-  isLoading: isLoadingTeamShares,
-} = useQuery({
-  queryKey: ["teamShares", user?.id],
-  queryFn: () => listTeamShares(user.id),
-  enabled: !!user?.id,
-  refetchOnWindowFocus: false,
-  staleTime: 15000,
-});
+  const tabShares = useMemo(() => {
+    if (!shareTab?.id) return [];
+    return allTeamShares.filter((s) => s.tab_id === shareTab.id);
+  }, [allTeamShares, shareTab?.id]);
 
-const tabShares = useMemo(() => {
-  if (!shareTab?.id) return [];
-  return allTeamShares.filter((s) => s.tab_id === shareTab.id);
-}, [allTeamShares, shareTab?.id]);
+  const eventHistory = [];
 
-const eventHistory = [];
-
-  const suggestions = useMemo(() => {
-    const rawSuggestions = generateSuggestions(events);
-    const now = Date.now();
-
-    return rawSuggestions.filter((suggestion) => {
-      if (dismissedSuggestionIds.includes(suggestion.id)) return false;
-
-      const snoozedUntil = snoozedSuggestions[suggestion.id];
-      if (snoozedUntil && snoozedUntil > now) return false;
-
-      return true;
-    });
-  }, [events, dismissedSuggestionIds, snoozedSuggestions]);
-
-  const userPreferences = { has_completed_onboarding: true };
-
-  const handleMakeRecurring = async (suggestion) => {
-    try {
-      const title = suggestion.message.match(/"(.*?)"/)?.[1];
-      if (!title) {
-        toast({
-          title: "Couldn’t detect event title",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const matchingEvents = events
-        .filter((e) => (e.title || "").trim() === title)
-        .sort(
-          (a, b) =>
-            new Date(a.start_date ?? a.start_at).getTime() -
-            new Date(b.start_date ?? b.start_at).getTime()
-        );
-
-      if (matchingEvents.length < 2) {
-        toast({
-          title: "Not enough events",
-          description:
-            "Need at least 2 matching events to create a recurring pattern.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const first = matchingEvents[0];
-      const firstStart = first.start_date ?? first.start_at;
-      const firstEnd = first.end_date ?? first.end_at;
-
-      if (!firstStart || !firstEnd) {
-        toast({
-          title: "Missing event dates",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // v1: simple weekly recurrence
-      const recurrenceRule = "FREQ=WEEKLY";
-
-      await createEvent({
-        owner_id: user.id,
-        tab_id: first.tab_id,
-        title: first.title,
-        location: first.location ?? "",
-        event_type: first.event_type ?? null,
-        visibility: first.visibility ?? "private",
-        allDay: first.all_day ?? first.allDay ?? false,
-        notes: first.notes ?? "",
-        privateNotes: first.private_notes ?? first.privateNotes ?? "",
-        start_date: firstStart,
-        end_date: firstEnd,
-        recurrenceRule,
-        recurrenceTimezone:
-          first.recurrence_timezone ?? first.recurrenceTimezone ?? null,
-        recurrenceExdates: [],
-        recurrenceRdates: [],
-      });
-
-      // delete the duplicate single events after creating recurring master
-      for (const ev of matchingEvents) {
-        await deleteEvent(ev.id);
-      }
-
-      await invalidateEvents();
-
-      toast({
-        title: "Recurring event created",
-        description: `"${title}" is now set up as a weekly recurring event.`,
-      });
-
-      dismissSuggestion(suggestion.id);
-    } catch (err) {
-      console.error("handleMakeRecurring error:", err);
-      toast({
-        title: "Failed to create recurring event",
-        description: err?.message ?? "Something went wrong.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ---------- TAB mutations ----------
   const createTabMutation = useMutation({
     mutationFn: (data) => createTab({ owner_id: user.id, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
-      toast({ title: "Table created", description: "Your tab is ready." });
+      toast({ title: "Table created", description: "Your table is ready." });
 
       setIsTabModalOpen(false);
       setSelectedTab(null);
     },
     onError: (e) => {
       toast({
-        title: "Couldn’t create tab",
+        title: "Couldn’t create table",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
       });
@@ -1067,7 +805,7 @@ const eventHistory = [];
     },
     onError: (e) => {
       toast({
-        title: "Couldn’t update tab",
+        title: "Couldn’t update table",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
       });
@@ -1078,20 +816,19 @@ const eventHistory = [];
     mutationFn: (id) => deleteTab(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tabs", user.id] });
-      toast({ title: "table deleted" });
+      toast({ title: "Table deleted" });
       setIsTabModalOpen(false);
       setSelectedTab(null);
     },
     onError: (e) => {
       toast({
-        title: "Couldn’t delete tab",
+        title: "Couldn’t delete table",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
       });
     },
   });
 
-  // ---------- EVENT mutations ----------
   const createEventMutation = useMutation({
     mutationFn: (data) => createEvent({ owner_id: user.id, ...data }),
     onSuccess: () => {
@@ -1151,172 +888,75 @@ const eventHistory = [];
     },
   });
 
-  // ---------- NOTES mutations ----------
-  const createNoteMutation = useMutation({
-    mutationFn: (data) => createNote({ owner_id: user.id, ...data }),
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
+  const shareTabMutation = useMutation({
+    mutationFn: async ({ tabId, email, role }) => {
+      if (!hasPaidAccess) throw new Error("Inviting people requires a paid plan.");
+      if (remainingSeats <= 0) throw new Error("Your plan has reached its seat limit.");
+      if (!email || !email.includes("@")) throw new Error("Enter a valid email.");
 
-      toast({
-        title: "Note created",
-        description: "Opened the new note for editing.",
+      return inviteToTab({
+        tabId,
+        email,
+        role,
+        sharedById: user.id,
       });
-
-      // ✅ immediately open editor on the new note
-      if (created?.id) {
-        setEditingNote(created);
-        setNoteDraft({ title: created.title ?? "", body: created.body ?? "" });
-      }
     },
-    onError: (e) => {
+
+    onSuccess: async () => {
+      if (account?.id) await syncAccountSeatUsage(account.id);
+
+      await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+    },
+
+    onError: (e) =>
       toast({
-        title: "Couldn’t create note",
+        title: "Invite failed",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
-      });
-    },
+      }),
   });
 
-  const updateNoteMutation = useMutation({
-    mutationFn: ({ id, data }) => updateNote(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
-      toast({ title: "Note updated" });
+  const updateShareMutation = useMutation({
+    mutationFn: ({ shareId, role }) => updateTabShare(shareId, { role }),
+
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+      toast({ title: "Access updated" });
     },
-    onError: (e) => {
+
+    onError: (e) =>
       toast({
-        title: "Couldn’t update note",
+        title: "Update failed",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
-      });
-    },
+      }),
   });
 
-  const deleteNoteMutation = useMutation({
-    mutationFn: (note) => deleteNote(note.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes", user.id] });
-      toast({ title: "Note deleted" });
+  const removeShareMutation = useMutation({
+    mutationFn: async (shareId) => {
+      const result = await removeTabShare(shareId);
+
+      if (account?.id) await syncAccountSeatUsage(account.id);
+
+      return result;
     },
-    onError: (e) => {
+
+    onSuccess: async () => {
+      toast({ title: "Access removed" });
+      await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
+    },
+
+    onError: (e) =>
       toast({
-        title: "Couldn’t delete note",
+        title: "Remove failed",
         description: e?.message ?? "Something went wrong.",
         variant: "destructive",
-      });
-    },
+      }),
   });
-
- // ---------- Bridge placeholders ----------
-const bridgeNotConnected = (msg = "Not connected yet (coming next).") => {
-  toast({ title: "Coming soon", description: msg });
-};
-
-const shareTabMutation = useMutation({
-  mutationFn: async ({ tabId, email, role }) => {
-    if (!hasPaidAccess) {
-      throw new Error("Inviting people requires a paid plan.");
-    }
-
-    if (remainingSeats <= 0) {
-      throw new Error("Your plan has reached its seat limit.");
-    }
-
-    if (!email || !email.includes("@")) {
-      throw new Error("Enter a valid email.");
-    }
-
-    return inviteToTab({
-      tabId,
-      email,
-      role,
-      sharedById: user.id,
-    });
-  },
-
-  onSuccess: async () => {
-    if (account?.id) {
-      await syncAccountSeatUsage(account.id);
-    }
-
-    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-  },
-
-  onError: (e) =>
-    toast({
-      title: "Invite failed",
-      description: e?.message ?? "Something went wrong.",
-      variant: "destructive",
-    }),
-});
-
-const updateShareMutation = useMutation({
-  mutationFn: ({ shareId, role }) => updateTabShare(shareId, { role }),
-
-  onSuccess: async () => {
-    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
-    toast({ title: "Access updated" });
-  },
-
-  onError: (e) =>
-    toast({
-      title: "Update failed",
-      description: e?.message ?? "Something went wrong.",
-      variant: "destructive",
-    }),
-});
-
-const removeShareMutation = useMutation({
-  mutationFn: async (shareId) => {
-    const result = await removeTabShare(shareId);
-
-    if (account?.id) {
-      await syncAccountSeatUsage(account.id);
-    }
-
-    return result;
-  },
-
-  onSuccess: async () => {
-    toast({ title: "Access removed" });
-    await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
-    await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
-  },
-
-  onError: (e) =>
-    toast({
-      title: "Remove failed",
-      description: e?.message ?? "Something went wrong.",
-      variant: "destructive",
-    }),
-});
-
-const acceptSuggestionMutation = useMutation({
-  mutationFn: async () => {
-    bridgeNotConnected();
-    return null;
-  },
-});
-
-const rejectSuggestionMutation = useMutation({
-  mutationFn: async () => {
-    bridgeNotConnected();
-    return null;
-  },
-});
-
-const updateSuggestionsSettingsMutation = useMutation({
-  mutationFn: async () => {
-    bridgeNotConnected();
-    return null;
-  },
-});
-
-  // helpers preserved
-  const getUserRole = () => "owner";
 
   const isOwnedTab = (tab) => !!tab && tab.owner_id === user?.id;
 
@@ -1347,45 +987,7 @@ const updateSuggestionsSettingsMutation = useMutation({
     );
   };
 
-  const dismissSuggestion = (suggestionId) => {
-    setDismissedSuggestionIds((prev) => {
-      if (prev.includes(suggestionId)) return prev;
-      return [...prev, suggestionId];
-    });
-  };
-
-  const snoozeSuggestion = (suggestionId, minutes = 60) => {
-    const until = Date.now() + minutes * 60 * 1000;
-
-    setSnoozedSuggestions((prev) => ({
-      ...prev,
-      [suggestionId]: until,
-    }));
-  };
-
-  // Notes editor helpers
-  const openNoteEditor = (note) => {
-    setEditingNote(note);
-    setNoteDraft({ title: note?.title ?? "", body: note?.body ?? "" });
-  };
-
-  const closeNoteEditor = () => {
-    setEditingNote(null);
-    setNoteDraft({ title: "", body: "" });
-  };
-
-  const saveNoteDraft = () => {
-    if (!editingNote) return;
-    updateNoteMutation.mutate({
-      id: editingNote.id,
-      data: { title: noteDraft.title, body: noteDraft.body },
-    });
-    closeNoteEditor();
-  };
-
-  // ---------- Recurrence: click handler (single source of truth) ----------
   const handleSelectEvent = (event) => {
-    // If it's a recurring instance, ask scope first
     if (event?.recurringInstanceOf && event?.originalStartAt) {
       setPendingRecurringClick({
         instanceEvent: normalizeEventForModal(event),
@@ -1398,8 +1000,6 @@ const updateSuggestionsSettingsMutation = useMutation({
     setIsEventModalOpen(true);
   };
 
-  // When user clicks a recurring instance, we ask if they want single or series.
-  // If they pick "series", we open the master (parent) instead of the instance.
   const openRecurringScope = async (scope) => {
     const instanceEvent = pendingRecurringClick?.instanceEvent;
     if (!instanceEvent) return;
@@ -1441,9 +1041,6 @@ const updateSuggestionsSettingsMutation = useMutation({
     setPendingRecurringClick(null);
   };
 
-  // Save handler that understands:
-  // - normal event create/update
-  // - editing ONE occurrence of a recurring series (creates override)
   const handleEventSaveSmart = async (data) => {
     const targetTabId = data?.tab_id ?? selectedEvent?.tab_id ?? selectedTab?.id;
     const targetTab = allTabs.find((t) => t.id === targetTabId);
@@ -1458,9 +1055,7 @@ const updateSuggestionsSettingsMutation = useMutation({
     }
 
     try {
-      // Editing an existing event
       if (selectedEvent) {
-        // Expanded recurring instance: edit only this occurrence
         if (selectedEvent.recurringInstanceOf && selectedEvent.originalStartAt) {
           const masterId = getRealEventId(selectedEvent);
           const master = await getMasterEventById(masterId);
@@ -1508,7 +1103,6 @@ const updateSuggestionsSettingsMutation = useMutation({
           return;
         }
 
-        // Normal DB event update
         updateEventMutation.mutate({
           id: getRealEventId(selectedEvent) ?? selectedEvent.id,
           data,
@@ -1517,7 +1111,6 @@ const updateSuggestionsSettingsMutation = useMutation({
         return;
       }
 
-      // Create new event
       createEventMutation.mutate(data);
     } catch (e) {
       toast({
@@ -1528,9 +1121,6 @@ const updateSuggestionsSettingsMutation = useMutation({
     }
   };
 
-  // Delete handler that understands:
-  // - normal delete
-  // - delete single occurrence (EXDATE)
   const handleEventDeleteSmart = async (eventToDelete) => {
     const ev = eventToDelete || selectedEvent;
     if (!ev) return;
@@ -1547,7 +1137,6 @@ const updateSuggestionsSettingsMutation = useMutation({
     }
 
     try {
-      // Expanded recurring instance: delete only this occurrence
       if (ev.recurringInstanceOf && ev.originalStartAt) {
         const masterId = getRealEventId(ev);
         const master = await getMasterEventById(masterId);
@@ -1575,7 +1164,6 @@ const updateSuggestionsSettingsMutation = useMutation({
         return;
       }
 
-      // Normal DB delete
       deleteEventMutation.mutate(ev);
     } catch (e) {
       toast({
@@ -1617,31 +1205,9 @@ const updateSuggestionsSettingsMutation = useMutation({
   const handleRevert = async () =>
     toast({
       title: "Coming soon",
-      description: "Bridge mode: History not connected yet.",
+      description: "History is not connected yet.",
     });
 
-  // onboarding gate (kept)
-  useEffect(() => {
-    if (userPreferences && !userPreferences.has_completed_onboarding) {
-      setIsOnboardingOpen(true);
-    }
-  }, [userPreferences?.has_completed_onboarding]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "gather_dismissed_suggestions",
-      JSON.stringify(dismissedSuggestionIds)
-    );
-  }, [dismissedSuggestionIds]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "gather_snoozed_suggestions",
-      JSON.stringify(snoozedSuggestions)
-    );
-  }, [snoozedSuggestions]);
-
-  // Loading gate (real auth)
   if (loading || !user) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -1652,8 +1218,6 @@ const updateSuggestionsSettingsMutation = useMutation({
       </div>
     );
   }
-
-  const pendingSuggestions = suggestions.length;
 
   const activeEventTab = selectedEvent?.tab_id
     ? allTabs.find((t) => t.id === selectedEvent.tab_id)
@@ -1717,297 +1281,17 @@ const updateSuggestionsSettingsMutation = useMutation({
               setIsTabModalOpen(true);
             }}
             sharedTabs={sharedWithMe}
-            pendingSuggestionsCount={pendingSuggestions}
-            onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-2 sm:p-4 lg:p-6">
-            {/* Notes (Supabase) */}
-            <div className="mb-4 hidden rounded-xl border bg-white/70 p-3 backdrop-blur lg:block">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">
-                    Notes
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Across your active tables
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    const tabId = (selectedTab || defaultTab)?.id;
-                    if (!tabId)
-                      return toast({
-                        title: "No tab selected",
-                        description: "Choose a tab first, then create a note.",
-                        variant: "destructive",
-                      });
-
-                    createNoteMutation.mutate({
-                      tab_id: tabId,
-                      title: "New note",
-                      body: "",
-                      pinned: false,
-                      visibility: "table",
-                    });
-                  }}
-                  className="px-3 py-2 rounded bg-indigo-600 text-white"
-                >
-                  + Note
-                </button>
-              </div>
-
-              {isLoadingNotes ? (
-                <div className="text-sm text-slate-500">Loading notes…</div>
-              ) : notes.length === 0 ? (
-                <div className="text-sm text-slate-500">
-                  Start capturing memories, plans, and ideas at your table.
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
-                  {notes.slice(0, 30).map((n) => (
-                    <div
-                      key={n.id}
-                      className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50 cursor-pointer"
-                      onClick={() => openNoteEditor(n)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-900 truncate">
-                            {n.pinned ? "📌 " : ""}
-                            {n.title || "Untitled"}
-                          </div>
-                          <div className="text-xs text-slate-500 line-clamp-2">
-                            {n.body || ""}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateNoteMutation.mutate({
-                                id: n.id,
-                                data: { pinned: !n.pinned },
-                              });
-                            }}
-                            title={n.pinned ? "Unpin" : "Pin"}
-                          >
-                            📌
-                          </Button>
-
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNoteMutation.mutate(n);
-                              if (editingNote?.id === n.id) closeNoteEditor();
-                            }}
-                            title="Delete"
-                          >
-                            🗑️
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {editingNote && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-semibold text-slate-900">
-                      Edit Note
-                    </div>
-                    <Button variant="ghost" onClick={closeNoteEditor}>
-                      Close
-                    </Button>
-                  </div>
-
-                  <input
-                    className="w-full rounded-md border border-slate-200 px-2 py-1 text-sm mb-2"
-                    value={noteDraft.title}
-                    onChange={(e) =>
-                      setNoteDraft((d) => ({ ...d, title: e.target.value }))
-                    }
-                    placeholder="Title"
-                  />
-
-                  <textarea
-                    className="w-full min-h-[140px] rounded-md border border-slate-200 px-2 py-1 text-sm"
-                    value={noteDraft.body}
-                    onChange={(e) =>
-                      setNoteDraft((d) => ({ ...d, body: e.target.value }))
-                    }
-                    placeholder="Write your note..."
-                  />
-
-                  <div className="mt-3 flex gap-2 justify-end">
-                    <Button variant="ghost" onClick={closeNoteEditor}>
-                      Cancel
-                    </Button>
-                    <Button
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                      onClick={saveNoteDraft}
-                    >
-                      Save
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {!isLoadingEvents && events.length > 0 && (
-              <TodayAtTheTable
-                events={events}
-                tabs={allTabs}
-                onSelectEvent={handleSelectEvent}
-                onAddEvent={(tab) => {
-                  if (!canEditTabContent(tab)) {
-                    return toast({
-                      title: "View only",
-                      description:
-                        "You can view this table but cannot add events to it.",
-                      variant: "destructive",
-                    });
-                  }
-
-                  setSelectedEvent(null);
-                  setSelectedDate(new Date());
-                  setSelectedTab(tab);
-                  setIsEventModalOpen(true);
-                }}
-                onFilterToTab={(tabId) => setActiveTabs([tabId])}
-              />
-            )}
-
             <RecurrenceScopeModal
               isOpen={!!recurrenceScopeModal}
               onClose={() => setRecurrenceScopeModal(null)}
               action={recurrenceScopeModal?.action}
               onChoose={applyRecurrenceScope}
             />
-
-            <div className="mb-4 hidden rounded-xl border bg-white/70 p-3 backdrop-blur lg:block">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">
-                    Smart Suggestions
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Helpful patterns based on your current events
-                  </div>
-                </div>
-              </div>
-
-              {suggestions.length === 0 ? (
-                <div className="text-sm text-slate-500">
-                  No suggestions right now.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {suggestions.map((s) => (
-                    <div
-                      key={s.id}
-                      className={`rounded-lg border p-3 text-sm ${
-                        s.severity === "high"
-                          ? "border-red-200 bg-red-50 text-red-700"
-                          : s.severity === "medium"
-                            ? "border-amber-200 bg-amber-50 text-amber-700"
-                            : "border-indigo-200 bg-indigo-50 text-indigo-700"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-semibold">{s.title}</div>
-                          <div className="mt-1">{s.message}</div>
-                        </div>
-
-                        <div className="flex shrink-0 gap-2">
-                          {s.type === "recurring" && (
-                            <button
-                              type="button"
-                              onClick={() => handleMakeRecurring(s)}
-                              className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700"
-                            >
-                              Make Recurring
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => snoozeSuggestion(s.id, 60)}
-                            className="rounded-md border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white/40"
-                          >
-                            Snooze
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => dismissSuggestion(s.id)}
-                            className="rounded-md border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white/40"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {!isLoadingEvents && events.length === 0 && (
-              <div className="mb-6 flex items-center justify-center">
-                <div className="w-full max-w-xl rounded-2xl border bg-white/80 backdrop-blur p-6 text-center shadow-sm">
-                  <div className="flex justify-center mb-3">
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-indigo-600" />
-                    </div>
-                  </div>
-
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Welcome to Gather
-                  </h2>
-
-                  <p className="text-sm text-slate-500 mt-1">
-                    Where life meets around the table.
-                  </p>
-
-                  <p className="text-sm text-slate-500 mt-3">
-                    Start by creating your first event or organizing your tables.
-                  </p>
-
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    <Button
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                      onClick={() => {
-                        setSelectedEvent(null);
-                        setSelectedDate(new Date());
-                        setIsEventModalOpen(true);
-                      }}
-                    >
-                      + Add Event
-                    </Button>
-
-                    <Button variant="outline" onClick={openCreateTabModal}>
-                      + Create Table
-                    </Button>
-
-                    <Button variant="ghost" onClick={() => setIsOnboardingOpen(true)}>
-                      View Guide
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <CalendarHeader
               currentDate={currentDate}
@@ -2122,8 +1406,6 @@ const updateSuggestionsSettingsMutation = useMutation({
               setIsTabModalOpen(true);
             }}
             sharedTabs={sharedWithMe}
-            pendingSuggestionsCount={pendingSuggestions}
-            onOpenSuggestions={() => setIsSuggestionsInfoOpen(true)}
           />
         )}
       </div>
@@ -2183,11 +1465,11 @@ const updateSuggestionsSettingsMutation = useMutation({
           limit: seatLimit ?? 1,
         }}
         onInvite={(email, role) =>
-  shareTabMutation.mutateAsync({ tabId: shareTab.id, email, role })
-}
+          shareTabMutation.mutateAsync({ tabId: shareTab.id, email, role })
+        }
         onUpdateShare={(shareId, role) =>
-  updateShareMutation.mutateAsync({ shareId, role })
-}
+          updateShareMutation.mutateAsync({ shareId, role })
+        }
         onRemoveShare={(shareId) => removeShareMutation.mutateAsync(shareId)}
       />
 
@@ -2198,74 +1480,6 @@ const updateSuggestionsSettingsMutation = useMutation({
         onRevert={handleRevert}
       />
 
-      <SuggestionsInbox
-        isOpen={isSuggestionsOpen}
-        onClose={() => setIsSuggestionsOpen(false)}
-        suggestions={suggestions}
-        tabs={allTabs}
-        onAccept={(suggestion) => acceptSuggestionMutation.mutate(suggestion)}
-        onReject={(suggestion) => rejectSuggestionMutation.mutate(suggestion.id)}
-        onEdit={() =>
-          toast({
-            title: "Coming soon",
-            description: "Bridge mode: suggestions not connected yet.",
-          })
-        }
-        onOpenSettings={() => {
-          setIsSuggestionsOpen(false);
-          setIsSuggestionsSettingsOpen(true);
-        }}
-      />
-
-      <SuggestionsSettingsModal
-        isOpen={isSuggestionsSettingsOpen}
-        onClose={() => setIsSuggestionsSettingsOpen(false)}
-        preferences={userPreferences}
-        onSave={(data) => updateSuggestionsSettingsMutation.mutate(data)}
-      />
-
-      <OnboardingFlow
-        isOpen={isOnboardingOpen}
-        onClose={() => setIsOnboardingOpen(false)}
-        onComplete={() =>
-          toast({
-            title: "Coming soon",
-            description: "Bridge mode",
-          })
-        }
-      />
-
-      {pendingSuggestions > 0 && !isSuggestionsOpen && (
-        <div className="fixed bottom-8 right-8 z-40">
-          <button
-            onClick={() => setIsSuggestionsOpen(true)}
-            className="relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 text-white font-bold text-sm"
-          >
-            <Sparkles className="w-6 h-6" />
-            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs rounded-full font-bold">
-              {pendingSuggestions}
-            </span>
-          </button>
-        </div>
-      )}
-
-      <Dialog
-        open={isSuggestionsInfoOpen}
-        onOpenChange={setIsSuggestionsInfoOpen}
-      >
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Smart Event Suggestions</DialogTitle>
-            <DialogDescription className="sr-only">
-              Review smart calendar suggestions and recurring event
-              recommendations.
-            </DialogDescription>
-          </DialogHeader>
-          <SuggestionsComingSoon />
-        </DialogContent>
-      </Dialog>
-
-      {/* Recurring instance scope prompt */}
       <Dialog
         open={editScopePromptOpen}
         onOpenChange={(open) => {

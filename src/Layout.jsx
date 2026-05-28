@@ -4,6 +4,7 @@ import {
   Calendar,
   Home,
   Image,
+  ListChecks,
   LogOut,
   NotebookText,
   Settings,
@@ -78,6 +79,7 @@ export default function AppLayout() {
           <NavItem to="/memories" icon={Image} label="Memories" />
           <NavItem to="/team" icon={Users} label="People" />
           <NavItem to="/notes" icon={NotebookText} label="Notes" />
+          <NavItem to="/lists" icon={ListChecks} label="Lists" />
         </nav>
 
         <div className="mt-auto space-y-1 border-t border-slate-200 pt-3">
