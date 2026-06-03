@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
+  ChevronDown,
   Clock,
   ExternalLink,
   Link as LinkIcon,
@@ -10,6 +11,13 @@ import {
   Search,
   Share2,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthProvider";
@@ -118,6 +126,7 @@ export default function Notes() {
 
   const [activeNoteId, setActiveNoteId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [notesSheetOpen, setNotesSheetOpen] = useState(false);
 
   const { data: tabs = [], isLoading: loadingTabs } = useQuery({
     queryKey: ["accessibleTabs", user?.id, user?.email],
@@ -309,8 +318,10 @@ export default function Notes() {
     );
   }
 
+  const activeNoteTitle = activeNote?.title || "Untitled note";
+
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-0 flex-1 flex-col bg-slate-100 md:min-h-[calc(100dvh-4rem)] md:flex-row">
       <aside className="hidden w-[240px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="border-b border-slate-200 px-3 py-3">
           <div className="mb-3 flex items-center justify-between">
@@ -385,7 +396,75 @@ export default function Notes() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 md:p-6">
+      <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5 md:hidden">
+        <Sheet open={notesSheetOpen} onOpenChange={setNotesSheetOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left"
+            >
+              <NotebookText className="h-4 w-4 shrink-0 text-[#6C63FF]" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">
+                {activeNoteTitle}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[min(100vw,300px)] p-0">
+            <SheetHeader className="border-b border-slate-100 px-4 py-3 text-left">
+              <SheetTitle className="text-base">Your notes</SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto p-2 pb-8">
+              {pinnedNotes.map((note) => (
+                <NoteItem
+                  key={note.id}
+                  note={note}
+                  tabMap={tabMap}
+                  active={note.id === activeNoteId}
+                  onClick={() => {
+                    setActiveNoteId(note.id);
+                    setNotesSheetOpen(false);
+                  }}
+                />
+              ))}
+              {recentNotes.map((note) => (
+                <NoteItem
+                  key={note.id}
+                  note={note}
+                  tabMap={tabMap}
+                  active={note.id === activeNoteId}
+                  onClick={() => {
+                    setActiveNoteId(note.id);
+                    setNotesSheetOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!ownedTabs.length) {
+              toast({
+                title: "Create a table first",
+                description:
+                  "Notes belong to your tables. Create a table in Calendar first.",
+                variant: "destructive",
+              });
+              return;
+            }
+            createMutation.mutate();
+          }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#6C63FF] text-white"
+          aria-label="New note"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </div>
+
+      <main className="min-w-0 flex-1 p-3 md:p-6">
         <div className="mx-auto max-w-5xl rounded-lg border border-slate-200 bg-white p-5 md:p-6">
           <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">

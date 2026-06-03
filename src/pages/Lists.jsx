@@ -8,6 +8,7 @@ import {
   ListChecks,
   Mic,
   MoreHorizontal,
+  ChevronDown,
   Plus,
   Search,
   Share2,
@@ -15,6 +16,13 @@ import {
   Unlink,
   Users,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthProvider";
@@ -27,12 +35,14 @@ import {
   fetchListItems,
   fetchListItemCounts,
   createListItem,
+  createListItems,
   updateListItem,
   deleteListItem,
   unlinkListFromEvent,
 } from "@/lib/lists";
 import { getEventById } from "@/lib/events";
 import LinkListToEventDialog from "@/components/lists/LinkListToEventDialog";
+import PipListDialog from "@/components/lists/PipListDialog";
 
 function ListRow({ list, active, onClick, itemCount }) {
   return (
@@ -113,6 +123,9 @@ export default function Lists() {
   const [newItem, setNewItem] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [pipOpen, setPipOpen] = useState(false);
+  const [pipAdding, setPipAdding] = useState(false);
+  const [listsSheetOpen, setListsSheetOpen] = useState(false);
 
   const {
     data: lists = [],
@@ -425,6 +438,84 @@ export default function Lists() {
     recognition.start();
   };
 
+  const handlePipAdd = async (texts) => {
+    if (!activeList?.id || !user?.id || !texts.length) return;
+
+    setPipAdding(true);
+    try {
+      const startOrder = items.length;
+      await createListItems(
+        texts.map((text, index) => ({
+          list_id: activeList.id,
+          owner_id: user.id,
+          text,
+          completed: false,
+          sort_order: startOrder + index,
+        }))
+      );
+      queryClient.invalidateQueries({
+        queryKey: ["listItems", activeList.id],
+      });
+      queryClient.invalidateQueries({ queryKey: ["lists", user.id] });
+      queryClient.invalidateQueries({ queryKey: ["listItemCounts"] });
+      setPipOpen(false);
+      toast({
+        title: "Pip added items",
+        description: `${texts.length} ${texts.length === 1 ? "item" : "items"} added to your list.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Pip could not add items",
+        description: error?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPipAdding(false);
+    }
+  };
+
+  const existingItemTexts = useMemo(
+    () => items.map((item) => item.text).filter(Boolean),
+    [items]
+  );
+
+  const renderListPicker = (onPick) => (
+    <>
+      {pinnedLists.length > 0 && (
+        <div className="mb-3">
+          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Pinned
+          </div>
+          <div className="space-y-1">
+            {pinnedLists.map((list) => (
+              <ListRow
+                key={list.id}
+                list={list}
+                active={list.id === activeList?.id}
+                itemCount={itemCountsByList[list.id]}
+                onClick={() => onPick(list.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+        My lists
+      </div>
+      <div className="space-y-1">
+        {regularLists.map((list) => (
+          <ListRow
+            key={list.id}
+            list={list}
+            active={list.id === activeList?.id}
+            itemCount={itemCountsByList[list.id]}
+            onClick={() => onPick(list.id)}
+          />
+        ))}
+      </div>
+    </>
+  );
+
   if (loadingLists) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm text-slate-500">
@@ -448,7 +539,7 @@ export default function Lists() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-0 flex-1 flex-col bg-slate-100 md:min-h-[calc(100dvh-4rem)] md:flex-row">
       <aside className="hidden w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="border-b border-slate-200 px-3 py-4">
           <div className="mb-3 flex items-center justify-between">
@@ -475,48 +566,62 @@ export default function Lists() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-2">
-          {pinnedLists.length > 0 && (
-            <div className="mb-3">
-              <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                Pinned
-              </div>
-
-              <div className="space-y-1">
-                {pinnedLists.map((list) => (
-                  <ListRow
-                    key={list.id}
-                    list={list}
-                    active={list.id === activeList?.id}
-                    itemCount={itemCountsByList[list.id]}
-                    onClick={() => setActiveListId(list.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-              My lists
-            </div>
-
-            <div className="space-y-1">
-              {regularLists.map((list) => (
-                <ListRow
-                  key={list.id}
-                  list={list}
-                  active={list.id === activeList?.id}
-                  itemCount={itemCountsByList[list.id]}
-                  onClick={() => setActiveListId(list.id)}
-                />
-              ))}
-            </div>
-          </div>
+          {renderListPicker(setActiveListId)}
         </div>
       </aside>
 
+      <div className="flex min-w-0 flex-1 flex-col md:hidden">
+        <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
+          <Sheet open={listsSheetOpen} onOpenChange={setListsSheetOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left"
+              >
+                <span className="text-lg">{activeList?.icon || "📝"}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900">
+                  {activeList?.title || "Select list"}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[min(100vw,300px)] p-0">
+              <SheetHeader className="border-b border-slate-100 px-4 py-3 text-left">
+                <SheetTitle className="text-base">Your lists</SheetTitle>
+              </SheetHeader>
+              <div className="overflow-y-auto p-2 pb-8">
+                <div className="mb-3 px-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search lists..."
+                      className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-[12px]"
+                    />
+                  </div>
+                </div>
+                {renderListPicker((id) => {
+                  setActiveListId(id);
+                  setListsSheetOpen(false);
+                })}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <button
+            type="button"
+            onClick={() => createListMutation.mutate()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#6C63FF] text-white"
+            aria-label="New list"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
       <main className="min-w-0 flex-1 bg-slate-50">
-        <div className="border-b border-slate-200 bg-white px-5 py-4">
+        <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <input
@@ -568,13 +673,8 @@ export default function Lists() {
               </button>
 
               <button
-                onClick={() =>
-                  toast({
-                    title: "Pip is coming soon",
-                    description:
-                      "Soon Pip will generate starter lists and suggest missing items.",
-                  })
-                }
+                type="button"
+                onClick={() => setPipOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md bg-[#6C63FF] px-3 py-2 text-[12px] font-medium text-white"
               >
                 <Sparkles className="h-4 w-4" />
@@ -659,6 +759,16 @@ export default function Lists() {
             onLinked={() => {
               queryClient.invalidateQueries({ queryKey: ["lists", user?.id] });
             }}
+          />
+
+          <PipListDialog
+            open={pipOpen}
+            onOpenChange={setPipOpen}
+            listTitle={activeList?.title}
+            eventTitle={linkedEvent?.title}
+            existingItems={existingItemTexts}
+            onAddItems={handlePipAdd}
+            isAdding={pipAdding}
           />
 
           <div className="rounded-lg border border-slate-200 bg-white p-4">

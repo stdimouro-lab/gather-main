@@ -168,6 +168,20 @@ export async function createListItem(payload) {
   return data;
 }
 
+export async function createListItems(items) {
+  const rows = (items ?? []).filter((row) => row?.list_id && row?.text);
+  if (!rows.length) return [];
+
+  const { data, error } = await supabase
+    .from("list_items")
+    .insert(rows)
+    .select();
+
+  if (error) throw error;
+
+  return data ?? [];
+}
+
 export async function updateListItem(id, updates) {
   const { data, error } = await supabase
     .from("list_items")

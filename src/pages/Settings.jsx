@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
+import ProfileAvatar from "@/components/ProfileAvatar";
 import UsageBar from "@/components/UsageBar";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -36,6 +37,11 @@ import {
   saveGatherPreferences,
   saveProfileName,
 } from "@/lib/profileSettings";
+import {
+  getProfileAvatarUrl,
+  removeProfileAvatar,
+  uploadProfileAvatar,
+} from "@/lib/profileAvatar";
 const REMINDER_OPTIONS = [
   { value: 15, label: "15 min before" },
   { value: 30, label: "30 min before" },
@@ -146,6 +152,8 @@ export default function Settings() {
   const [nameDraft, setNameDraft] = useState("");
   const [editingTimezone, setEditingTimezone] = useState(false);
   const [timezoneDraft, setTimezoneDraft] = useState(getBrowserTimezone());
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef(null);
 
   const prefs = useMemo(
     () => readGatherPreferences(user, profile),
@@ -184,14 +192,8 @@ export default function Settings() {
     user?.email?.split("@")[0] ||
     "Gather User";
 
-  const initials =
-    displayName
-      .split(/[.\s_-]+/)
-      .filter(Boolean)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "G";
+  const avatarUrl = getProfileAvatarUrl(profile);
+  const hasAvatar = Boolean(avatarUrl);
 
   const planLabel = isComped
     ? "Complimentary"
@@ -253,6 +255,72 @@ export default function Settings() {
     navigate("/login", { replace: true });
   };
 
+  const handleAvatarDbError = (err) => {
+    const message = String(err?.message || "");
+    if (
+      message.includes("avatar_url") ||
+      message.includes("column") ||
+      message.includes("Bucket not found") ||
+      message.includes("avatars")
+    ) {
+      toast({
+        title: "Profile photos need setup",
+        description:
+          "Run migration 20260602130000_profile_avatars.sql in Supabase (adds avatar_url and avatars bucket).",
+        variant: "destructive",
+      });
+      return true;
+    }
+    return false;
+  };
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user?.id) return;
+
+    setUploadingAvatar(true);
+    try {
+      await uploadProfileAvatar({ userId: user.id, file });
+      await refreshProfile?.();
+      toast({ title: "Profile photo updated" });
+    } catch (err) {
+      if (!handleAvatarDbError(err)) {
+        toast({
+          title: "Could not upload photo",
+          description: err?.message ?? "Try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user?.id) return;
+
+    setUploadingAvatar(true);
+    try {
+      await removeProfileAvatar({
+        userId: user.id,
+        currentPath: profile?.avatar_url,
+      });
+      await refreshProfile?.();
+      toast({ title: "Profile photo removed" });
+    } catch (err) {
+      if (!handleAvatarDbError(err)) {
+        toast({
+          title: "Could not remove photo",
+          description: err?.message ?? "Try again.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleSaveName = async () => {
     setSavingProfile(true);
     try {
@@ -301,7 +369,7 @@ export default function Settings() {
     .find((item) => item.id === activeSection)?.label;
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-0 flex-1 flex-col bg-slate-100 md:min-h-[calc(100dvh-4rem)] md:flex-row">
       <aside className="hidden w-[190px] shrink-0 border-r border-slate-200 bg-white px-2.5 py-5 md:block">
         {settingsSections.map((section) => (
           <div key={section.label} className="mb-3">
@@ -420,15 +488,56 @@ export default function Settings() {
                       </span>
                     }
                   />
-                  <SettingsRow
-                    label="Profile photo"
-                    sub="Uses your initials until photo upload is added"
-                    right={
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EEEDFE] text-[11px] font-semibold text-[#534AB7]">
-                        {initials}
+                  <div className="border-b border-slate-100 px-4 py-4">
+                    <div className="text-[13px] font-medium text-slate-900">
+                      Profile photo
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      JPEG, PNG, WebP, or GIF · max 2 MB
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-4">
+                      <ProfileAvatar
+                        profile={profile}
+                        user={user}
+                        displayName={displayName}
+                        className="h-16 w-16"
+                        textClassName="text-[15px]"
+                      />
+
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          onChange={handleAvatarFileChange}
+                        />
+                        <button
+                          type="button"
+                          disabled={uploadingAvatar}
+                          onClick={() => avatarInputRef.current?.click()}
+                          className="rounded-md bg-[#6C63FF] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+                        >
+                          {uploadingAvatar
+                            ? "Uploading..."
+                            : hasAvatar
+                              ? "Change photo"
+                              : "Upload photo"}
+                        </button>
+                        {hasAvatar && (
+                          <button
+                            type="button"
+                            disabled={uploadingAvatar}
+                            onClick={handleRemoveAvatar}
+                            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
-                    }
-                  />
+                    </div>
+                  </div>
                   <SettingsRow
                     label="Time zone"
                     sub="Used for event times and reminders"
