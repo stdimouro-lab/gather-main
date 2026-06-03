@@ -59,6 +59,66 @@ export async function deleteList(id) {
 }
 
 /* =========================
+   EVENT LINKS
+========================= */
+
+export async function fetchListsForEvent(eventId) {
+  if (!eventId) return [];
+
+  const { data, error } = await supabase
+    .from("lists")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("is_pinned", { ascending: false })
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+
+  return data || [];
+}
+
+export async function fetchUnlinkedLists(userId) {
+  if (!userId) return [];
+
+  const { data, error } = await supabase
+    .from("lists")
+    .select("*")
+    .eq("owner_id", userId)
+    .is("event_id", null)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+
+  return data || [];
+}
+
+export async function linkListToEvent(listId, eventId) {
+  return updateList(listId, { event_id: eventId });
+}
+
+export async function unlinkListFromEvent(listId) {
+  return updateList(listId, { event_id: null });
+}
+
+export async function createListForEvent({
+  ownerId,
+  eventId,
+  title = "Event checklist",
+  icon = "📝",
+  color = "indigo",
+}) {
+  return createList({
+    owner_id: ownerId,
+    event_id: eventId,
+    title,
+    icon,
+    color,
+    is_pinned: false,
+    is_shared: false,
+  });
+}
+
+/* =========================
    LIST ITEMS
 ========================= */
 

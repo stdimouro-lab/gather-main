@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { DateTime } from "luxon";
 import {
   Calendar,
   Check,
@@ -10,6 +12,7 @@ import {
   Search,
   Share2,
   Sparkles,
+  Unlink,
   Users,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +29,10 @@ import {
   createListItem,
   updateListItem,
   deleteListItem,
+  unlinkListFromEvent,
 } from "@/lib/lists";
+import { getEventById } from "@/lib/events";
+import LinkListToEventDialog from "@/components/lists/LinkListToEventDialog";
 
 function ListRow({ list, active, onClick, itemCount }) {
   return (
@@ -48,7 +54,12 @@ function ListRow({ list, active, onClick, itemCount }) {
         {list.title}
       </div>
 
-      <div className="text-[11px] text-slate-400">{itemCount ?? 0}</div>
+      <div className="flex flex-col items-end gap-0.5">
+        {list.event_id ? (
+          <Calendar className="h-3 w-3 text-[#6C63FF]" title="Linked to event" />
+        ) : null}
+        <div className="text-[11px] text-slate-400">{itemCount ?? 0}</div>
+      </div>
     </button>
   );
 }
@@ -95,10 +106,13 @@ function EmptyLists({ onCreate }) {
 export default function Lists() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [activeListId, setActiveListId] = useState(null);
   const [newItem, setNewItem] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   const {
     data: lists = [],
@@ -126,10 +140,63 @@ export default function Lists() {
   }, [activeListId, lists]);
 
   useEffect(() => {
+    const fromUrl = searchParams.get("list");
+    if (fromUrl && lists.some((list) => list.id === fromUrl)) {
+      setActiveListId(fromUrl);
+      return;
+    }
+
     if (!activeListId && lists.length > 0) {
       setActiveListId(lists[0].id);
     }
-  }, [activeListId, lists]);
+  }, [activeListId, lists, searchParams]);
+
+  useEffect(() => {
+    if (!activeListId) return;
+    const current = searchParams.get("list");
+    if (current === activeListId) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("list", activeListId);
+    setSearchParams(next, { replace: true });
+  }, [activeListId, searchParams, setSearchParams]);
+
+  const { data: linkedEvent } = useQuery({
+    queryKey: ["linkedEvent", activeList?.event_id],
+    queryFn: () => getEventById(activeList.event_id),
+    enabled: !!activeList?.event_id,
+    staleTime: 60000,
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => unlinkListFromEvent(activeList.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists", user?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["listsForEvent", activeList?.event_id],
+      });
+      toast({ title: "List unlinked from event" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Could not unlink",
+        description: error?.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const linkedEventLabel = useMemo(() => {
+    if (!linkedEvent) return null;
+    const raw = linkedEvent.start_date ?? linkedEvent.start_at;
+    let when = "";
+    if (raw) {
+      const dt = DateTime.fromISO(raw);
+      if (dt.isValid) when = dt.toFormat("MMM d");
+    }
+    return when
+      ? `${linkedEvent.title || "Event"} · ${when}`
+      : linkedEvent.title || "Linked event";
+  }, [linkedEvent]);
 
   const {
     data: items = [],
@@ -474,10 +541,20 @@ export default function Lists() {
                   {activeItems.length} remaining
                 </span>
 
-                <span className="inline-flex items-center gap-1 text-[#534AB7]">
-                  <LinkIcon className="h-3 w-3" />
-                  Not linked to event
-                </span>
+                {activeList?.event_id && linkedEventLabel ? (
+                  <Link
+                    to="/calendar"
+                    className="inline-flex items-center gap-1 text-[#534AB7] hover:underline"
+                  >
+                    <LinkIcon className="h-3 w-3" />
+                    {linkedEventLabel}
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-slate-400">
+                    <LinkIcon className="h-3 w-3" />
+                    Not linked to event
+                  </span>
+                )}
               </div>
             </div>
 
@@ -532,25 +609,57 @@ export default function Lists() {
         </div>
 
         <div className="mx-auto max-w-4xl p-4 md:p-6">
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-[#EEEDFE] px-3 py-2 text-[12px] text-[#534AB7]">
-            <Calendar className="h-4 w-4" />
-            <span>
-              Link this list to an event — like “Family dinner Thursday” or
-              “Camping trip.”
-            </span>
-            <button
-              onClick={() =>
-                toast({
-                  title: "Event linking coming soon",
-                  description:
-                    "Lists will be attachable to Gather events next.",
-                })
-              }
-              className="ml-auto font-medium"
-            >
-              Link →
-            </button>
-          </div>
+          {activeList?.event_id ? (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#AFA9EC] bg-[#EEEDFE] px-3 py-2 text-[12px] text-[#534AB7]">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                Linked to{" "}
+                <span className="font-medium">
+                  {linkedEventLabel || "this event"}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate("/calendar")}
+                className="font-medium hover:underline"
+              >
+                Calendar
+              </button>
+              <button
+                type="button"
+                disabled={unlinkMutation.isPending}
+                onClick={() => unlinkMutation.mutate()}
+                className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-red-600"
+              >
+                <Unlink className="h-3 w-3" />
+                Unlink
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-[#EEEDFE] px-3 py-2 text-[12px] text-[#534AB7]">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span>
+                Link this list to an event — packing, groceries, party prep, and
+                more.
+              </span>
+              <button
+                type="button"
+                onClick={() => setLinkDialogOpen(true)}
+                className="ml-auto shrink-0 font-medium"
+              >
+                Link →
+              </button>
+            </div>
+          )}
+
+          <LinkListToEventDialog
+            open={linkDialogOpen}
+            onOpenChange={setLinkDialogOpen}
+            listId={activeList?.id}
+            onLinked={() => {
+              queryClient.invalidateQueries({ queryKey: ["lists", user?.id] });
+            }}
+          />
 
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-400">

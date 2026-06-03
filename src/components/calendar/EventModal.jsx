@@ -35,11 +35,13 @@ import {
   Trash2,
   Lightbulb,
   Paperclip,
+  ListChecks,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { getTabColors } from "./TabFilter";
 import { getEventTypeInfo } from "./EventTypeTag";
 import EventMemories from "./EventMemories";
+import EventLists from "./EventLists";
 import { cn } from "@/lib/utils";
 import { DateTime } from "luxon";
 import { getRealEventId } from "@/lib/recurrenceUtils";
@@ -304,6 +306,13 @@ const memoryTabLabel = "Files & Memories";
                     </TabsTrigger>
                   )}
 
+                  {showFilesAndMemories && (
+                    <TabsTrigger value="lists" className="px-3 text-xs">
+                      <ListChecks className="mr-1 inline h-3 w-3" />
+                      Lists
+                    </TabsTrigger>
+                  )}
+
                   <TabsTrigger value="recurrence" className="px-3 text-xs">
                     Recurrence
                   </TabsTrigger>
@@ -519,6 +528,22 @@ const memoryTabLabel = "Files & Memories";
                   ) : (
                     <div className="rounded-2xl border border-dashed bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                       Save the event first to add files and memories.
+                    </div>
+                  )}
+                </TabsContent>
+              )}
+
+              {showFilesAndMemories && (
+                <TabsContent value="lists" className="mt-0 space-y-4">
+                  {stableEventId ? (
+                    <EventLists
+                      eventId={stableEventId}
+                      eventTitle={event?.title || formData.title}
+                      isEditable={canEdit}
+                    />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                      Save the event first to add checklists.
                     </div>
                   )}
                 </TabsContent>
