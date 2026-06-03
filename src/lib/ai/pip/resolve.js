@@ -3,7 +3,12 @@ import { parseQuickSchedule, buildScheduleActionPlan } from "./parseQuickEvent";
 import { searchFamilyLife } from "./search";
 import { buildWeeklyFamilyDigest } from "./digest";
 import { parseNoteToActions, buildNoteActionProposal } from "./parseNote";
-import { isMemoryHighlightReply, buildMemoryFromHighlight } from "./memory";
+import {
+  isMemoryHighlightReply,
+  buildMemoryFromHighlight,
+  pickRotatingMemoryPrompt,
+  MEMORY_PROMPTS,
+} from "./memory";
 
 /**
  * Resolve bottom-bar input — returns action-oriented UI payloads, not chat prose.
@@ -34,7 +39,8 @@ export function resolvePipInput(message, context, options = {}) {
     return {
       mode: "memory_prompt",
       headline: "Add a family memory",
-      body: "Tell Pip what happened — a sentence is enough to save it.",
+      body: pickRotatingMemoryPrompt(context),
+      prompts: MEMORY_PROMPTS.map((p) => p.text).slice(0, 4),
       expectMemoryHighlight: true,
     };
   }

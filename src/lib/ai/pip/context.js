@@ -21,6 +21,7 @@ export async function fetchPipFamilyContext(userId, email) {
   const weekStart = now.startOf("week");
   const weekEnd = now.endOf("week");
   const horizonEnd = now.plus({ days: 14 }).endOf("day");
+  const storyStart = now.minus({ months: 18 }).startOf("day");
 
   const tabs = await fetchAccessibleTabs({ userId, email });
   const ownedTabs = tabs.filter((t) => t.owner_id === userId);
@@ -37,7 +38,7 @@ export async function fetchPipFamilyContext(userId, email) {
           })
         : Promise.resolve([]),
       fetchPeople(userId),
-      fetchMemoryAssets(userId, { limit: 20 }),
+      fetchMemoryAssets(userId, { limit: 40 }),
       fetchLists(userId),
       tabIds.length
         ? fetchNotes({ tabIds, limit: 30 })
@@ -50,16 +51,31 @@ export async function fetchPipFamilyContext(userId, email) {
         .then(({ count, error }) => (error ? 0 : count ?? 0)),
     ]);
 
-  const { data: upcomingRaw } = tabIds.length
-    ? await supabase
-        .from("events")
-        .select("id, title, start_at, event_type, calendar_tabs(name)")
-        .in("tab_id", tabIds)
-        .gte("start_at", now.toUTC().toISO())
-        .lte("start_at", horizonEnd.toUTC().toISO())
-        .order("start_at", { ascending: true })
-        .limit(40)
-    : { data: [] };
+  const [upcomingRes, storyRes] = await Promise.all([
+    tabIds.length
+      ? supabase
+          .from("events")
+          .select("id, title, start_at, event_type, calendar_tabs(name)")
+          .in("tab_id", tabIds)
+          .gte("start_at", now.toUTC().toISO())
+          .lte("start_at", horizonEnd.toUTC().toISO())
+          .order("start_at", { ascending: true })
+          .limit(40)
+      : Promise.resolve({ data: [] }),
+    tabIds.length
+      ? supabase
+          .from("events")
+          .select("id, title, start_at, event_type, location")
+          .in("tab_id", tabIds)
+          .gte("start_at", storyStart.toUTC().toISO())
+          .lt("start_at", now.toUTC().toISO())
+          .order("start_at", { ascending: false })
+          .limit(60)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const upcomingRaw = upcomingRes.data ?? [];
+  const storyEvents = storyRes.data ?? [];
 
   const familyNames = (people ?? [])
     .map((p) => nameFromEmail(p.email))
@@ -74,7 +90,8 @@ export async function fetchPipFamilyContext(userId, email) {
     ownedTabs,
     defaultTab,
     weekEvents: weekEvents ?? [],
-    upcomingEvents: upcomingRaw ?? [],
+    upcomingEvents: upcomingRaw,
+    storyEvents,
     people: people ?? [],
     familyNames,
     memories: memories ?? [],

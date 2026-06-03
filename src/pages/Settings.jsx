@@ -668,6 +668,23 @@ export default function Settings() {
                       />
                     }
                   />
+                  <SettingsRow
+                    label="Weekly family digest"
+                    sub="Sunday email: events, birthdays, tasks, and new memories (Family plan)"
+                    right={
+                      <Toggle
+                        on={notifications.weekly_family_digest}
+                        disabled
+                        onChange={() =>
+                          toast({
+                            title: "Coming soon",
+                            description:
+                              "Weekly digest emails will be part of the Family plan.",
+                          })
+                        }
+                      />
+                    }
+                  />
                 </SettingsCard>
               </section>
             )}

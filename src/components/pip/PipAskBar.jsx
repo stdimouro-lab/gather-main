@@ -8,6 +8,7 @@ import usePipContext from "@/hooks/usePipContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import PipActionFooter from "@/components/pip/PipActionFooter";
 
 function ActionOption({ option, onToggle, running }) {
   if (!option.enabled) {
@@ -48,7 +49,7 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
         <p className="text-[12px] leading-relaxed text-slate-600">{result.summary}</p>
         {result.results?.length > 0 && (
           <ul className="mt-3 space-y-2">
-            {result.results.map((r) => (
+            {result.results.slice(0, 5).map((r) => (
               <li key={`${r.kind}-${r.title}`}>
                 <Link
                   to={r.href}
@@ -63,6 +64,7 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
             ))}
           </ul>
         )}
+        <PipActionFooter result={result} />
       </div>
     );
   }
@@ -83,6 +85,7 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
             </li>
           ))}
         </ul>
+        <PipActionFooter result={result} />
       </div>
     );
   }
@@ -92,7 +95,18 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
       <div className="mb-3 rounded-xl border border-[#AFA9EC] bg-[#EEEDFE] p-4 shadow-lg">
         <p className="text-[13px] font-medium text-[#534AB7]">{result.headline}</p>
         {result.body && (
-          <p className="mt-1 text-[12px] text-[#534AB7]/90">{result.body}</p>
+          <p className="mt-1 text-[12px] font-medium text-[#534AB7]/90">
+            {result.body}
+          </p>
+        )}
+        {result.mode === "memory_prompt" && result.prompts?.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {result.prompts.map((p) => (
+              <li key={p} className="text-[11px] text-[#534AB7]/80">
+                • {p}
+              </li>
+            ))}
+          </ul>
         )}
         {result.actions?.map((action) => (
           <Button
@@ -105,6 +119,7 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
             {action.label}
           </Button>
         ))}
+        <PipActionFooter result={result} />
       </div>
     );
   }
@@ -152,6 +167,7 @@ function ResultPanel({ result, options, onToggle, onRun, onClose, running }) {
               ? selected[0].action?.label || "Confirm"
               : `Do ${selected.length} actions`}
         </Button>
+        <PipActionFooter result={result} />
       </div>
     );
   }
@@ -267,7 +283,7 @@ export default function PipAskBar({
             id="pip-ask-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Pip… find something or schedule (Kai dentist Thursday at 3)"
+            placeholder="Ask Pip…"
             className="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-[13px] outline-none focus:border-[#6C63FF]"
           />
         </div>

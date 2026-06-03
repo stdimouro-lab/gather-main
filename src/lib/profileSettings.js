@@ -7,6 +7,7 @@ export const DEFAULT_NOTIFICATION_PREFS = {
   invite_accepted: true,
   smart_suggestions: true,
   memory_added: false,
+  weekly_family_digest: false,
 };
 
 export function getBrowserTimezone() {

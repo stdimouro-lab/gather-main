@@ -139,7 +139,8 @@ export function buildScheduleActionPlan(parsed, context) {
 
   return {
     mode: "schedule",
-    headline: "I can:",
+    headline: parsed.summary,
+    summary: null,
     options: [
       {
         id: "event",

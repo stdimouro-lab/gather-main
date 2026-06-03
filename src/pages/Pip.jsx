@@ -14,8 +14,8 @@ import { useAuth } from "@/context/AuthProvider";
 import usePipContext from "@/hooks/usePipContext";
 import { buildProactiveBriefing, buildTodaySnapshot } from "@/lib/ai/pip/snapshot";
 import { buildWeeklyFamilyDigest } from "@/lib/ai/pip/digest";
-import { getMemoryPromptState } from "@/lib/ai/pip/memory";
-import { buildFamilyFeed } from "@/lib/ai/pip/familyFeed";
+import { getMemoryPromptState, pickRotatingMemoryPrompt } from "@/lib/ai/pip/memory";
+import { buildFamilyTimeline } from "@/lib/ai/pip/familyTimeline";
 import PipAskBar from "@/components/pip/PipAskBar";
 
 function Section({ title, children, action, id }) {
@@ -68,7 +68,8 @@ export default function Pip() {
   const briefing = buildProactiveBriefing(context, displayName);
   const digest = buildWeeklyFamilyDigest(context);
   const memoryPrompt = getMemoryPromptState(context);
-  const feed = buildFamilyFeed(context);
+  const feed = buildFamilyTimeline(context);
+  const memoryQuestion = pickRotatingMemoryPrompt(context);
 
   const upcoming = (context?.upcomingEvents ?? []).slice(0, 5);
 
@@ -222,20 +223,25 @@ export default function Pip() {
             </Section>
           )}
 
-          {memoryPrompt.show && (
-            <Section title="Memory prompt">
-              <p className="text-[13px] text-slate-700">{memoryPrompt.message}</p>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate("/pip", { state: { expectMemory: true }, replace: true })
-                }
-                className="mt-3 text-[13px] font-medium text-[#6C63FF]"
-              >
-                Tell Pip what happened →
-              </button>
-            </Section>
-          )}
+          <Section title="Memory prompt">
+            <p className="text-[13px] font-medium text-slate-800">
+              {memoryQuestion}
+            </p>
+            {memoryPrompt.show && memoryPrompt.daysSince != null && (
+              <p className="mt-1 text-[12px] text-slate-500">
+                Last memory was {memoryPrompt.daysSince} days ago.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/pip", { state: { expectMemory: true }, replace: true })
+              }
+              className="mt-3 text-[13px] font-medium text-[#6C63FF]"
+            >
+              Save a memory →
+            </button>
+          </Section>
 
           <Section title="Weekly digest" id="pip-weekly-digest">
             <ul className="space-y-1">

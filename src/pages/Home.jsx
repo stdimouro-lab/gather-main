@@ -16,6 +16,7 @@ import { fetchPeople } from "@/lib/people";
 import { fetchMemoryAssets } from "@/lib/memories";
 import { generateSuggestions } from "@/lib/ai/suggestions";
 import PipHomeSection from "@/components/pip/PipHomeSection";
+import FamilyStorySection from "@/components/home/FamilyStorySection";
 
 const tableColorMap = {
   indigo: "#6C63FF",
@@ -508,6 +509,8 @@ export default function Home() {
             </div>
           )}
         </Card>
+
+        <FamilyStorySection />
 
         <PipHomeSection />
 
