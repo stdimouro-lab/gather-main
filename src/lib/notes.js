@@ -64,16 +64,11 @@ function whitelistUpdate(db) {
   return out;
 }
 
-export async function fetchNotes({ ownerId, tabIds, pinnedOnly = false, limit = 200 }) {
-  if (!ownerId || !UUID_RE.test(ownerId)) return [];
+export async function fetchNotes({ tabIds, pinnedOnly = false, limit = 200 }) {
   const cleanTabIds = normalizeTabIds(tabIds);
   if (!cleanTabIds.length) return [];
 
-  let q = supabase
-    .from("notes")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .in("tab_id", cleanTabIds);
+  let q = supabase.from("notes").select("*").in("tab_id", cleanTabIds);
 
   if (pinnedOnly) q = q.eq("pinned", true);
 

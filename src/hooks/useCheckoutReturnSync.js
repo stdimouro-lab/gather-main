@@ -18,6 +18,10 @@ export default function useCheckoutReturnSync() {
   const [isSyncingCheckoutReturn, setIsSyncingCheckoutReturn] = useState(false);
 
   useEffect(() => {
+    hasRunRef.current = false;
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!user?.id) return;
     if (hasRunRef.current) return;
 

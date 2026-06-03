@@ -207,19 +207,18 @@ function toDb(payload, { mode = "insert" } = {}) {
  * Fetch
  * -------------------------- */
 
-export async function fetchEvents({ ownerId, tabIds, startISO, endISO }) {
-  if (!ownerId) return [];
+export async function fetchEvents({ tabIds, startISO, endISO }) {
   if (!startISO || !endISO) return [];
 
   const cleanTabIds = normalizeTabIds(tabIds);
   if (!cleanTabIds.length) return [];
 
-  const applyOverlap = (q) => q.lt("start_at", endISO).gt("end_at", startISO);
+  const applyOverlap = (q) =>
+    q.lt("start_at", endISO).gte("end_at", startISO);
 
   const singlesQuery = supabase
     .from("events")
     .select("*")
-    .eq("owner_id", ownerId)
     .in("tab_id", cleanTabIds)
     .is("recurrence_parent_id", null)
     .is("recurrence_rule", null);
@@ -238,7 +237,6 @@ export async function fetchEvents({ ownerId, tabIds, startISO, endISO }) {
   const overridesQuery = supabase
     .from("events")
     .select("*")
-    .eq("owner_id", ownerId)
     .in("tab_id", cleanTabIds)
     .not("recurrence_parent_id", "is", null);
 
@@ -254,7 +252,6 @@ export async function fetchEvents({ ownerId, tabIds, startISO, endISO }) {
   const mastersQuery = supabase
     .from("events")
     .select("*")
-    .eq("owner_id", ownerId)
     .in("tab_id", cleanTabIds)
     .is("recurrence_parent_id", null)
     .not("recurrence_rule", "is", null)
@@ -451,6 +448,37 @@ export async function deleteEvent(idOrEventLike) {
  * Helpers for recurring edits
  * -------------------------- */
 
+async function appendRecurrenceExdate(masterId, occurrenceStartISO) {
+  const normalized = utcKey(occurrenceStartISO);
+  if (!normalized) {
+    throw new Error("appendRecurrenceExdate: invalid occurrenceStartISO");
+  }
+
+  const { data: fresh, error: readError } = await supabase
+    .from("events")
+    .select("recurrence_exdates")
+    .eq("id", masterId)
+    .single();
+
+  if (readError) throw readError;
+
+  const currentExdates = Array.isArray(fresh?.recurrence_exdates)
+    ? fresh.recurrence_exdates
+    : [];
+
+  const nextExdates = Array.from(
+    new Set([...currentExdates, normalized].map(utcKey).filter(Boolean))
+  );
+
+  const { error } = await supabase
+    .from("events")
+    .update({ recurrence_exdates: nextExdates })
+    .eq("id", masterId);
+
+  if (error) throw error;
+  return nextExdates;
+}
+
 export async function editSingleOccurrence({
   master,
   occurrenceStartISO,
@@ -462,22 +490,9 @@ export async function editSingleOccurrence({
     throw new Error("editSingleOccurrence: missing occurrenceStartISO");
   }
 
-  const currentExdates = Array.isArray(master?.recurrence_exdates)
-    ? master.recurrence_exdates
-    : [];
-
-  const nextExdates = Array.from(
-    new Set([...currentExdates, occurrenceStartISO].map(utcKey).filter(Boolean))
-  );
-
-  const { error: exdateError } = await supabase
-    .from("events")
-    .update({
-      recurrence_exdates: nextExdates,
-    })
-    .eq("id", masterId);
-
-  if (exdateError) {
+  try {
+    await appendRecurrenceExdate(masterId, occurrenceStartISO);
+  } catch (exdateError) {
     console.error("editSingleOccurrence recurrence_exdates update error:", {
       message: exdateError.message,
       details: exdateError.details,
@@ -585,22 +600,9 @@ export async function deleteSingleOccurrence({ master, occurrenceStartISO }) {
 
   const normalizedOccurrenceStart = utcKey(occurrenceStartISO);
 
-  const currentExdates = Array.isArray(master?.recurrence_exdates)
-    ? master.recurrence_exdates
-    : [];
-
-  const nextExdates = Array.from(
-    new Set([...currentExdates, normalizedOccurrenceStart].map(utcKey).filter(Boolean))
-  );
-
-  const { error: masterError } = await supabase
-    .from("events")
-    .update({
-      recurrence_exdates: nextExdates,
-    })
-    .eq("id", masterId);
-
-  if (masterError) {
+  try {
+    await appendRecurrenceExdate(masterId, normalizedOccurrenceStart);
+  } catch (masterError) {
     console.error("deleteSingleOccurrence master exdate update error:", {
       message: masterError.message,
       details: masterError.details,

@@ -1,3 +1,6 @@
+/**
+ * @deprecated Legacy `calendar_tab_shares` API — use `tabShares.js` instead.
+ */
 import { supabase } from "./supabase";
 
 export async function fetchShares(tabId) {

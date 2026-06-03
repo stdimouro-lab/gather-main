@@ -9,6 +9,7 @@ import {
   removeTabShare,
   fetchSharedTabsForMe,
   listTeamShares,
+  normalizeSharedTab,
 } from "../lib/tabShares";
 import { fetchTabs, createTab, updateTab, deleteTab } from "../lib/tabs";
 import {
@@ -43,7 +44,8 @@ import { useAuth } from "../context/AuthProvider";
 import { supabase } from "../lib/supabase";
 import { ruleWithUntilBefore, ruleWithoutUntil } from "@/lib/recurrence_ops";
 import RecurrenceScopeModal from "../components/calendar/RecurrenceScopeModal";
-import { syncAccountSeatUsage } from "@/lib/entitlements";
+import { DateTime } from "luxon";
+import { getSharingLimitMessage } from "@/lib/planLimits";
 
 import {
   getRealEventId,
@@ -58,9 +60,12 @@ export default function CalendarPage() {
   const {
     account,
     hasPaidAccess,
+    planTier,
     seatLimit,
     seatsUsed,
     remainingSeats,
+    collaboratorLimit,
+    collaboratorsUsed,
     tableLimit,
   } = useEntitlement();
 
@@ -148,18 +153,29 @@ export default function CalendarPage() {
 
   const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-  const getByDayFromISO = (iso) => {
+  const getByDayFromISO = (iso, recurrenceTimezone) => {
     if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return WEEKDAY_CODES[d.getUTCDay()];
+    const zone =
+      recurrenceTimezone && recurrenceTimezone !== "local"
+        ? recurrenceTimezone
+        : DateTime.local().zoneName;
+    const dt = DateTime.fromISO(iso, { zone });
+    if (!dt.isValid) return null;
+    const luxonWeekday = dt.weekday;
+    const index = luxonWeekday === 7 ? 0 : luxonWeekday;
+    return WEEKDAY_CODES[index];
   };
 
-  const rewriteRRuleByDay = (rule, newStartISO, originalStartISO) => {
+  const rewriteRRuleByDay = (
+    rule,
+    newStartISO,
+    originalStartISO,
+    recurrenceTimezone
+  ) => {
     if (!rule || !newStartISO || !originalStartISO) return rule;
 
-    const oldDay = getByDayFromISO(originalStartISO);
-    const newDay = getByDayFromISO(newStartISO);
+    const oldDay = getByDayFromISO(originalStartISO, recurrenceTimezone);
+    const newDay = getByDayFromISO(newStartISO, recurrenceTimezone);
 
     if (!oldDay || !newDay || oldDay === newDay) return rule;
 
@@ -185,10 +201,16 @@ export default function CalendarPage() {
   const buildShiftedSeriesRule = (
     masterRule,
     newStartISO,
-    originalOccurrenceISO
+    originalOccurrenceISO,
+    recurrenceTimezone
   ) => {
     if (!masterRule) return null;
-    return rewriteRRuleByDay(masterRule, newStartISO, originalOccurrenceISO);
+    return rewriteRRuleByDay(
+      masterRule,
+      newStartISO,
+      originalOccurrenceISO,
+      recurrenceTimezone
+    );
   };
 
   const openScopeChoice = (action, ev, payload = {}) => {
@@ -421,7 +443,8 @@ export default function CalendarPage() {
               ? buildShiftedSeriesRule(
                   oldRule,
                   merged.start_date,
-                  occurrenceStartISO ?? masterStart
+                  occurrenceStartISO ?? masterStart,
+                  master.recurrence_timezone
                 )
               : oldRule;
 
@@ -480,7 +503,8 @@ export default function CalendarPage() {
         const continuedRule = buildShiftedSeriesRule(
           ruleWithoutUntil(oldRule),
           newSeriesStart,
-          occurrenceStartISO
+          occurrenceStartISO,
+          master.recurrence_timezone
         );
 
         await createEvent({
@@ -606,10 +630,15 @@ export default function CalendarPage() {
     staleTime: 30000,
   });
 
-  const sharedWithMe = sharedTabs;
+  const normalizedSharedTabs = useMemo(
+    () => sharedTabs.map(normalizeSharedTab).filter(Boolean),
+    [sharedTabs]
+  );
+
+  const sharedWithMe = normalizedSharedTabs;
   const allTabs = useMemo(
-    () => [...ownedTabs, ...sharedTabs],
-    [ownedTabs, sharedTabs]
+    () => [...ownedTabs, ...normalizedSharedTabs],
+    [ownedTabs, normalizedSharedTabs]
   );
 
   const visibleTabIds = useMemo(() => {
@@ -748,7 +777,6 @@ export default function CalendarPage() {
     queryKey: ["events", user?.id, activeTabs, range.startISO, range.endISO],
     queryFn: () =>
       fetchEvents({
-        ownerId: user.id,
         tabIds: activeTabs,
         startISO: range.startISO,
         endISO: range.endISO,
@@ -890,8 +918,11 @@ export default function CalendarPage() {
 
   const shareTabMutation = useMutation({
     mutationFn: async ({ tabId, email, role }) => {
-      if (!hasPaidAccess) throw new Error("Inviting people requires a paid plan.");
-      if (remainingSeats <= 0) throw new Error("Your plan has reached its seat limit.");
+      if (remainingSeats <= 0) {
+        throw new Error(
+          getSharingLimitMessage(planTier ?? account?.plan_tier ?? "free", seatLimit)
+        );
+      }
       if (!email || !email.includes("@")) throw new Error("Enter a valid email.");
 
       return inviteToTab({
@@ -903,8 +934,6 @@ export default function CalendarPage() {
     },
 
     onSuccess: async () => {
-      if (account?.id) await syncAccountSeatUsage(account.id);
-
       await queryClient.invalidateQueries({ queryKey: ["teamShares", user.id] });
       await queryClient.invalidateQueries({ queryKey: ["sharedTabs", user.id] });
       await queryClient.invalidateQueries({ queryKey: ["account", user.id] });
@@ -935,13 +964,7 @@ export default function CalendarPage() {
   });
 
   const removeShareMutation = useMutation({
-    mutationFn: async (shareId) => {
-      const result = await removeTabShare(shareId);
-
-      if (account?.id) await syncAccountSeatUsage(account.id);
-
-      return result;
-    },
+    mutationFn: (shareId) => removeTabShare(shareId),
 
     onSuccess: async () => {
       toast({ title: "Access removed" });
@@ -966,7 +989,7 @@ export default function CalendarPage() {
   const getTabAccess = (tab) => {
     if (!tab) return "none";
     if (tab.owner_id === user?.id) return "owner";
-    return tab.share_role || "viewer";
+    return tab.share_role || tab.role || "viewer";
   };
 
   const canEditTabContent = (tab) => {
@@ -1460,9 +1483,12 @@ export default function CalendarPage() {
         }}
         tab={shareTab}
         shares={tabShares}
+        planTier={planTier}
         seatSummary={{
-          used: seatsUsed ?? 1,
-          limit: seatLimit ?? 1,
+          collaboratorsUsed: collaboratorsUsed ?? 0,
+          collaboratorLimit: collaboratorLimit ?? 2,
+          seatsUsed: seatsUsed ?? 1,
+          seatLimit: seatLimit ?? 3,
         }}
         onInvite={(email, role) =>
           shareTabMutation.mutateAsync({ tabId: shareTab.id, email, role })

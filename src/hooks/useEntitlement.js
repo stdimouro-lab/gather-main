@@ -4,6 +4,10 @@ import { useAuth } from "@/context/AuthProvider";
 import { fetchMyAccount } from "@/lib/account";
 import { getPlanConfig } from "@/lib/entitlements";
 import {
+  getCollaboratorLimit,
+  getCollaboratorsUsed,
+} from "@/lib/planLimits";
+import {
   hasAppleBillingBridge,
   syncAppleEntitlements,
 } from "@/lib/appleBillingBridge";
@@ -103,6 +107,12 @@ export default function useEntitlement() {
     const storageUsedMb = normalizeStorageUsed(account?.storage_used_mb);
 
     const remainingSeats = Math.max(seatLimit - seatsUsed, 0);
+    const collaboratorLimit = getCollaboratorLimit(seatLimit);
+    const collaboratorsUsed = getCollaboratorsUsed(seatsUsed);
+    const remainingCollaborators = Math.max(
+      collaboratorLimit - collaboratorsUsed,
+      0
+    );
     const storageRemainingMb = Math.max(storageLimitMb - storageUsedMb, 0);
 
     const isAtSeatLimit = seatsUsed >= seatLimit;
@@ -126,6 +136,9 @@ export default function useEntitlement() {
       seatLimit,
       seatsUsed,
       remainingSeats,
+      collaboratorLimit,
+      collaboratorsUsed,
+      remainingCollaborators,
       isAtSeatLimit,
       isOverSeatLimit,
       storageLimitMb,

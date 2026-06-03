@@ -17,6 +17,14 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function getAllowedPriceIds() {
+  return {
+    plus: Deno.env.get("STRIPE_PRICE_PLUS") || "",
+    family: Deno.env.get("STRIPE_PRICE_FAMILY") || "",
+    business: Deno.env.get("STRIPE_PRICE_BUSINESS") || "",
+  };
+}
+
 const BLOCKED_SUBSCRIPTION_STATUSES = new Set([
   "trialing",
   "active",
@@ -81,6 +89,17 @@ serve(async (req) => {
 
     if (!priceId || !successUrl || !cancelUrl) {
       return json({ error: "Missing required parameters" }, 400);
+    }
+
+    const allowed = getAllowedPriceIds();
+    const allowedValues = Object.values(allowed).filter(Boolean);
+
+    if (!allowedValues.length) {
+      return json({ error: "Stripe price IDs are not configured" }, 500);
+    }
+
+    if (!allowedValues.includes(priceId)) {
+      return json({ error: "That plan is not allowed." }, 400);
     }
 
     // 🔍 Get account

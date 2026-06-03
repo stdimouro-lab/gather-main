@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -6,7 +6,6 @@ import {
   CreditCard,
   FileText,
   HelpCircle,
-  Image,
   Lock,
   LogOut,
   Rocket,
@@ -20,8 +19,28 @@ import UsageBar from "@/components/UsageBar";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import useEntitlement from "@/hooks/useEntitlement";
+import {
+  getSharingAlmostFullMessage,
+  getSharingLimitMessage,
+} from "@/lib/planLimits";
+import {
+  openCustomerPortal,
+  isNativeBillingEnvironment,
+} from "@/lib/billing";
 import { restoreApplePurchases } from "@/lib/appleBillingBridge";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  formatTimezoneLabel,
+  getBrowserTimezone,
+  readGatherPreferences,
+  saveGatherPreferences,
+  saveProfileName,
+} from "@/lib/profileSettings";
+const REMINDER_OPTIONS = [
+  { value: 15, label: "15 min before" },
+  { value: 30, label: "30 min before" },
+  { value: 60, label: "1 hour before" },
+];
 
 const settingsSections = [
   {
@@ -29,7 +48,6 @@ const settingsSections = [
     items: [
       { id: "profile", label: "Profile", icon: UserCircle },
       { id: "notifications", label: "Notifications", icon: Bell },
-      { id: "privacy", label: "Privacy", icon: Lock },
       { id: "security", label: "Security", icon: Shield },
     ],
   },
@@ -38,7 +56,6 @@ const settingsSections = [
     items: [
       { id: "getting-started", label: "Getting Started", icon: Rocket },
       { id: "tables", label: "Tables", icon: CalendarDays },
-      { id: "memories", label: "Memories", icon: Image },
     ],
   },
   {
@@ -53,6 +70,7 @@ const settingsSections = [
     items: [
       { id: "support", label: "Help & support", icon: HelpCircle },
       { id: "legal", label: "Legal", icon: FileText },
+      { id: "danger", label: "Delete account", icon: Lock },
     ],
   },
 ];
@@ -96,40 +114,71 @@ function SettingsRow({ label, sub, right }) {
   );
 }
 
-function Toggle({ on = true }) {
+function Toggle({ on, onChange, disabled = false }) {
   return (
-    <div
-      className={`relative h-5 w-9 rounded-full ${
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={`relative h-5 w-9 rounded-full transition disabled:opacity-50 ${
         on ? "bg-[#6C63FF]" : "bg-slate-300"
       }`}
     >
-      <div
+      <span
         className={`absolute top-[3px] h-3.5 w-3.5 rounded-full bg-white transition ${
           on ? "left-[19px]" : "left-[3px]"
         }`}
       />
-    </div>
+    </button>
   );
 }
 
 export default function Settings() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("profile");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [editingTimezone, setEditingTimezone] = useState(false);
+  const [timezoneDraft, setTimezoneDraft] = useState(getBrowserTimezone());
+
+  const prefs = useMemo(
+    () => readGatherPreferences(user, profile),
+    [user, profile]
+  );
+
+  const [notifications, setNotifications] = useState(prefs.notifications);
+  const [timezone, setTimezone] = useState(prefs.timezone);
+
+  useEffect(() => {
+    setNotifications(prefs.notifications);
+    setTimezone(prefs.timezone);
+    setTimezoneDraft(prefs.timezone);
+  }, [prefs]);
 
   const {
     planTier,
     isComped,
     billingSource,
+    planStatus,
+    hasPaidAccess,
     seatLimit,
     seatsUsed,
+    collaboratorLimit,
     storageLimitMb,
     storageUsedMb,
+    isLoading: loadingEntitlement,
+    error: entitlementError,
   } = useEntitlement();
 
   const displayName =
     profile?.full_name ||
+    profile?.display_name ||
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email?.split("@")[0] ||
@@ -147,8 +196,8 @@ export default function Settings() {
   const planLabel = isComped
     ? "Complimentary"
     : planTier
-    ? `${planTier}`.replace("_", " ")
-    : "Free";
+      ? `${planTier}`.replace("_", " ")
+      : "Free";
 
   const storageUsedGb = Number(((storageUsedMb || 0) / 1024).toFixed(1));
   const storageLimitGb = Number(((storageLimitMb || 0) / 1024).toFixed(1));
@@ -156,10 +205,100 @@ export default function Settings() {
     storageLimitMb > 0 ? (storageUsedMb || 0) / storageLimitMb : 0;
   const seatUsageRatio = seatLimit > 0 ? (seatsUsed || 0) / seatLimit : 0;
 
+  const planStatusLabel = (() => {
+    if (isComped) return "Complimentary";
+    if (planStatus === "past_due") return "Past due";
+    if (planStatus === "canceled" || planStatus === "unpaid") return "Canceled";
+    if (hasPaidAccess) return "Active";
+    return "Free";
+  })();
+
+  const planStatusBadgeClass =
+    planStatus === "past_due"
+      ? "bg-amber-50 text-amber-800"
+      : hasPaidAccess || isComped
+        ? "bg-[#EEEDFE] text-[#534AB7]"
+        : "bg-slate-100 text-slate-600";
+
+  const persistNotifications = async (next) => {
+    setSavingPrefs(true);
+    try {
+      await saveGatherPreferences({
+        user,
+        notifications: next,
+        timezone,
+      });
+      setNotifications(next);
+      await refreshProfile?.();
+      toast({ title: "Notification settings saved" });
+    } catch (err) {
+      toast({
+        title: "Could not save settings",
+        description: err?.message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const handleToggle = (key) => {
+    const next = { ...notifications, [key]: !notifications[key] };
+    setNotifications(next);
+    persistNotifications(next);
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
   };
+
+  const handleSaveName = async () => {
+    setSavingProfile(true);
+    try {
+      const saved = await saveProfileName({
+        userId: user.id,
+        fullName: nameDraft,
+      });
+      await refreshProfile?.();
+      setEditingName(false);
+      toast({ title: "Profile updated", description: saved });
+    } catch (err) {
+      toast({
+        title: "Could not update profile",
+        description: err?.message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveTimezone = async () => {
+    setSavingPrefs(true);
+    try {
+      await saveGatherPreferences({
+        user,
+        notifications,
+        timezone: timezoneDraft,
+      });
+      setTimezone(timezoneDraft);
+      setEditingTimezone(false);
+      toast({ title: "Time zone saved" });
+    } catch (err) {
+      toast({
+        title: "Could not save time zone",
+        description: err?.message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const sectionTitle = settingsSections
+    .flatMap((s) => s.items)
+    .find((item) => item.id === activeSection)?.label;
 
   return (
     <div className="flex min-h-screen bg-slate-100">
@@ -198,345 +337,529 @@ export default function Settings() {
           <div className="mb-6">
             <h1 className="text-xl font-medium text-slate-900">Settings</h1>
             <p className="mt-1 text-[13px] text-slate-500">
-              Manage your account, tables, billing, privacy, and Gather setup.
+              {sectionTitle ? sectionTitle : "Manage your Gather account"}
             </p>
           </div>
 
-          <div className="space-y-6">
-            <section id="profile">
-              <h2 className="text-base font-medium text-slate-900">Profile</h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                How you appear to others in Gather.
-              </p>
+          {entitlementError?.message && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              Could not load plan details: {entitlementError.message}
+            </div>
+          )}
 
-              <SettingsCard>
-                <SettingsRow
-                  label="Display name"
-                  sub="Shown to people you share tables with"
-                  right={
-                    <>
+          <div className="md:hidden mb-4">
+            <select
+              value={activeSection}
+              onChange={(e) => setActiveSection(e.target.value)}
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px]"
+            >
+              {settingsSections.flatMap((section) =>
+                section.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div className="space-y-6">
+            {activeSection === "profile" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">Profile</h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  How you appear to people you share tables with.
+                </p>
+
+                <SettingsCard>
+                  <SettingsRow
+                    label="Display name"
+                    sub="Saved to your Gather profile"
+                    right={
+                      editingName ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={nameDraft}
+                            onChange={(e) => setNameDraft(e.target.value)}
+                            className="w-36 rounded-md border border-slate-200 px-2 py-1 text-[12px]"
+                          />
+                          <button
+                            type="button"
+                            disabled={savingProfile}
+                            onClick={handleSaveName}
+                            className="text-[12px] font-medium text-[#6C63FF]"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-[12px] text-slate-500">
+                            {displayName}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNameDraft(displayName);
+                              setEditingName(true);
+                            }}
+                            className="text-[12px] font-medium text-[#6C63FF]"
+                          >
+                            Edit
+                          </button>
+                        </>
+                      )
+                    }
+                  />
+                  <SettingsRow
+                    label="Email address"
+                    sub="Used for sign in"
+                    right={
                       <span className="text-[12px] text-slate-500">
-                        {displayName}
+                        {user?.email || "—"}
                       </span>
-                      <button className="text-[12px] font-medium text-[#6C63FF]">
-                        Edit
-                      </button>
-                    </>
-                  }
-                />
-                <SettingsRow
-                  label="Email address"
-                  sub="Used for sign in and notifications"
-                  right={
-                    <>
-                      <span className="text-[12px] text-slate-500">
-                        {user?.email || "Loading..."}
-                      </span>
-                    </>
-                  }
-                />
-                <SettingsRow
-                  label="Profile photo"
-                  sub="Visible to people in your circle"
-                  right={
-                    <>
+                    }
+                  />
+                  <SettingsRow
+                    label="Profile photo"
+                    sub="Uses your initials until photo upload is added"
+                    right={
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EEEDFE] text-[11px] font-semibold text-[#534AB7]">
                         {initials}
                       </div>
-                      <button className="text-[12px] font-medium text-[#6C63FF]">
-                        Change
+                    }
+                  />
+                  <SettingsRow
+                    label="Time zone"
+                    sub="Used for event times and reminders"
+                    right={
+                      editingTimezone ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={timezoneDraft}
+                            onChange={(e) => setTimezoneDraft(e.target.value)}
+                            className="w-40 rounded-md border border-slate-200 px-2 py-1 text-[12px]"
+                            placeholder="America/New_York"
+                          />
+                          <button
+                            type="button"
+                            disabled={savingPrefs}
+                            onClick={handleSaveTimezone}
+                            className="text-[12px] font-medium text-[#6C63FF]"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-[12px] text-slate-500">
+                            {formatTimezoneLabel(timezone)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTimezoneDraft(timezone);
+                              setEditingTimezone(true);
+                            }}
+                            className="text-[12px] font-medium text-[#6C63FF]"
+                          >
+                            Change
+                          </button>
+                        </>
+                      )
+                    }
+                  />
+                </SettingsCard>
+              </section>
+            )}
+
+            {activeSection === "notifications" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">
+                  Notifications
+                </h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Preferences are saved to your account.
+                </p>
+
+                <SettingsCard>
+                  <SettingsRow
+                    label="Event reminders"
+                    sub="Alert before upcoming events"
+                    right={
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={notifications.event_reminder_minutes}
+                          disabled={savingPrefs || !notifications.event_reminders}
+                          onChange={(e) => {
+                            const next = {
+                              ...notifications,
+                              event_reminder_minutes: Number(e.target.value),
+                            };
+                            setNotifications(next);
+                            persistNotifications(next);
+                          }}
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600"
+                        >
+                          {REMINDER_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Toggle
+                          on={notifications.event_reminders}
+                          disabled={savingPrefs}
+                          onChange={() => handleToggle("event_reminders")}
+                        />
+                      </div>
+                    }
+                  />
+                  <SettingsRow
+                    label="Shared table activity"
+                    sub="When someone adds or edits an event"
+                    right={
+                      <Toggle
+                        on={notifications.shared_table_activity}
+                        disabled={savingPrefs}
+                        onChange={() => handleToggle("shared_table_activity")}
+                      />
+                    }
+                  />
+                  <SettingsRow
+                    label="Invite accepted"
+                    sub="When someone joins your table"
+                    right={
+                      <Toggle
+                        on={notifications.invite_accepted}
+                        disabled={savingPrefs}
+                        onChange={() => handleToggle("invite_accepted")}
+                      />
+                    }
+                  />
+                  <SettingsRow
+                    label="Smart suggestions"
+                    sub="Scheduling tips on your home screen"
+                    right={
+                      <Toggle
+                        on={notifications.smart_suggestions}
+                        disabled={savingPrefs}
+                        onChange={() => handleToggle("smart_suggestions")}
+                      />
+                    }
+                  />
+                  <SettingsRow
+                    label="Memory added"
+                    sub="When someone adds photos to a shared event"
+                    right={
+                      <Toggle
+                        on={notifications.memory_added}
+                        disabled={savingPrefs}
+                        onChange={() => handleToggle("memory_added")}
+                      />
+                    }
+                  />
+                </SettingsCard>
+              </section>
+            )}
+
+            {activeSection === "security" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">Security</h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Password and sign-in options.
+                </p>
+
+                <SettingsCard>
+                  <SettingsRow
+                    label="Password"
+                    sub="Change the password for this account"
+                    right={
+                      <button
+                        type="button"
+                        onClick={() => navigate("/forgot-password")}
+                        className="text-[12px] font-medium text-[#6C63FF]"
+                      >
+                        Reset password
                       </button>
-                    </>
-                  }
-                />
-                <SettingsRow
-                  label="Time zone"
-                  sub="Used for event reminders and calendar times"
-                  right={
-                    <>
-                      <span className="text-[12px] text-slate-500">
-                        Eastern Time
-                      </span>
-                      <button className="text-[12px] font-medium text-[#6C63FF]">
-                        Change
+                    }
+                  />
+                  <SettingsRow
+                    label="Sign out everywhere"
+                    sub="End your current session on this device"
+                    right={
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="text-[12px] font-medium text-red-600"
+                      >
+                        Sign out
                       </button>
-                    </>
-                  }
-                />
-              </SettingsCard>
-            </section>
+                    }
+                  />
+                </SettingsCard>
+              </section>
+            )}
 
-            <section id="notifications">
-              <h2 className="text-base font-medium text-slate-900">
-                Notifications
-              </h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Choose how and when Gather reaches you.
-              </p>
+            {activeSection === "getting-started" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">
+                  Getting Started
+                </h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Revisit setup and learn how Gather works.
+                </p>
 
-              <SettingsCard>
-                <SettingsRow
-                  label="Event reminders"
-                  sub="Alert before upcoming events"
-                  right={
-                    <>
-                      <span className="text-[12px] text-slate-500">
-                        30 min before
-                      </span>
-                      <Toggle on />
-                    </>
-                  }
-                />
-                <SettingsRow
-                  label="Shared table activity"
-                  sub="When someone adds or edits an event"
-                  right={<Toggle on />}
-                />
-                <SettingsRow
-                  label="Invite accepted"
-                  sub="When someone joins your table"
-                  right={<Toggle on />}
-                />
-                <SettingsRow
-                  label="Smart suggestions"
-                  sub="Conflict alerts and scheduling nudges"
-                  right={<Toggle on />}
-                />
-                <SettingsRow
-                  label="Memory added"
-                  sub="When someone adds photos to a shared event"
-                  right={<Toggle on={false} />}
-                />
-              </SettingsCard>
-            </section>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/onboarding")}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-3 text-[13px] font-medium text-white"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Revisit onboarding
+                  </button>
 
-            <section id="getting-started">
-              <h2 className="text-base font-medium text-slate-900">
-                Getting Started
-              </h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Revisit setup and review how Gather works.
-              </p>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/onboarding")}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-3 text-[13px] font-medium text-white"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Revisit onboarding
-                </button>
-
-                <Link
-                  to="/support"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  View support
-                </Link>
-              </div>
-            </section>
-
-            <section id="tables">
-              <h2 className="text-base font-medium text-slate-900">Tables</h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Manage your tables and who has access.
-              </p>
-
-              <SettingsCard>
-                <SettingsRow
-                  label="Manage tables"
-                  sub="Create, rename, delete, and share tables from Calendar"
-                  right={
-                    <button
-                      onClick={() => navigate("/calendar")}
-                      className="text-[12px] font-medium text-[#6C63FF]"
-                    >
-                      Open Calendar
-                    </button>
-                  }
-                />
-                <SettingsRow
-                  label="People and permissions"
-                  sub="Review people connected to your shared tables"
-                  right={
-                    <button
-                      onClick={() => navigate("/team")}
-                      className="text-[12px] font-medium text-[#6C63FF]"
-                    >
-                      Open People
-                    </button>
-                  }
-                />
-              </SettingsCard>
-            </section>
-
-            <section id="billing">
-              <h2 className="text-base font-medium text-slate-900">
-                Plan & billing
-              </h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Your Gather plan, seats, storage, and purchases.
-              </p>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="mb-4 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium capitalize text-slate-900">
-                      {planLabel} plan
-                    </div>
-                    <div className="mt-1 text-[12px] text-slate-500 capitalize">
-                      Billing source: {billingSource || "none"}
-                    </div>
-                  </div>
-
-                  <span className="rounded-full bg-[#EEEDFE] px-3 py-1 text-[11px] font-medium text-[#534AB7]">
-                    Active
-                  </span>
+                  <Link
+                    to="/support"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    View support
+                  </Link>
                 </div>
+              </section>
+            )}
 
-                <div className="space-y-4">
+            {activeSection === "tables" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">Tables</h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Manage calendars and sharing from Calendar and People.
+                </p>
+
+                <SettingsCard>
+                  <SettingsRow
+                    label="Manage tables"
+                    sub="Create, rename, delete, and share tables"
+                    right={
+                      <button
+                        type="button"
+                        onClick={() => navigate("/calendar")}
+                        className="text-[12px] font-medium text-[#6C63FF]"
+                      >
+                        Open Calendar
+                      </button>
+                    }
+                  />
+                  <SettingsRow
+                    label="People you share with"
+                    sub="Review invites and access"
+                    right={
+                      <button
+                        type="button"
+                        onClick={() => navigate("/team")}
+                        className="text-[12px] font-medium text-[#6C63FF]"
+                      >
+                        Open People
+                      </button>
+                    }
+                  />
+                  <SettingsRow
+                    label="Memories"
+                    sub="Photos and files from your events"
+                    right={
+                      <button
+                        type="button"
+                        onClick={() => navigate("/memories")}
+                        className="text-[12px] font-medium text-[#6C63FF]"
+                      >
+                        Open Memories
+                      </button>
+                    }
+                  />
+                </SettingsCard>
+              </section>
+            )}
+
+            {activeSection === "billing" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">
+                  Plan & billing
+                </h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Live plan data from your Gather account.
+                </p>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  {loadingEntitlement ? (
+                    <p className="text-sm text-slate-500">Loading plan...</p>
+                  ) : (
+                    <>
+                      <div className="mb-4 flex items-start justify-between">
+                        <div>
+                          <div className="text-sm font-medium capitalize text-slate-900">
+                            {planLabel} plan
+                          </div>
+                          <div className="mt-1 text-[12px] capitalize text-slate-500">
+                            Billing source: {billingSource || "none"}
+                          </div>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${planStatusBadgeClass}`}
+                        >
+                          {planStatusLabel}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/plans")}
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-2.5 text-[13px] font-medium text-white"
+                        >
+                          View plans
+                        </button>
+
+                        {hasPaidAccess && billingSource === "stripe" && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await openCustomerPortal();
+                              } catch (err) {
+                                toast({
+                                  title: "Billing portal unavailable",
+                                  description: err?.message ?? "Try again.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Manage billing
+                          </button>
+                        )}
+
+                        {isNativeBillingEnvironment() && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await restoreApplePurchases();
+                                toast({ title: "Purchases restored" });
+                              } catch (err) {
+                                toast({
+                                  title: "Restore failed",
+                                  description: err?.message ?? "Try again.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-700"
+                          >
+                            Restore purchases
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {activeSection === "usage" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">Usage</h2>
+                <p className="mb-3 mt-1 text-[12px] text-slate-500">
+                  Storage and sharing limits for your current plan.
+                </p>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-4">
                   <UsageBar
                     label="Storage"
                     used={storageUsedGb}
                     limit={storageLimitGb || 0.1}
                     unit="GB"
                   />
-
                   <UsageBar
-                    label="Seats"
-                    used={seatsUsed || 0}
-                    limit={seatLimit || 1}
+                    label="People you share with"
+                    used={Math.max((seatsUsed || 1) - 1, 0)}
+                    limit={collaboratorLimit || 2}
                   />
+
+                  {storageUsageRatio >= 0.95 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      Your storage is almost full. Upgrade to keep adding memories.
+                    </div>
+                  )}
+
+                  {seatUsageRatio >= 1 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {getSharingLimitMessage(planTier, seatLimit)}
+                    </div>
+                  )}
+
+                  {seatUsageRatio >= 0.8 && seatUsageRatio < 1 && (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
+                      {getSharingAlmostFullMessage(planTier, collaboratorLimit)}
+                    </div>
+                  )}
                 </div>
+              </section>
+            )}
 
-                {storageUsageRatio >= 0.95 && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    Your storage is almost full. Upgrade soon to keep adding
-                    memories and files.
-                  </div>
-                )}
-
-                {storageUsageRatio >= 0.8 && storageUsageRatio < 0.95 && (
-                  <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                    You’re getting close to your storage limit.
-                  </div>
-                )}
-
-                {seatUsageRatio >= 1 && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    You’ve reached your seat limit for this plan.
-                  </div>
-                )}
-
-                {seatUsageRatio >= 0.8 && seatUsageRatio < 1 && (
-                  <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700">
-                    You’re getting close to your seat limit.
-                  </div>
-                )}
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/plans")}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#6C63FF] px-4 py-2.5 text-[13px] font-medium text-white"
+            {activeSection === "support" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">
+                  Help & support
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Link
+                    to="/support"
+                    className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
                   >
-                    View plans
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await restoreApplePurchases();
-                      } catch {
-                        toast({
-                          title: "Restore purchases coming soon",
-                          description:
-                            "Apple subscription restore is almost ready and will be available in an upcoming update.",
-                        });
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    Restore purchases
-                  </button>
+                    <p className="text-sm font-medium text-slate-900">
+                      Help & Support
+                    </p>
+                    <p className="mt-1 text-[12px] text-slate-500">
+                      Contact support or browse help topics.
+                    </p>
+                  </Link>
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
-            <section id="support">
-              <h2 className="text-base font-medium text-slate-900">
-                Help & support
-              </h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Get help with Gather.
-              </p>
+            {activeSection === "legal" && (
+              <section>
+                <h2 className="text-base font-medium text-slate-900">Legal</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Link
+                    to="/privacy"
+                    className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                  >
+                    <p className="text-sm font-medium text-slate-900">
+                      Privacy Policy
+                    </p>
+                  </Link>
+                  <Link
+                    to="/terms"
+                    className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                  >
+                    <p className="text-sm font-medium text-slate-900">
+                      Terms of Service
+                    </p>
+                  </Link>
+                </div>
+              </section>
+            )}
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Link
-                  to="/support"
-                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                >
-                  <p className="text-sm font-medium text-slate-900">
-                    Help & Support
-                  </p>
-                  <p className="mt-1 text-[12px] text-slate-500">
-                    Get help or contact support.
-                  </p>
-                </Link>
-
-                <Link
-                  to="/support"
-                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                >
-                  <p className="text-sm font-medium text-slate-900">
-                    Report a bug
-                  </p>
-                  <p className="mt-1 text-[12px] text-slate-500">
-                    Let us know if something is broken.
-                  </p>
-                </Link>
-              </div>
-            </section>
-
-            <section id="legal">
-              <h2 className="text-base font-medium text-slate-900">Legal</h2>
-              <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                Important policies and terms.
-              </p>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Link
-                  to="/privacy"
-                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                >
-                  <p className="text-sm font-medium text-slate-900">
-                    Privacy Policy
-                  </p>
-                  <p className="mt-1 text-[12px] text-slate-500">
-                    Read how Gather handles data.
-                  </p>
-                </Link>
-
-                <Link
-                  to="/terms"
-                  className="rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                >
-                  <p className="text-sm font-medium text-slate-900">
-                    Terms of Service
-                  </p>
-                  <p className="mt-1 text-[12px] text-slate-500">
-                    Review the rules for using Gather.
-                  </p>
-                </Link>
-              </div>
-            </section>
-
-            <section id="danger">
-              <DeleteAccountSection />
-            </section>
+            {activeSection === "danger" && (
+              <section>
+                <DeleteAccountSection />
+              </section>
+            )}
           </div>
         </div>
       </main>

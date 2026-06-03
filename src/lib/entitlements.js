@@ -1,7 +1,13 @@
 import { supabase } from "./supabase";
+import {
+  FREE_SEAT_LIMIT,
+  FREE_STORAGE_LIMIT_MB,
+  FREE_TABLE_LIMIT,
+  PLAN_TIER_LIMITS,
+} from "./planLimits";
 
 function isActivePlanStatus(planStatus) {
-  return ["active", "trialing"].includes(planStatus);
+  return ["active", "trialing", "past_due"].includes(planStatus);
 }
 
 export function getPlanConfig(account) {
@@ -23,9 +29,9 @@ export function getPlanConfig(account) {
   if (!isActivePlanStatus(planStatus)) {
     return {
       hasPaidAccess: false,
-      tableLimit: 3,
-      seatLimit: 1,
-      storageLimitMb: 2048,
+      tableLimit: FREE_TABLE_LIMIT,
+      seatLimit: FREE_SEAT_LIMIT,
+      storageLimitMb: FREE_STORAGE_LIMIT_MB,
     };
   }
 
@@ -34,8 +40,9 @@ export function getPlanConfig(account) {
       return {
         hasPaidAccess: true,
         tableLimit: null,
-        seatLimit: account?.seat_limit ?? 1,
-        storageLimitMb: account?.storage_limit_mb ?? 5120,
+        seatLimit: account?.seat_limit ?? PLAN_TIER_LIMITS.plus.seat_limit,
+        storageLimitMb:
+          account?.storage_limit_mb ?? PLAN_TIER_LIMITS.plus.storage_limit_mb,
       };
 
     case "family":
@@ -43,8 +50,11 @@ export function getPlanConfig(account) {
       return {
         hasPaidAccess: true,
         tableLimit: null,
-        seatLimit: account?.seat_limit ?? 5,
-        storageLimitMb: account?.storage_limit_mb ?? 15360,
+        seatLimit:
+          account?.seat_limit ?? PLAN_TIER_LIMITS.family_team.seat_limit,
+        storageLimitMb:
+          account?.storage_limit_mb ??
+          PLAN_TIER_LIMITS.family_team.storage_limit_mb,
       };
 
     case "team":
@@ -52,42 +62,22 @@ export function getPlanConfig(account) {
       return {
         hasPaidAccess: true,
         tableLimit: null,
-        seatLimit: account?.seat_limit ?? 25,
-        storageLimitMb: account?.storage_limit_mb ?? 51200,
+        seatLimit: account?.seat_limit ?? PLAN_TIER_LIMITS.business.seat_limit,
+        storageLimitMb:
+          account?.storage_limit_mb ?? PLAN_TIER_LIMITS.business.storage_limit_mb,
       };
 
     default:
       return {
         hasPaidAccess: false,
-        tableLimit: 3,
-        seatLimit: 1,
-        storageLimitMb: 2048,
+        tableLimit: FREE_TABLE_LIMIT,
+        seatLimit: FREE_SEAT_LIMIT,
+        storageLimitMb: FREE_STORAGE_LIMIT_MB,
       };
   }
 }
 
-export async function syncAccountSeatUsage(accountId) {
-  if (!accountId) return null;
-
-  const { count, error: countError } = await supabase
-    .from("account_members")
-    .select("*", { count: "exact", head: true })
-    .eq("account_id", accountId);
-
-  if (countError) throw countError;
-
-  const seatsUsed = Math.max(count ?? 1, 1);
-
-  const { data, error } = await supabase
-    .from("accounts")
-    .update({ seats_used: seatsUsed })
-    .eq("id", accountId)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return data;
-}
+export { syncAccountSeatUsage } from "./account";
 
 export async function applyFreePlanDefaults(accountId) {
   const { data, error } = await supabase
@@ -96,8 +86,8 @@ export async function applyFreePlanDefaults(accountId) {
       plan_tier: "free",
       billing_source: "none",
       is_comped: false,
-      seat_limit: 1,
-      storage_limit_mb: 2048,
+      seat_limit: FREE_SEAT_LIMIT,
+      storage_limit_mb: FREE_STORAGE_LIMIT_MB,
       plan_status: "active",
     })
     .eq("id", accountId)
@@ -115,8 +105,8 @@ export async function applyPlusPlanDefaults(accountId, source = "admin") {
       plan_tier: "plus",
       billing_source: source,
       is_comped: false,
-      seat_limit: 1,
-      storage_limit_mb: 5120,
+      seat_limit: PLAN_TIER_LIMITS.plus.seat_limit,
+      storage_limit_mb: PLAN_TIER_LIMITS.plus.storage_limit_mb,
       plan_status: "active",
     })
     .eq("id", accountId)
@@ -134,8 +124,8 @@ export async function applyFamilyPlanDefaults(accountId, source = "admin") {
       plan_tier: "family_team",
       billing_source: source,
       is_comped: false,
-      seat_limit: 5,
-      storage_limit_mb: 15360,
+      seat_limit: PLAN_TIER_LIMITS.family_team.seat_limit,
+      storage_limit_mb: PLAN_TIER_LIMITS.family_team.storage_limit_mb,
       plan_status: "active",
     })
     .eq("id", accountId)
@@ -153,8 +143,8 @@ export async function applyBusinessPlanDefaults(accountId, source = "admin") {
       plan_tier: "business",
       billing_source: source,
       is_comped: false,
-      seat_limit: 25,
-      storage_limit_mb: 51200,
+      seat_limit: PLAN_TIER_LIMITS.business.seat_limit,
+      storage_limit_mb: PLAN_TIER_LIMITS.business.storage_limit_mb,
       plan_status: "active",
     })
     .eq("id", accountId)

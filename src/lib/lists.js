@@ -62,6 +62,24 @@ export async function deleteList(id) {
    LIST ITEMS
 ========================= */
 
+export async function fetchListItemCounts(listIds) {
+  const cleanIds = (listIds ?? []).filter(Boolean);
+  if (!cleanIds.length) return {};
+
+  const { data, error } = await supabase
+    .from("list_items")
+    .select("list_id")
+    .in("list_id", cleanIds);
+
+  if (error) throw error;
+
+  const counts = {};
+  for (const row of data ?? []) {
+    counts[row.list_id] = (counts[row.list_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export async function fetchListItems(listId) {
   if (!listId) return [];
 

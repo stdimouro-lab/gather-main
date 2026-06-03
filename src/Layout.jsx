@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import useCheckoutReturnSync from "@/hooks/useCheckoutReturnSync";
 import {
   Calendar,
   Home,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import DataConnectionBanner from "@/components/DataConnectionBanner";
 import gatherLogo from "@/assets/gather-logo.png";
 
 function NavItem({ to, icon: Icon, label }) {
@@ -36,6 +38,7 @@ function NavItem({ to, icon: Icon, label }) {
 export default function AppLayout() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  useCheckoutReturnSync();
 
   const displayName =
     user?.user_metadata?.full_name ||
@@ -127,6 +130,9 @@ export default function AppLayout() {
         </div>
 
         <main className="min-w-0 flex-1 overflow-y-auto">
+          <div className="px-4 pt-3 md:px-6 md:pt-4">
+            <DataConnectionBanner />
+          </div>
           <Outlet />
         </main>
       </div>

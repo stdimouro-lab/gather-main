@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  FREE_SEAT_LIMIT,
+  FREE_STORAGE_LIMIT_MB,
+  PLAN_TIER_LIMITS,
+} from "@/lib/planLimits";
 
 /* ============================= */
 /* helpers */
@@ -58,16 +63,60 @@ export async function ensureAccountForUser(ownerInput) {
 
   if (existingError) throw existingError;
 
-  if (existing) return existing;
+  if (existing) {
+    const isFree =
+      !existing.plan_tier || existing.plan_tier === "free";
+    const needsFreeLimits =
+      isFree &&
+      (existing.seat_limit < FREE_SEAT_LIMIT ||
+        existing.storage_limit_mb < FREE_STORAGE_LIMIT_MB);
+
+    if (needsFreeLimits) {
+      const { data: patched, error: patchError } = await supabase
+        .from("accounts")
+        .update({
+          seat_limit: FREE_SEAT_LIMIT,
+          storage_limit_mb: FREE_STORAGE_LIMIT_MB,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("owner_id", ownerId)
+        .select("*")
+        .single();
+
+      if (patchError) throw patchError;
+      return patched ?? existing;
+    }
+
+    const familyMinSeat = PLAN_TIER_LIMITS.family_team.seat_limit;
+    if (
+      existing.plan_tier === "family_team" &&
+      existing.seat_limit < familyMinSeat
+    ) {
+      const { data: patched, error: patchError } = await supabase
+        .from("accounts")
+        .update({
+          seat_limit: familyMinSeat,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("owner_id", ownerId)
+        .select("*")
+        .single();
+
+      if (patchError) throw patchError;
+      return patched ?? existing;
+    }
+
+    return existing;
+  }
 
   const payload = {
     owner_id: ownerId,
     plan_tier: "free",
     billing_source: "none",
     plan_status: "canceled",
-    seat_limit: 1,
+    seat_limit: FREE_SEAT_LIMIT,
     seats_used: 1,
-    storage_limit_mb: 1024,
+    storage_limit_mb: FREE_STORAGE_LIMIT_MB,
     storage_used_mb: 0,
     is_comped: false,
     updated_at: new Date().toISOString(),

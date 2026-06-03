@@ -149,7 +149,7 @@ serve(async (req) => {
         plan_status: "canceled",
         billing_source: "none",
         is_comped: false,
-        seat_limit: 1,
+        seat_limit: 3,
         storage_limit_mb: 2048,
         updated_at: new Date().toISOString(),
       })

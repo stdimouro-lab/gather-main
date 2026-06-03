@@ -36,11 +36,11 @@ function getSeatLimitFromPriceId(priceId: string) {
   const family = Deno.env.get("STRIPE_PRICE_FAMILY");
   const business = Deno.env.get("STRIPE_PRICE_BUSINESS");
 
-  if (priceId === plus) return 1;
-  if (priceId === family) return 5;
-  if (priceId === business) return 25;
+  if (priceId === plus) return 6;
+  if (priceId === family) return 11;
+  if (priceId === business) return 26;
 
-  return 1;
+  return 3;
 }
 
 serve(async (req) => {
@@ -149,8 +149,8 @@ if (
 ) {
   return json(
     {
-      error: `You currently have ${account.seats_used} members, but this plan only allows ${targetSeatLimit}. Remove members before downgrading.`,
-      code: "seat_overflow",
+      error: `You're sharing with too many people for this plan. Remove someone before downgrading — this plan allows ${Math.max(targetSeatLimit - 1, 0)} people you share with.`,
+      code: "sharing_overflow",
     },
     400
   );

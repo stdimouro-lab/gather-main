@@ -1,7 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseConfig } from "./supabaseConfig";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const { url: supabaseUrl, anonKey: supabaseAnonKey, isConfigured } =
+  getSupabaseConfig();
+
+if (!isConfigured && typeof console !== "undefined") {
+  console.error(
+    "Gather: Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.local and restart the dev server."
+  );
+}
 
 const REMEMBER_KEY = "gather_remember_me";
 

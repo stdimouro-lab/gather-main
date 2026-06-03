@@ -9,7 +9,9 @@ import { Capacitor } from "@capacitor/core";
 import { Purchases, LOG_LEVEL } from "@revenuecat/purchases-capacitor";
 import { supabase } from "@/lib/supabase";
 
-const RC_IOS_KEY = import.meta.env.VITE_REVENUECAT_IOS_API_KEY;
+const RC_IOS_KEY =
+  import.meta.env.VITE_REVENUECAT_IOS_API_KEY ||
+  import.meta.env.VITE_REVENUECAT_APPLE_KEY;
 
 const ENTITLEMENT_IDS = {
   plus: "Plus",
@@ -32,7 +34,9 @@ export function isNativeAppleBillingAvailable() {
 async function ensureConfigured() {
   if (_rcConfigured) return;
   if (!RC_IOS_KEY) {
-    throw new Error("Missing VITE_REVENUECAT_IOS_API_KEY in environment variables.");
+    throw new Error(
+      "Missing RevenueCat API key (VITE_REVENUECAT_IOS_API_KEY or VITE_REVENUECAT_APPLE_KEY)."
+    );
   }
   await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
   await Purchases.configure({ apiKey: RC_IOS_KEY });
@@ -141,12 +145,12 @@ async function syncEntitlementsToSupabase(customerInfo, planName) {
 function getPlanSettings(planName) {
   switch (planName) {
     case "plus":
-      return { plan_tier: "plus", seat_limit: 1, storage_limit_mb: 5120 };
+      return { plan_tier: "plus", seat_limit: 6, storage_limit_mb: 5120 };
     case "family_team":
-      return { plan_tier: "family_team", seat_limit: 5, storage_limit_mb: 15360 };
+      return { plan_tier: "family_team", seat_limit: 11, storage_limit_mb: 15360 };
     case "pro":
-      return { plan_tier: "pro", seat_limit: 25, storage_limit_mb: 51200 };
+      return { plan_tier: "business", seat_limit: 26, storage_limit_mb: 51200 };
     default:
-      return { plan_tier: "free", seat_limit: 1, storage_limit_mb: 2048 };
+      return { plan_tier: "free", seat_limit: 3, storage_limit_mb: 2048 };
   }
 }

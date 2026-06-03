@@ -133,8 +133,13 @@ export default function Plans() {
           <PlanCard
             title="Free"
             price="$0"
-            description="Good for testing Gather."
-            features={["3 tables", "1 seat", "Basic calendar features"]}
+            description="Share calendars with family or friends."
+            features={[
+              "3 tables",
+              "Share with 2 people you invite",
+              "Viewer or editor access",
+              "2 GB storage",
+            ]}
             buttonText="Current Plan"
             disabled
           />
@@ -145,7 +150,7 @@ export default function Plans() {
             description="For one person managing life and work."
             features={[
               "Unlimited tables",
-              "1 seat",
+              "Share with up to 5 people",
               "Event memories",
               "5 GB storage",
             ]}
@@ -161,8 +166,8 @@ export default function Plans() {
             description="For families or small teams."
             features={[
               "Unlimited tables",
-              "5 seats",
-              "Shared tables",
+              "Share with up to 10 people",
+              "Family & team calendars",
               "15 GB storage",
             ]}
             buttonText={

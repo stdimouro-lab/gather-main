@@ -13,7 +13,9 @@ export function splitExpandedInstanceId(value) {
     };
   }
 
-  const [masterId, occurrenceStartAt] = value.split("__");
+  const delimiterIndex = value.indexOf("__");
+  const masterId = value.slice(0, delimiterIndex);
+  const occurrenceStartAt = value.slice(delimiterIndex + 2);
 
   return {
     masterId: UUID_RE.test(masterId || "") ? masterId : null,

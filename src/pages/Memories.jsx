@@ -13,7 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchMemoryAssets } from "@/lib/memories";
 import { toast } from "@/components/ui/use-toast";
 
-const filters = ["All", "Images", "Videos", "Files", "2026"];
+const BASE_FILTERS = ["All", "Images", "Videos", "Files"];
 
 function getAssetUrl(path) {
   if (!path) return null;
@@ -63,6 +63,8 @@ function AlbumCard({ album }) {
           <img
             src={album.cover}
             alt={album.title}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -154,6 +156,8 @@ function TimelineMoment({ asset, isLast }) {
               <img
                 src={imageUrl}
                 alt={asset.title || "Memory"}
+                loading="lazy"
+                decoding="async"
                 className="max-h-[320px] w-full object-cover"
               />
             )}
@@ -164,20 +168,28 @@ function TimelineMoment({ asset, isLast }) {
   );
 }
 
+const TIMELINE_PAGE_SIZE = 40;
+
 export default function Memories() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [activeFilter, setActiveFilter] = useState("All");
+  const [timelineLimit, setTimelineLimit] = useState(TIMELINE_PAGE_SIZE);
+
+  const currentYear = new Date().getFullYear();
+  const filters = [...BASE_FILTERS, String(currentYear)];
 
   const {
     data: assets = [],
     isLoading,
+    isError,
+    error,
   } = useQuery({
     queryKey: ["memoryAssets", user?.id],
-    queryFn: () => fetchMemoryAssets(user.id),
+    queryFn: () => fetchMemoryAssets(user.id, { limit: 120 }),
     enabled: !!user?.id,
-    staleTime: 15000,
+    staleTime: 30000,
   });
 
   useEffect(() => {
@@ -219,14 +231,18 @@ export default function Memories() {
       return assets.filter((a) => a.asset_type === "file");
     }
 
-    if (activeFilter === "2026") {
-      return assets.filter((a) =>
-        new Date(a.created_at).getFullYear() === 2026
-      );
+    if (/^\d{4}$/.test(activeFilter)) {
+      const year = Number(activeFilter);
+      return assets.filter((a) => new Date(a.created_at).getFullYear() === year);
     }
 
     return assets;
   }, [activeFilter, assets]);
+
+  const timelineAssets = useMemo(
+    () => filteredAssets.slice(0, timelineLimit),
+    [filteredAssets, timelineLimit]
+  );
 
   const albums = useMemo(() => {
     const grouped = {};
@@ -254,15 +270,17 @@ export default function Memories() {
     return Object.values(grouped);
   }, [filteredAssets]);
 
-  if (isLoading) {
+  if (isError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm text-slate-500">
-        Loading memories...
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <div className="max-w-md rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+          Could not load memories: {error?.message ?? "Unknown error"}
+        </div>
       </div>
     );
   }
 
-  if (!assets.length) {
+  if (!assets.length && !isLoading) {
     return (
       <div className="min-h-screen bg-slate-100 p-4 md:p-6">
         <div className="mx-auto max-w-6xl">
@@ -288,6 +306,12 @@ export default function Memories() {
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-6">
       <div className="mx-auto max-w-6xl">
+        {isLoading && (
+          <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+            Loading memories...
+          </div>
+        )}
+
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-xl font-medium text-slate-900">
@@ -329,7 +353,7 @@ export default function Memories() {
               }`}
             >
               {filter === "Shared with me" && <User className="h-3 w-3" />}
-              {filter === "2026" && <Calendar className="h-3 w-3" />}
+              {/^\d{4}$/.test(filter) && <Calendar className="h-3 w-3" />}
               {filter}
             </button>
           ))}
@@ -369,13 +393,23 @@ export default function Memories() {
         </div>
 
         <div>
-          {filteredAssets.map((asset, index) => (
+          {timelineAssets.map((asset, index) => (
             <TimelineMoment
               key={asset.id}
               asset={asset}
-              isLast={index === filteredAssets.length - 1}
+              isLast={index === timelineAssets.length - 1}
             />
           ))}
+
+          {filteredAssets.length > timelineLimit && (
+            <button
+              type="button"
+              onClick={() => setTimelineLimit((n) => n + TIMELINE_PAGE_SIZE)}
+              className="mt-2 w-full rounded-lg border border-slate-200 bg-white py-2.5 text-[13px] font-medium text-[#6C63FF] hover:bg-slate-50"
+            >
+              Load more ({filteredAssets.length - timelineLimit} remaining)
+            </button>
+          )}
         </div>
       </div>
     </div>

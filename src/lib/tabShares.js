@@ -1,6 +1,27 @@
 // src/lib/tabShares.js
 import { supabase } from "./supabase";
 import { syncAccountSeatUsage } from "./account";
+import {
+  getInviteClaimBlockedMessage,
+  getSharingLimitMessage,
+  getSharingOverLimitMessage,
+} from "./planLimits";
+
+/** Map a tab_shares row (+ nested calendar_tabs) to a calendar tab object. */
+export function normalizeSharedTab(share) {
+  const tab = share?.calendar_tabs;
+  if (!tab?.id) return null;
+
+  return {
+    ...tab,
+    id: tab.id,
+    tab_id: tab.id,
+    is_shared: true,
+    share_role: share.role ?? "viewer",
+    share_id: share.id,
+    owner_id: share.owner_id ?? tab.owner_id,
+  };
+}
 
 function normalizeEmail(email) {
   return email?.trim().toLowerCase() ?? null;
@@ -19,22 +40,24 @@ async function getTabById(tabId) {
 
 async function assertSeatAvailable(ownerId) {
   const result = await syncAccountSeatUsage(ownerId);
+  const planTier = result.account?.plan_tier ?? "free";
+  const seatLimit = result.account?.seat_limit;
 
   if (result.seatsUsed > result.account.seat_limit) {
-    const err = new Error(
-      "Your account is over its seat limit. Remove members or upgrade before inviting anyone new."
-    );
+    const err = new Error(getSharingOverLimitMessage(planTier));
     err.code = "ACCOUNT_OVER_SEAT_LIMIT";
-    err.seatLimit = result.account.seat_limit;
+    err.seatLimit = seatLimit;
     err.seatsUsed = result.seatsUsed;
+    err.planTier = planTier;
     throw err;
   }
 
   if (result.seatsUsed >= result.account.seat_limit) {
-    const err = new Error("Seat limit reached");
+    const err = new Error(getSharingLimitMessage(planTier, seatLimit));
     err.code = "SEAT_LIMIT_REACHED";
-    err.seatLimit = result.account.seat_limit;
+    err.seatLimit = seatLimit;
     err.seatsUsed = result.seatsUsed;
+    err.planTier = planTier;
     throw err;
   }
 
@@ -68,6 +91,14 @@ export async function claimTabInvitesForUser({ userId, email }) {
   if (invitesError) throw invitesError;
   if (!invites?.length) return [];
 
+  const ownerIds = [...new Set(invites.map((i) => i.owner_id).filter(Boolean))];
+  for (const ownerId of ownerIds) {
+    const result = await syncAccountSeatUsage(ownerId);
+    if (result.seatsUsed > result.account.seat_limit) {
+      throw new Error(getInviteClaimBlockedMessage());
+    }
+  }
+
   // ✅ Safe update (no overwrite of already accepted rows)
   const updates = invites.map((invite) => ({
     id: invite.id,
@@ -84,7 +115,6 @@ export async function claimTabInvitesForUser({ userId, email }) {
   if (updateError) throw updateError;
 
   // 🔁 Sync seat usage (billing)
-  const ownerIds = [...new Set(invites.map((i) => i.owner_id).filter(Boolean))];
   await Promise.all(ownerIds.map((id) => syncAccountSeatUsage(id)));
 
   return updates;

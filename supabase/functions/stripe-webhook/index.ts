@@ -26,31 +26,31 @@ function getPlanFromPriceId(priceId: string | null) {
   if (priceId === plus) {
     return {
       plan_tier: "plus",
-      seat_limit: 1,
-      storage_limit_mb: 5 * 1024,
+      seat_limit: 6,
+      storage_limit_mb: 5120,
     };
   }
 
   if (priceId === family) {
     return {
       plan_tier: "family_team",
-      seat_limit: 5,
-      storage_limit_mb: 25 * 1024,
+      seat_limit: 11,
+      storage_limit_mb: 15360,
     };
   }
 
   if (priceId === business) {
     return {
       plan_tier: "business",
-      seat_limit: 25,
-      storage_limit_mb: 100 * 1024,
+      seat_limit: 26,
+      storage_limit_mb: 51200,
     };
   }
 
   return {
     plan_tier: "free",
-    seat_limit: 1,
-    storage_limit_mb: 1024,
+    seat_limit: 3,
+    storage_limit_mb: 2048,
   };
 }
 
@@ -162,8 +162,8 @@ async function applySubscriptionToAccount(subscription: Stripe.Subscription) {
         billing_source: "none",
         plan_status: "canceled",
         plan_tier: "free",
-        seat_limit: 1,
-        storage_limit_mb: 1024,
+        seat_limit: 3,
+        storage_limit_mb: 2048,
         updated_at: new Date().toISOString(),
       };
 
@@ -239,8 +239,8 @@ async function cancelAccountBySubscription(subscription: Stripe.Subscription) {
         billing_source: "none",
         plan_status: "canceled",
         plan_tier: "free",
-        seat_limit: 1,
-        storage_limit_mb: 1024,
+        seat_limit: 3,
+        storage_limit_mb: 2048,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "owner_id" }

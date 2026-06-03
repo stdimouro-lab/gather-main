@@ -22,6 +22,7 @@ import {
   updateList,
   deleteList,
   fetchListItems,
+  fetchListItemCounts,
   createListItem,
   updateListItem,
   deleteListItem,
@@ -102,10 +103,21 @@ export default function Lists() {
   const {
     data: lists = [],
     isLoading: loadingLists,
+    isError: listsError,
+    error: listsQueryError,
   } = useQuery({
     queryKey: ["lists", user?.id],
     queryFn: () => fetchLists(user.id),
     enabled: !!user?.id,
+    staleTime: 15000,
+  });
+
+  const listIds = useMemo(() => lists.map((list) => list.id), [lists]);
+
+  const { data: itemCounts = {} } = useQuery({
+    queryKey: ["listItemCounts", listIds],
+    queryFn: () => fetchListItemCounts(listIds),
+    enabled: listIds.length > 0,
     staleTime: 15000,
   });
 
@@ -130,11 +142,12 @@ export default function Lists() {
   });
 
   const itemCountsByList = useMemo(() => {
-    return lists.reduce((acc, list) => {
-      acc[list.id] = list.id === activeList?.id ? items.length : "";
-      return acc;
-    }, {});
-  }, [activeList?.id, items.length, lists]);
+    const counts = { ...itemCounts };
+    if (activeList?.id) {
+      counts[activeList.id] = items.length;
+    }
+    return counts;
+  }, [activeList?.id, itemCounts, items.length]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -353,6 +366,16 @@ export default function Lists() {
     );
   }
 
+  if (listsError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+        <div className="max-w-md rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+          Could not load lists: {listsQueryError?.message ?? "Unknown error"}
+        </div>
+      </div>
+    );
+  }
+
   if (!lists.length) {
     return <EmptyLists onCreate={() => createListMutation.mutate()} />;
   }
@@ -443,7 +466,7 @@ export default function Lists() {
               <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <Users className="h-3 w-3" />
-                  Private for now
+                  {activeItems.length + completedItems.length} items
                 </span>
 
                 <span className="inline-flex items-center gap-1">

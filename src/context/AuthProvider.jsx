@@ -233,7 +233,12 @@ void loadProfile(newSession.user);
       return await hydrateFromSession(data?.session ?? null);
     } catch (err) {
       console.error("refreshSession threw:", err);
-      clearAuthState();
+      const message = String(err?.message ?? err);
+      const isTransient =
+        /timeout|network|fetch failed|failed to fetch|abort/i.test(message);
+      if (!isTransient) {
+        clearAuthState();
+      }
       return null;
     }
   }, [clearAuthState, hydrateFromSession, safeSet]);
