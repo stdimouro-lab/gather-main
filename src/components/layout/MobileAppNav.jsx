@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   NotebookText,
   Settings,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -29,6 +30,7 @@ const PRIMARY_TABS = [
 ];
 
 const MORE_LINKS = [
+  { to: "/pip", icon: Sparkles, label: "Ask Pip" },
   { to: "/memories", icon: Image, label: "Memories" },
   { to: "/team", icon: Users, label: "People" },
   { to: "/notes", icon: NotebookText, label: "Notes" },

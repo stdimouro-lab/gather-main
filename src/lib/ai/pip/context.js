@@ -1,0 +1,85 @@
+import { DateTime } from "luxon";
+import { supabase } from "@/lib/supabase";
+import { fetchAccessibleTabs } from "@/lib/accessTabs";
+import { fetchEvents } from "@/lib/events";
+import { fetchPeople } from "@/lib/people";
+import { fetchMemoryAssets } from "@/lib/memories";
+import { fetchLists } from "@/lib/lists";
+import { fetchNotes } from "@/lib/notes";
+
+export function nameFromEmail(email = "") {
+  const local = email.split("@")[0] || "";
+  const part = local.split(/[.\s_-]+/).filter(Boolean)[0] || "";
+  if (!part) return null;
+  return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+}
+
+export async function fetchPipFamilyContext(userId, email) {
+  if (!userId) return null;
+
+  const now = DateTime.local();
+  const weekStart = now.startOf("week");
+  const weekEnd = now.endOf("week");
+  const horizonEnd = now.plus({ days: 14 }).endOf("day");
+
+  const tabs = await fetchAccessibleTabs({ userId, email });
+  const ownedTabs = tabs.filter((t) => t.owner_id === userId);
+  const tabIds = tabs.map((t) => t.id).filter(Boolean);
+  const defaultTab = ownedTabs.find((t) => t.is_default) || ownedTabs[0] || null;
+
+  const [weekEvents, people, memories, lists, notes, incompleteTasks] =
+    await Promise.all([
+      tabIds.length
+        ? fetchEvents({
+            tabIds,
+            startISO: weekStart.toUTC().toISO(),
+            endISO: weekEnd.toUTC().toISO(),
+          })
+        : Promise.resolve([]),
+      fetchPeople(userId),
+      fetchMemoryAssets(userId, { limit: 20 }),
+      fetchLists(userId),
+      tabIds.length
+        ? fetchNotes({ tabIds, limit: 30 })
+        : Promise.resolve([]),
+      supabase
+        .from("list_items")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", userId)
+        .eq("completed", false)
+        .then(({ count, error }) => (error ? 0 : count ?? 0)),
+    ]);
+
+  const { data: upcomingRaw } = tabIds.length
+    ? await supabase
+        .from("events")
+        .select("id, title, start_at, event_type, calendar_tabs(name)")
+        .in("tab_id", tabIds)
+        .gte("start_at", now.toUTC().toISO())
+        .lte("start_at", horizonEnd.toUTC().toISO())
+        .order("start_at", { ascending: true })
+        .limit(40)
+    : { data: [] };
+
+  const familyNames = (people ?? [])
+    .map((p) => nameFromEmail(p.email))
+    .filter(Boolean);
+
+  return {
+    userId,
+    now,
+    weekStart,
+    weekEnd,
+    tabs,
+    ownedTabs,
+    defaultTab,
+    weekEvents: weekEvents ?? [],
+    upcomingEvents: upcomingRaw ?? [],
+    people: people ?? [],
+    familyNames,
+    memories: memories ?? [],
+    lists: lists ?? [],
+    notes: notes ?? [],
+    incompleteTaskCount: incompleteTasks ?? 0,
+  };
+}

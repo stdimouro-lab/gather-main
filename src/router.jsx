@@ -20,6 +20,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Team from "./pages/Team";
 import Notes from "./pages/Notes";
 import Lists from "./pages/Lists";
+import Pip from "./pages/Pip";
 
 export default function AppRouter() {
   return (
@@ -46,6 +47,7 @@ export default function AppRouter() {
           <Route path="/team" element={<Team />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="/lists" element={<Lists />} />
+          <Route path="/pip" element={<Pip />} />
         </Route>
       </Route>
 

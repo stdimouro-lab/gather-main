@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Check,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Plus,
   Search,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import {
   Sheet,
@@ -122,6 +124,7 @@ function EmptyNotes({ onCreate }) {
 
 export default function Notes() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [activeNoteId, setActiveNoteId] = useState(null);
@@ -507,7 +510,23 @@ export default function Notes() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/pip", {
+                    state: {
+                      noteBody: activeNote?.body || "",
+                      initialMessage: "Organize this note into tasks",
+                    },
+                  })
+                }
+                className="inline-flex items-center gap-1 rounded-md bg-[#6C63FF] px-2.5 py-1.5 text-[11px] font-medium text-white"
+              >
+                <Sparkles className="h-3 w-3" />
+                Ask Pip
+              </button>
+
               <button
                 onClick={() =>
                   toast({

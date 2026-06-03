@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import {
   Dialog,
@@ -62,9 +63,15 @@ export default function PipListDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-[#6C63FF]" />
-            Pip suggestions
+            Pip list ideas
           </DialogTitle>
-          <DialogDescription>{suggestion.summary}</DialogDescription>
+          <DialogDescription>
+            {suggestion.summary} For schedules, memories, and your week, open{" "}
+            <Link to="/pip" className="font-medium text-[#6C63FF] underline">
+              Ask Pip
+            </Link>
+            .
+          </DialogDescription>
         </DialogHeader>
 
         {items.length === 0 ? (

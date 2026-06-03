@@ -15,6 +15,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { fetchPeople } from "@/lib/people";
 import { fetchMemoryAssets } from "@/lib/memories";
 import { generateSuggestions } from "@/lib/ai/suggestions";
+import PipHomeSection from "@/components/pip/PipHomeSection";
 
 const tableColorMap = {
   indigo: "#6C63FF",
@@ -507,6 +508,8 @@ export default function Home() {
             </div>
           )}
         </Card>
+
+        <PipHomeSection />
 
         <div className="grid gap-3 lg:grid-cols-3">
           <Card className="px-4 py-3">
