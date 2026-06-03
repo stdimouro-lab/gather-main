@@ -77,7 +77,7 @@ export default function AppLayout() {
           <NavItem to="/team" icon={Users} label="People" />
           <NavItem to="/notes" icon={NotebookText} label="Notes" />
           <NavItem to="/lists" icon={ListChecks} label="Lists" />
-          <NavItem to="/pip" icon={Sparkles} label="Ask Pip" />
+          <NavItem to="/pip" icon={Sparkles} label="Family Assistant" />
         </nav>
 
         <div className="mt-auto space-y-1 border-t border-slate-200 pt-3">

@@ -678,7 +678,7 @@ export default function Lists() {
                 className="inline-flex items-center gap-1.5 rounded-md bg-[#6C63FF] px-3 py-2 text-[12px] font-medium text-white"
               >
                 <Sparkles className="h-4 w-4" />
-                Ask Pip
+                Family Assistant
               </button>
 
               <button

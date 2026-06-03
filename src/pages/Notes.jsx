@@ -517,14 +517,13 @@ export default function Notes() {
                   navigate("/pip", {
                     state: {
                       noteBody: activeNote?.body || "",
-                      initialMessage: "Organize this note into tasks",
                     },
                   })
                 }
                 className="inline-flex items-center gap-1 rounded-md bg-[#6C63FF] px-2.5 py-1.5 text-[11px] font-medium text-white"
               >
                 <Sparkles className="h-3 w-3" />
-                Ask Pip
+                Family Assistant
               </button>
 
               <button

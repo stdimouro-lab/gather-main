@@ -68,7 +68,7 @@ export default function PipListDialog({
           <DialogDescription>
             {suggestion.summary} For schedules, memories, and your week, open{" "}
             <Link to="/pip" className="font-medium text-[#6C63FF] underline">
-              Ask Pip
+              Family Assistant
             </Link>
             .
           </DialogDescription>
