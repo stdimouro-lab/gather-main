@@ -14,6 +14,8 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import { fetchPeople } from "@/lib/people";
 import { fetchMemoryAssets } from "@/lib/memories";
+import { fetchAccessibleTabs } from "@/lib/accessTabs";
+import { fetchEvents } from "@/lib/events";
 import { generateSuggestions } from "@/lib/ai/suggestions";
 import PipHomeSection from "@/components/pip/PipHomeSection";
 import FamilyStorySection from "@/components/home/FamilyStorySection";
@@ -219,6 +221,7 @@ function SuggestionRow({ icon: Icon, bg, color, text, action }) {
 
 export default function Home() {
   const { user } = useAuth();
+  const userEmail = user?.email ?? "";
 
   const [todayEvents, setTodayEvents] = useState([]);
   const [weekEvents, setWeekEvents] = useState([]);
@@ -241,90 +244,68 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadTodayEvents() {
+    async function loadCalendarEvents() {
       if (!user?.id) {
         setLoadingToday(false);
-        return;
-      }
-
-      const start = today.startOf("day").toISO();
-      const end = today.endOf("day").toISO();
-
-      const { data, error } = await supabase
-        .from("events")
-        .select(`
-          id,
-          title,
-          start_at,
-          end_at,
-          location,
-          calendar_tabs (
-            id,
-            name,
-            color
-          )
-        `)
-        .eq("owner_id", user.id)
-        .gte("start_at", start)
-        .lte("start_at", end)
-        .order("start_at", { ascending: true });
-
-      if (!mounted) return;
-
-      setTodayEvents(error ? [] : data || []);
-      setLoadingToday(false);
-    }
-
-    loadTodayEvents();
-
-    return () => {
-      mounted = false;
-    };
-  }, [today, user?.id]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadWeekEvents() {
-      if (!user?.id) {
         setLoadingWeek(false);
         return;
       }
 
-      const start = today.startOf("week").toISO();
-      const end = today.endOf("week").toISO();
+      setLoadingToday(true);
+      setLoadingWeek(true);
 
-      const { data, error } = await supabase
-        .from("events")
-        .select(`
-          id,
-          title,
-          start_at,
-          end_at,
-          location,
-          calendar_tabs (
-            id,
-            name,
-            color
-          )
-        `)
-        .eq("owner_id", user.id)
-        .gte("start_at", start)
-        .lte("start_at", end)
-        .order("start_at", { ascending: true });
+      try {
+        const tabs = await fetchAccessibleTabs({
+          userId: user.id,
+          email: userEmail,
+        });
+        const tabIds = tabs.map((tab) => tab.id).filter(Boolean);
 
-      if (!mounted) return;
+        if (!tabIds.length) {
+          if (mounted) {
+            setTodayEvents([]);
+            setWeekEvents([]);
+          }
+          return;
+        }
 
-      setWeekEvents(error ? [] : data || []);
-      setLoadingWeek(false);
+        const [todayRows, weekRows] = await Promise.all([
+          fetchEvents({
+            tabIds,
+            startISO: today.startOf("day").toUTC().toISO(),
+            endISO: today.endOf("day").toUTC().toISO(),
+          }),
+          fetchEvents({
+            tabIds,
+            startISO: today.startOf("week").toUTC().toISO(),
+            endISO: today.endOf("week").toUTC().toISO(),
+          }),
+        ]);
+
+        if (!mounted) return;
+
+        setTodayEvents(todayRows ?? []);
+        setWeekEvents(weekRows ?? []);
+      } catch (err) {
+        console.error("Home calendar load failed:", err);
+        if (mounted) {
+          setTodayEvents([]);
+          setWeekEvents([]);
+        }
+      } finally {
+        if (mounted) {
+          setLoadingToday(false);
+          setLoadingWeek(false);
+        }
+      }
     }
 
-    loadWeekEvents();
+    loadCalendarEvents();
 
     return () => {
       mounted = false;
     };
-  }, [today, user?.id]);
+  }, [today, user?.id, userEmail]);
 
   useEffect(() => {
     let mounted = true;
@@ -363,7 +344,7 @@ export default function Home() {
       }
 
       try {
-        const data = await fetchMemoryAssets(user.id);
+        const data = await fetchMemoryAssets(user.id, { limit: 12 });
         if (mounted) setMemoryAssets(data || []);
       } catch (error) {
         console.error("Failed loading memories", error);
@@ -558,6 +539,8 @@ export default function Home() {
                         <img
                           src={memory.url}
                           alt={memory.title}
+                          loading="lazy"
+                          decoding="async"
                           className="-m-1.5 h-[calc(100%+12px)] w-[calc(100%+12px)] object-cover"
                         />
                       ) : (

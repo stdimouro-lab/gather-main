@@ -1,6 +1,7 @@
-#env
+# Secrets — never commit
 .env
 .env.*
+.env.local
 
 # Logs
 logs

@@ -8,8 +8,8 @@ import {
   getCollaboratorsUsed,
 } from "@/lib/planLimits";
 import {
-  hasAppleBillingBridge,
-  syncAppleEntitlements,
+  hasNativeBillingBridge,
+  syncNativeEntitlements,
 } from "@/lib/appleBillingBridge";
 
 function isNumber(value) {
@@ -57,13 +57,13 @@ export default function useEntitlement() {
 
   useEffect(() => {
     if (!userId) return;
-    if (!hasAppleBillingBridge()) return;
+    if (!hasNativeBillingBridge()) return;
 
     let cancelled = false;
 
     const run = async () => {
       try {
-        await syncAppleEntitlements();
+        await syncNativeEntitlements();
 
         if (cancelled) return;
 
@@ -71,7 +71,7 @@ export default function useEntitlement() {
           queryKey: getAccountQueryKey(userId),
         });
       } catch (error) {
-        console.warn("Apple entitlement sync skipped:", error);
+        console.warn("Native entitlement sync skipped:", error);
       }
     };
 

@@ -4,7 +4,7 @@ import { fetchAccessibleTabs } from "@/lib/accessTabs";
 import { fetchEvents } from "@/lib/events";
 import { fetchPeople } from "@/lib/people";
 import { fetchMemoryAssets } from "@/lib/memories";
-import { fetchLists } from "@/lib/lists";
+import { fetchAccessibleLists } from "@/lib/lists";
 import { fetchNotes } from "@/lib/notes";
 
 export function nameFromEmail(email = "") {
@@ -39,7 +39,7 @@ export async function fetchPipFamilyContext(userId, email) {
         : Promise.resolve([]),
       fetchPeople(userId),
       fetchMemoryAssets(userId, { limit: 40 }),
-      fetchLists(userId),
+      fetchAccessibleLists({ userId, email }),
       tabIds.length
         ? fetchNotes({ tabIds, limit: 30 })
         : Promise.resolve([]),

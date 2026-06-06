@@ -1,4 +1,17 @@
 import { supabase } from "@/lib/supabase";
+import { fetchAccessibleTabs } from "@/lib/accessTabs";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function sortLists(rows = []) {
+  return [...rows].sort((a, b) => {
+    if (Boolean(b.is_pinned) !== Boolean(a.is_pinned)) {
+      return Number(b.is_pinned) - Number(a.is_pinned);
+    }
+    return new Date(b.updated_at) - new Date(a.updated_at);
+  });
+}
 
 /* =========================
    LISTS
@@ -17,6 +30,47 @@ export async function fetchLists(userId) {
   if (error) throw error;
 
   return data || [];
+}
+
+/**
+ * Owned lists plus checklists linked to events on tables the user can access.
+ */
+export async function fetchAccessibleLists({ userId, email }) {
+  if (!userId) return [];
+
+  const owned = await fetchLists(userId);
+  const tabs = await fetchAccessibleTabs({ userId, email });
+  const tabIds = tabs.map((tab) => tab.id).filter((id) => UUID_RE.test(id));
+
+  if (!tabIds.length) return owned;
+
+  const { data: events, error: eventsError } = await supabase
+    .from("events")
+    .select("id")
+    .in("tab_id", tabIds);
+
+  if (eventsError) throw eventsError;
+
+  const eventIds = (events ?? []).map((event) => event.id).filter(Boolean);
+  if (!eventIds.length) return owned;
+
+  const { data: linked, error: linkedError } = await supabase
+    .from("lists")
+    .select("*")
+    .in("event_id", eventIds);
+
+  if (linkedError) throw linkedError;
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const list of [...owned, ...(linked ?? [])]) {
+    if (!list?.id || seen.has(list.id)) continue;
+    seen.add(list.id);
+    merged.push(list);
+  }
+
+  return sortLists(merged);
 }
 
 export async function createList(payload) {

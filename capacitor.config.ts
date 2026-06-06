@@ -14,9 +14,16 @@ const config: CapacitorConfig = {
     scrollEnabled: true,
     limitsNavigationsToAppBoundDomains: false,
     scheme: 'gather',
+    contentInset: 'automatic',
+  },
+  android: {
+    allowMixedContent: false,
+    captureInput: true,
+    webContentsDebuggingEnabled: false,
   },
   server: {
-    iosScheme: 'capacitor',
+    iosScheme: 'gather',
+    androidScheme: 'https',
     allowNavigation: [
       '*.supabase.co',
       'accounts.google.com',

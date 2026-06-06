@@ -1,17 +1,20 @@
 /**
- * appleBillingBridge.js
- * 
- * Wraps RevenueCat (purchases-capacitor) for iOS in-app purchases.
- * On web this module is safe to import — all functions are no-ops or throw clearly.
+ * Native in-app purchases via RevenueCat (iOS App Store + Google Play).
+ * Safe to import on web — native-only functions no-op or throw clearly.
  */
 
 import { Capacitor } from "@capacitor/core";
 import { Purchases, LOG_LEVEL } from "@revenuecat/purchases-capacitor";
 import { supabase } from "@/lib/supabase";
+import { isAndroid, isIOS } from "@/lib/nativePlatform";
 
 const RC_IOS_KEY =
   import.meta.env.VITE_REVENUECAT_IOS_API_KEY ||
   import.meta.env.VITE_REVENUECAT_APPLE_KEY;
+
+const RC_ANDROID_KEY =
+  import.meta.env.VITE_REVENUECAT_ANDROID_API_KEY ||
+  import.meta.env.VITE_REVENUECAT_GOOGLE_KEY;
 
 const ENTITLEMENT_IDS = {
   plus: "Plus",
@@ -23,29 +26,59 @@ const OFFERING_ID = "plus";
 
 let _rcConfigured = false;
 
+export function hasNativeBillingBridge() {
+  return Capacitor.isNativePlatform() && (isIOS() || isAndroid());
+}
+
+/** @deprecated use hasNativeBillingBridge */
 export function hasAppleBillingBridge() {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
+  return hasNativeBillingBridge();
 }
 
 export function isNativeAppleBillingAvailable() {
-  return hasAppleBillingBridge();
+  return hasNativeBillingBridge();
+}
+
+function getRevenueCatApiKey() {
+  if (isIOS()) return RC_IOS_KEY;
+  if (isAndroid()) return RC_ANDROID_KEY;
+  return null;
+}
+
+function getBillingSource() {
+  if (isIOS()) return "apple";
+  if (isAndroid()) return "google";
+  return "stripe";
+}
+
+function getStoreName() {
+  if (isIOS()) return "App Store";
+  if (isAndroid()) return "Google Play";
+  return "web";
 }
 
 async function ensureConfigured() {
   if (_rcConfigured) return;
-  if (!RC_IOS_KEY) {
+
+  const apiKey = getRevenueCatApiKey();
+  if (!apiKey) {
     throw new Error(
-      "Missing RevenueCat API key (VITE_REVENUECAT_IOS_API_KEY or VITE_REVENUECAT_APPLE_KEY)."
+      isIOS()
+        ? "Missing RevenueCat iOS API key (VITE_REVENUECAT_IOS_API_KEY)."
+        : "Missing RevenueCat Android API key (VITE_REVENUECAT_ANDROID_API_KEY)."
     );
   }
+
   await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-  await Purchases.configure({ apiKey: RC_IOS_KEY });
+  await Purchases.configure({ apiKey });
   _rcConfigured = true;
 }
 
 export async function getOfferings() {
-  if (!hasAppleBillingBridge()) {
-    throw new Error("RevenueCat is only available in the native iOS app.");
+  if (!hasNativeBillingBridge()) {
+    throw new Error(
+      `RevenueCat is only available in the native ${getStoreName()} app.`
+    );
   }
   await ensureConfigured();
   const result = await Purchases.getOfferings();
@@ -53,8 +86,14 @@ export async function getOfferings() {
 }
 
 export async function startAppleUpgrade(planName = "plus") {
-  if (!hasAppleBillingBridge()) {
-    throw new Error("Apple billing is only available in the native iOS app.");
+  return startNativeUpgrade(planName);
+}
+
+export async function startNativeUpgrade(planName = "plus") {
+  if (!hasNativeBillingBridge()) {
+    throw new Error(
+      `In-app purchases are only available in the native ${getStoreName()} app.`
+    );
   }
   await ensureConfigured();
 
@@ -77,8 +116,14 @@ export async function startAppleUpgrade(planName = "plus") {
 }
 
 export async function restoreApplePurchases() {
-  if (!hasAppleBillingBridge()) {
-    throw new Error("Restore Purchases is only available in the native iOS app.");
+  return restoreNativePurchases();
+}
+
+export async function restoreNativePurchases() {
+  if (!hasNativeBillingBridge()) {
+    throw new Error(
+      `Restore purchases is only available in the native ${getStoreName()} app.`
+    );
   }
   await ensureConfigured();
 
@@ -94,7 +139,11 @@ export async function restoreApplePurchases() {
 }
 
 export async function syncAppleEntitlements() {
-  if (!hasAppleBillingBridge()) return null;
+  return syncNativeEntitlements();
+}
+
+export async function syncNativeEntitlements() {
+  if (!hasNativeBillingBridge()) return null;
   await ensureConfigured();
 
   const result = await Purchases.getCustomerInfo();
@@ -116,7 +165,10 @@ function detectPlanFromEntitlements(activeEntitlements = {}) {
 }
 
 async function syncEntitlementsToSupabase(customerInfo, planName) {
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
     console.warn("syncEntitlementsToSupabase: no authenticated user", authError);
@@ -129,7 +181,7 @@ async function syncEntitlementsToSupabase(customerInfo, planName) {
     .from("accounts")
     .update({
       plan_tier: planSettings.plan_tier,
-      billing_source: "apple",
+      billing_source: getBillingSource(),
       plan_status: "active",
       seat_limit: planSettings.seat_limit,
       storage_limit_mb: planSettings.storage_limit_mb,
@@ -137,7 +189,7 @@ async function syncEntitlementsToSupabase(customerInfo, planName) {
     .eq("owner_id", user.id);
 
   if (error) {
-    console.error("Failed to sync Apple entitlement to Supabase:", error);
+    console.error("Failed to sync native entitlement to Supabase:", error);
     throw new Error("Purchase succeeded but account sync failed. Please restart the app.");
   }
 }

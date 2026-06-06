@@ -13,6 +13,11 @@ import {
 import { supabase } from "@/lib/supabase";
 import gatherLogo from "@/assets/gather-logo.png";
 import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
+import {
+  getAuthCallbackUrl,
+  isAuthCallbackUrl,
+  isNativeApp,
+} from "@/lib/nativePlatform";
 
 function GoogleIcon() {
   return (
@@ -76,11 +81,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const callbackUrl = useMemo(() => {
-    return Capacitor.isNativePlatform()
-      ? "gather://auth/callback"
-      : `${window.location.origin}/auth/callback`;
-  }, []);
+  const callbackUrl = useMemo(() => getAuthCallbackUrl(), []);
 
   useEffect(() => {
     let mounted = true;
@@ -122,18 +123,19 @@ export default function LoginPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!isNativeApp()) return;
 
     let listener;
 
     async function setupAppUrlListener() {
       listener = await App.addListener("appUrlOpen", async ({ url }) => {
-        if (!url || !url.startsWith("gather://auth/callback")) return;
+        if (!isAuthCallbackUrl(url)) return;
 
         try {
-  
+          const { Browser } = await import("@capacitor/browser");
+          await Browser.close().catch(() => {});
 
-  const parsedUrl = new URL(url);
+  const parsedUrl = new URL(url.replace("gather://", "https://gather.app/"));
   const code = parsedUrl.searchParams.get("code");
   const urlError = parsedUrl.searchParams.get("error");
   const errorDescription =

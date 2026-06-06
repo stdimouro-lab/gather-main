@@ -4,13 +4,11 @@ import {
   Check,
   ChevronDown,
   Clock,
-  ExternalLink,
   Link as LinkIcon,
   NotebookText,
   Pin,
   Plus,
   Search,
-  Share2,
   Sparkles,
 } from "lucide-react";
 import {
@@ -505,7 +503,6 @@ export default function Notes() {
                 <span className="inline-flex items-center gap-1 rounded-md bg-[#EEEDFE] px-2 py-1 text-[#534AB7]">
                   <LinkIcon className="h-3 w-3" />
                   Linked to table
-                  <ExternalLink className="h-3 w-3" />
                 </span>
               </div>
             </div>
@@ -524,18 +521,6 @@ export default function Notes() {
               >
                 <Sparkles className="h-3 w-3" />
                 Family Assistant
-              </button>
-
-              <button
-                onClick={() =>
-                  toast({
-                    title: "Sharing notes is coming soon",
-                  })
-                }
-                className="inline-flex items-center gap-1 rounded-md border border-[#AFA9EC] px-2.5 py-1.5 text-[11px] font-medium text-[#6C63FF]"
-              >
-                <Share2 className="h-3 w-3" />
-                Share
               </button>
 
               <button
@@ -561,7 +546,7 @@ export default function Notes() {
 
           <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
   <div className="text-[11px] text-slate-400">
-    Plain note
+    Plain text — formatting and attachments coming later
   </div>
 
   <div className="inline-flex items-center gap-1 text-[11px] text-slate-400">

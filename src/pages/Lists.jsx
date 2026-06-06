@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Plus,
   Search,
-  Share2,
   Sparkles,
   Unlink,
   Users,
@@ -26,9 +25,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthProvider";
+import { supportsVoiceInput } from "@/lib/nativePlatform";
 import { supabase } from "@/lib/supabase";
 import {
-  fetchLists,
+  fetchAccessibleLists,
   createList,
   updateList,
   deleteList,
@@ -133,8 +133,9 @@ export default function Lists() {
     isError: listsError,
     error: listsQueryError,
   } = useQuery({
-    queryKey: ["lists", user?.id],
-    queryFn: () => fetchLists(user.id),
+    queryKey: ["lists", user?.id, user?.email],
+    queryFn: () =>
+      fetchAccessibleLists({ userId: user.id, email: user?.email }),
     enabled: !!user?.id,
     staleTime: 15000,
   });
@@ -664,13 +665,15 @@ export default function Lists() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleVoiceAdd}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#EEEDFE] px-3 py-2 text-[12px] font-medium text-[#534AB7]"
-              >
-                <Mic className="h-4 w-4" />
-                Voice add
-              </button>
+              {supportsVoiceInput() && (
+                <button
+                  onClick={handleVoiceAdd}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#EEEDFE] px-3 py-2 text-[12px] font-medium text-[#534AB7]"
+                >
+                  <Mic className="h-4 w-4" />
+                  Voice add
+                </button>
+              )}
 
               <button
                 type="button"
@@ -679,20 +682,6 @@ export default function Lists() {
               >
                 <Sparkles className="h-4 w-4" />
                 Family Assistant
-              </button>
-
-              <button
-                onClick={() =>
-                  toast({
-                    title: "Sharing lists is coming soon",
-                    description:
-                      "Shared lists will connect to table permissions and realtime updates.",
-                  })
-                }
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-600"
-              >
-                <Share2 className="h-4 w-4" />
-                Share
               </button>
 
               <button

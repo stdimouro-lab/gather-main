@@ -10,6 +10,7 @@ import React, {
 import { supabase } from "@/lib/supabase";
 import { claimTabInvitesForUser } from "@/lib/tabShares";
 import { ensureAccountForUser } from "@/lib/account";
+import { getAuthCallbackUrl } from "@/lib/nativePlatform";
 
 const AuthContext = createContext(null);
 
@@ -400,7 +401,7 @@ void loadProfile(newSession.user);
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/calendar`,
+        emailRedirectTo: getAuthCallbackUrl({ next: "/calendar" }),
         data: {
           full_name: fullName,
         },

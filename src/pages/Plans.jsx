@@ -4,11 +4,12 @@ import { useAuth } from "@/context/AuthProvider";
 import { getAccountQueryKey } from "@/hooks/useEntitlement";
 import { startCheckout } from "@/lib/billing";
 import {
-  hasAppleBillingBridge,
-  startAppleUpgrade,
-  restoreApplePurchases,
+  hasNativeBillingBridge,
+  startNativeUpgrade,
+  restoreNativePurchases,
   getOfferings,
 } from "@/lib/appleBillingBridge";
+import { isAndroid, isIOS } from "@/lib/nativePlatform";
 
 const STRIPE_PRICES = {
   plus: import.meta.env.VITE_STRIPE_PRICE_PLUS,
@@ -24,21 +25,23 @@ export default function Plans() {
   const [restoringPurchases, setRestoringPurchases] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [iosOffering, setIosOffering] = useState(null);
+  const [nativeOffering, setNativeOffering] = useState(null);
 
-  const isIOS = useMemo(() => hasAppleBillingBridge(), []);
+  const isNativeStore = useMemo(() => hasNativeBillingBridge(), []);
+  const storeLabel = isIOS() ? "App Store" : isAndroid() ? "Google Play" : "Store";
 
   useEffect(() => {
-    if (!isIOS) return;
+    if (!isNativeStore) return;
 
     getOfferings()
-      .then((offerings) => setIosOffering(offerings?.current ?? null))
+      .then((offerings) => setNativeOffering(offerings?.current ?? null))
       .catch((err) => console.warn("Could not load RC offerings:", err));
-  }, [isIOS]);
+  }, [isNativeStore]);
 
-  function getApplePrice(packageType = "monthly") {
-    if (!iosOffering) return "Loading...";
-    const pkg = iosOffering[packageType] ?? iosOffering.availablePackages?.[0];
+  function getNativePrice(packageType = "monthly") {
+    if (!nativeOffering) return "Loading...";
+    const pkg =
+      nativeOffering[packageType] ?? nativeOffering.availablePackages?.[0];
     return pkg?.product?.priceString ?? "—";
   }
 
@@ -56,8 +59,8 @@ export default function Plans() {
     setLoadingPlan(planName);
 
     try {
-      if (isIOS) {
-        await startAppleUpgrade(planName);
+      if (isNativeStore) {
+        await startNativeUpgrade(planName);
         await refreshAccount();
         setSuccessMessage("You're now subscribed. Welcome to Gather!");
         return;
@@ -91,7 +94,7 @@ export default function Plans() {
     setRestoringPurchases(true);
 
     try {
-      await restoreApplePurchases();
+      await restoreNativePurchases();
       await refreshAccount();
       setSuccessMessage("Purchases restored successfully.");
     } catch (err) {
@@ -111,8 +114,8 @@ export default function Plans() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500 sm:text-base">
-            {isIOS
-              ? "Purchases are handled securely through Apple."
+            {isNativeStore
+              ? `Purchases are handled securely through ${storeLabel}.`
               : "Purchases are handled securely through Stripe."}
           </p>
         </div>
@@ -146,7 +149,7 @@ export default function Plans() {
 
           <PlanCard
             title="Plus"
-            price={isIOS ? getApplePrice("monthly") : "$4.99/mo"}
+            price={isNativeStore ? getNativePrice("monthly") : "$4.99/mo"}
             description="For one person managing life and work."
             features={[
               "Unlimited tables",
@@ -162,7 +165,7 @@ export default function Plans() {
 
           <PlanCard
             title="Family & Team"
-            price={isIOS ? "Coming soon" : "$9.99/mo"}
+            price={isNativeStore ? "Coming soon" : "$9.99/mo"}
             description="For families or small teams."
             features={[
               "Unlimited tables",
@@ -171,18 +174,18 @@ export default function Plans() {
               "15 GB storage",
             ]}
             buttonText={
-              isIOS
+              isNativeStore
                 ? "Coming Soon"
                 : loadingPlan === "family"
                 ? "Loading..."
                 : "Upgrade"
             }
-            disabled={isIOS || Boolean(loadingPlan)}
+            disabled={isNativeStore || Boolean(loadingPlan)}
             onClick={() => handleSubscribe("family")}
           />
         </div>
 
-        {isIOS && (
+        {isNativeStore && (
           <div className="mt-8 text-center">
             <button
               type="button"
@@ -199,11 +202,11 @@ export default function Plans() {
           </div>
         )}
 
-        {isIOS && (
+        {isNativeStore && (
           <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
             Subscriptions auto-renew unless cancelled at least 24 hours before
-            the end of the current period. Manage or cancel in your Apple ID
-            settings.
+            the end of the current period. Manage or cancel in your{" "}
+            {isIOS() ? "Apple ID" : "Google Play"} settings.
           </p>
         )}
       </div>

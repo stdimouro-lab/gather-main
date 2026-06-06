@@ -8,10 +8,11 @@
 
 import { supabase } from "@/lib/supabase";
 import {
-  hasAppleBillingBridge,
-  startAppleUpgrade,
-  restoreApplePurchases as restoreApplePurchasesBridge,
+  hasNativeBillingBridge,
+  startNativeUpgrade,
+  restoreNativePurchases as restoreNativePurchasesBridge,
 } from "@/lib/appleBillingBridge";
+import { isAndroid, isIOS } from "@/lib/nativePlatform";
 
 function getFunctionsBaseUrl() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -32,10 +33,20 @@ function getSiteBaseUrl() {
 }
 
 /**
- * Returns true when running as native iOS — use Apple IAP, not Stripe.
+ * Returns true on native iOS/Android — use store billing, not Stripe.
  */
 export function isNativeBillingEnvironment() {
-  return hasAppleBillingBridge();
+  return hasNativeBillingBridge();
+}
+
+function nativeSubscriptionHelpText() {
+  if (isIOS()) {
+    return "To manage your subscription, go to Settings → Apple ID → Subscriptions.";
+  }
+  if (isAndroid()) {
+    return "To manage your subscription, open Google Play → Payments & subscriptions.";
+  }
+  return "Manage your subscription in the app store where you purchased.";
 }
 
 async function getFreshAccessToken() {
@@ -109,12 +120,12 @@ async function authedJson(path, options = {}) {
 
 /**
  * Start a checkout/purchase flow.
- * On iOS: opens RevenueCat Apple IAP sheet.
- * On web: redirects to Stripe hosted checkout.
+ * Native: RevenueCat in-app purchase sheet.
+ * Web: redirects to Stripe hosted checkout.
  */
 export async function startCheckout({ priceId, plan = "plus" }) {
   if (isNativeBillingEnvironment()) {
-    return startAppleUpgrade(plan);
+    return startNativeUpgrade(plan);
   }
 
   if (!priceId) {
@@ -142,13 +153,11 @@ export async function startCheckout({ priceId, plan = "plus" }) {
 
 /**
  * Open Stripe customer portal (web only).
- * On iOS, direct users to Apple ID settings instead.
+ * Native apps use store subscription management instead.
  */
 export async function openCustomerPortal() {
   if (isNativeBillingEnvironment()) {
-    throw new Error(
-      "To manage your subscription, go to Settings → Apple ID → Subscriptions on your iPhone."
-    );
+    throw new Error(nativeSubscriptionHelpText());
   }
 
   const baseUrl = getSiteBaseUrl();
@@ -169,11 +178,11 @@ export async function openCustomerPortal() {
 }
 
 /**
- * Change subscription plan (web only — iOS handles upgrades via RC).
+ * Change subscription plan (web only — native handles upgrades via RC).
  */
 export async function changeSubscriptionPlan({ priceId, plan = "plus" }) {
   if (isNativeBillingEnvironment()) {
-    return startAppleUpgrade(plan);
+    return startNativeUpgrade(plan);
   }
 
   if (!priceId) {
@@ -187,14 +196,14 @@ export async function changeSubscriptionPlan({ priceId, plan = "plus" }) {
 }
 
 /**
- * Restore Apple purchases (iOS only).
+ * Restore store purchases (native iOS/Android).
  */
 export async function restoreApplePurchases() {
   if (!isNativeBillingEnvironment()) {
-    throw new Error("Restore Purchases is only available in the native iOS app.");
+    throw new Error("Restore purchases is only available in the native app.");
   }
 
-  return restoreApplePurchasesBridge();
+  return restoreNativePurchasesBridge();
 }
 
 /**

@@ -1,26 +1,32 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./Layout";
-
+import PageLoader from "./components/PageLoader";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/login";
-import Home from "./pages/Home";
-import Calendar from "./pages/calendar";
-import Memories from "./pages/Memories";
-import Plans from "./pages/Plans";
-import Settings from "./pages/Settings";
-import SharedWithMe from "./pages/SharedWithMe";
+import AuthCallback from "./pages/AuthCallback";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Support from "./pages/Support";
-import AuthCallback from "./pages/AuthCallback";
-import Onboarding from "./pages/Onboarding";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import Team from "./pages/Team";
-import Notes from "./pages/Notes";
-import Lists from "./pages/Lists";
-import Pip from "./pages/Pip";
+
+const Home = lazy(() => import("./pages/Home"));
+const Calendar = lazy(() => import("./pages/calendar"));
+const Memories = lazy(() => import("./pages/Memories"));
+const Plans = lazy(() => import("./pages/Plans"));
+const Settings = lazy(() => import("./pages/Settings"));
+const SharedWithMe = lazy(() => import("./pages/SharedWithMe"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Team = lazy(() => import("./pages/Team"));
+const Notes = lazy(() => import("./pages/Notes"));
+const Lists = lazy(() => import("./pages/Lists"));
+const Pip = lazy(() => import("./pages/Pip"));
+
+function LazyPage({ children }) {
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
 
 export default function AppRouter() {
   return (
@@ -34,20 +40,97 @@ export default function AppRouter() {
       <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/onboarding" element={<Onboarding />} />
+        <Route
+          path="/onboarding"
+          element={
+            <LazyPage>
+              <Onboarding />
+            </LazyPage>
+          }
+        />
 
         <Route element={<Layout />}>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/memories" element={<Memories />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/shared" element={<SharedWithMe />} />
-          <Route path="/team" element={<Team />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/lists" element={<Lists />} />
-          <Route path="/pip" element={<Pip />} />
+          <Route
+            path="/home"
+            element={
+              <LazyPage>
+                <Home />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <LazyPage>
+                <Calendar />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/memories"
+            element={
+              <LazyPage>
+                <Memories />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/plans"
+            element={
+              <LazyPage>
+                <Plans />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <LazyPage>
+                <Settings />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/shared"
+            element={
+              <LazyPage>
+                <SharedWithMe />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/team"
+            element={
+              <LazyPage>
+                <Team />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/notes"
+            element={
+              <LazyPage>
+                <Notes />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/lists"
+            element={
+              <LazyPage>
+                <Lists />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/pip"
+            element={
+              <LazyPage>
+                <Pip />
+              </LazyPage>
+            }
+          />
         </Route>
       </Route>
 

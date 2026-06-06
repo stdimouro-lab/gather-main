@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gather</string>
+    <string name="title_activity_main">Gather</string>
+    <string name="package_name">com.Dimouro.gather</string>
+    <string name="custom_url_scheme">com.Dimouro.gather</string>
+</resources>
