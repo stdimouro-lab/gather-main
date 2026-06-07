@@ -70,7 +70,7 @@ export function MobileTopBar({ user, profile, displayName }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5 md:hidden">
+      <header className="pt-safe-top sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5 md:hidden">
         <button
           type="button"
           onClick={() => setMenuOpen(true)}

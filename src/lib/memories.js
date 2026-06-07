@@ -20,19 +20,30 @@ const ASSET_COLUMNS = `
   )
 `;
 
-export async function fetchMemoryAssets(userId, { limit = 80, offset = 0 } = {}) {
+/**
+ * Memories the user can see: owned + assets on shared/owned tables (enforced by RLS).
+ * Requires migration 20260606140000_shared_memories_rls.sql on Supabase.
+ */
+export async function fetchAccessibleMemoryAssets(
+  { userId } = {},
+  { limit = 80, offset = 0 } = {}
+) {
   if (!userId) return [];
 
   const { data, error } = await supabase
     .from("event_assets")
     .select(ASSET_COLUMNS)
-    .eq("owner_id", userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
 
   return data ?? [];
+}
+
+/** @deprecated use fetchAccessibleMemoryAssets — kept for call-site compatibility */
+export async function fetchMemoryAssets(userId, options = {}) {
+  return fetchAccessibleMemoryAssets({ userId }, options);
 }
 
 export async function uploadMemoryAsset(payload) {

@@ -2,104 +2,150 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { LEGAL } from "@/lib/legal";
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-8 flex items-center gap-4">
           <Link to="/settings">
             <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Terms of Service
-          </h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Terms of Service
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {LEGAL.appName} · {LEGAL.operatorLabel}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-6 text-slate-600 leading-relaxed">
+        <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-8 leading-relaxed text-slate-600 shadow-sm">
           <p>
-            These Terms of Service govern your use of Gather. By creating an
-            account or using the app, you agree to these terms.
+            These Terms of Service (&quot;Terms&quot;) govern your use of{" "}
+            {LEGAL.appName}, operated by {LEGAL.operatorLabel}. By creating an
+            account or using {LEGAL.appName}, you agree to these Terms and our{" "}
+            <Link to="/privacy" className="text-[#6C63FF]">
+              Privacy Policy
+            </Link>
+            .
           </p>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Use of the Service
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">The service</h2>
+            <p>
+              {LEGAL.appName} helps families and households organize calendars,
+              notes, lists, memories, and shared tables. Features may change as
+              we improve the product.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Your account</h2>
+            <p>
+              You are responsible for your account credentials and for activity
+              under your account. Provide accurate information and notify us if
+              you suspect unauthorized access.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Shared tables and content
             </h2>
             <p>
-              You agree to use Gather responsibly and only for lawful purposes.
-              You may not misuse the service, interfere with its operation, or
-              attempt to gain unauthorized access to data, accounts, or systems.
+              You choose who to invite to your tables and what information to
+              share. You are responsible for invitations you send and content you
+              upload, including photos and memories visible to collaborators.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Accounts
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Subscriptions and billing
             </h2>
             <p>
-              You are responsible for maintaining the security of your account
-              and for the accuracy of the information you provide.
+              Paid plans may be purchased through the Apple App Store, Google
+              Play, or our website (Stripe). Prices, renewal terms, and
+              cancellation are governed by the store or payment provider you used.
+              On mobile, manage subscriptions in your Apple ID or Google Play
+              account settings.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Shared Calendars
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Acceptable use</h2>
+            <p>You agree not to:</p>
+            <ul className="ml-6 mt-2 list-disc space-y-1">
+              <li>Use {LEGAL.appName} for unlawful purposes</li>
+              <li>Upload harmful, abusive, or infringing content</li>
+              <li>Attempt to access data or accounts without authorization</li>
+              <li>Interfere with the operation or security of the service</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Disclaimer</h2>
+            <p>
+              {LEGAL.appName} is provided &quot;as is&quot; and &quot;as
+              available&quot; without warranties of any kind. We do not guarantee
+              uninterrupted or error-free operation.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Limitation of liability
             </h2>
             <p>
-              Gather allows users to share calendars and scheduling information
-              with others. You are responsible for the people you choose to
-              invite and the information you choose to share.
+              To the fullest extent permitted by law, {LEGAL.operatorLabel} is
+              not liable for indirect, incidental, or consequential damages
+              arising from your use of {LEGAL.appName}. Our total liability for
+              any claim is limited to the amount you paid us in the twelve months
+              before the claim, or fifty U.S. dollars if you use the free plan.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Availability
-            </h2>
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Termination</h2>
             <p>
-              Gather is provided on an “as is” and “as available” basis without
-              warranties of any kind. We do not guarantee uninterrupted or
-              error-free service.
+              You may stop using {LEGAL.appName} at any time and delete your
+              account from Settings. We may suspend or terminate access if you
+              violate these Terms or if required for security or legal reasons.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Changes to the Service
-            </h2>
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Changes</h2>
             <p>
-              We may update, improve, or remove features from Gather over time.
-              We may also update these Terms of Service when needed.
+              We may update these Terms or the service. Material changes will be
+              posted in the app or on our website. Continued use after changes
+              take effect constitutes acceptance.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Termination
-            </h2>
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Contact</h2>
             <p>
-              You may stop using Gather at any time. You may also delete your
-              account from the Settings page.
+              Questions about these Terms:
+              <br />
+              <a
+                href={`mailto:${LEGAL.contactEmail}`}
+                className="font-medium text-[#6C63FF]"
+              >
+                {LEGAL.contactEmail}
+              </a>
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Contact
-            </h2>
-            <p>
-              If you have questions about these Terms of Service, please contact
-              us at:
-            </p>
-            <p className="mt-1 font-medium">support@gatherapp.me</p>
-          </div>
-
-          <p className="pt-4 text-slate-500 text-sm border-t border-slate-200">
-            Effective Date: January 1, 2026
+          <p className="border-t border-slate-200 pt-4 text-sm text-slate-500">
+            Effective date: {LEGAL.effectiveDate}
+            <br />
+            {LEGAL.operatorLabel} · {LEGAL.appName}
           </p>
         </div>
       </div>

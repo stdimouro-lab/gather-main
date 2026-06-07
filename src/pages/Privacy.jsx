@@ -2,89 +2,165 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { LEGAL } from "@/lib/legal";
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-8 flex items-center gap-4">
           <Link to="/settings">
             <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Privacy Policy
-          </h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Privacy Policy
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {LEGAL.appName} · {LEGAL.operatorLabel}
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-6 text-slate-600 leading-relaxed">
+        <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-8 leading-relaxed text-slate-600 shadow-sm">
           <p>
-            Gather is designed to help individuals and families organize their
-            schedules. Protecting your privacy is important to us.
+            {LEGAL.operatorLabel} (&quot;we,&quot; &quot;us&quot;) operates{" "}
+            {LEGAL.appName}, a family calendar and life organization app available
+            on the web, iOS, and Android. This Privacy Policy explains what we
+            collect, how we use it, and the choices you have.
           </p>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Information We Collect
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Information we collect
             </h2>
-            <p>
-              Gather collects only the information necessary to operate the app,
-              including:
-            </p>
-            <ul className="list-disc ml-6 mt-2 space-y-1">
-              <li>Your email address used to create an account</li>
-              <li>Calendar events you create</li>
-              <li>Notes or shared calendar information you add</li>
+            <ul className="ml-6 list-disc space-y-1">
+              <li>
+                <strong>Account:</strong> email address, display name, timezone,
+                and profile photo (optional)
+              </li>
+              <li>
+                <strong>Family data you add:</strong> calendar events, notes,
+                lists, memories (photos, captions), and people you share tables
+                with
+              </li>
+              <li>
+                <strong>Device:</strong> push notification tokens on mobile (if
+                you enable notifications)
+              </li>
+              <li>
+                <strong>Billing:</strong> subscription status via Apple App
+                Store, Google Play, or Stripe (we do not store full payment card
+                numbers)
+              </li>
+              <li>
+                <strong>Usage:</strong> basic diagnostics needed to operate and
+                secure the service
+              </li>
             </ul>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              How Your Data Is Used
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              How we use information
+            </h2>
+            <p>We use your information to:</p>
+            <ul className="ml-6 mt-2 list-disc space-y-1">
+              <li>Provide and sync calendars, notes, lists, and memories</li>
+              <li>Enable sharing with people you invite to your tables</li>
+              <li>Send optional reminders and account notifications</li>
+              <li>Process subscriptions and support requests</li>
+              <li>Improve reliability and prevent abuse</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Sharing</h2>
+            <p>
+              We do <strong>not</strong> sell your personal information. Calendar
+              and memory content is visible only to you and people you explicitly
+              share tables with. We use service providers (for example Supabase
+              for hosting and authentication, RevenueCat and Stripe for billing)
+              who process data on our behalf under contractual obligations.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Photos and memories
             </h2>
             <p>
-              Your data is used only to provide the Gather service, including
-              displaying your calendars, syncing events, and enabling shared
-              calendars with people you invite.
+              Photos and files you upload are stored to provide the Memories
+              feature. Content linked to shared tables may be visible to
+              collaborators on those tables according to your sharing settings.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Data Sharing
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">
+              Children&apos;s privacy
             </h2>
             <p>
-              Gather does not sell, rent, or share your personal data with third
-              parties. Your data is only visible to users you explicitly share
-              calendars with.
+              {LEGAL.appName} is intended for parents and caregivers organizing
+              family life. The service is not directed to children under{" "}
+              {LEGAL.minimumAge}. We do not knowingly collect personal
+              information from children under {LEGAL.minimumAge}. Contact us if
+              you believe a child has provided personal information.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Data Deletion
-            </h2>
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Data retention</h2>
             <p>
-              You may delete your account at any time from the Settings page.
-              Deleting your account will permanently remove your Gather data,
-              including calendars, events, and notes you own.
+              We retain your data while your account is active. When you delete
+              your account from Settings, we delete or de-identify associated
+              personal data within a reasonable period, except where retention is
+              required by law or billing records.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h2 className="font-semibold text-slate-900 mb-2">
-              Contact
-            </h2>
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Your rights</h2>
             <p>
-              If you have questions about this Privacy Policy, please contact us
-              at:
+              Depending on where you live, you may have rights to access,
+              correct, delete, or export your data. You can delete your account in
+              Settings or contact us for help.
             </p>
-            <p className="mt-1 font-medium">support@gatherapp.me</p>
-          </div>
+          </section>
 
-          <p className="pt-4 text-slate-500 text-sm border-t border-slate-200">
-            Effective Date: January 1, 2026
+          <section>
+            <h2 className="mb-2 font-semibold text-slate-900">Contact</h2>
+            <p>
+              Questions about this policy:
+              <br />
+              <a
+                href={`mailto:${LEGAL.privacyEmail}`}
+                className="font-medium text-[#6C63FF]"
+              >
+                {LEGAL.privacyEmail}
+              </a>
+              <br />
+              General support:{" "}
+              <a
+                href={`mailto:${LEGAL.contactEmail}`}
+                className="font-medium text-[#6C63FF]"
+              >
+                {LEGAL.contactEmail}
+              </a>
+            </p>
+          </section>
+
+          <p className="border-t border-slate-200 pt-4 text-sm text-slate-500">
+            Effective date: {LEGAL.effectiveDate}
+            <br />
+            App: {LEGAL.appName} ({LEGAL.packageId})
+            <br />
+            Website:{" "}
+            <a href={LEGAL.websiteUrl} className="text-[#6C63FF]">
+              {LEGAL.websiteUrl}
+            </a>
           </p>
         </div>
       </div>

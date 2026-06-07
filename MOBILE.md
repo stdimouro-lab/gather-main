@@ -90,11 +90,32 @@ Stripe keys are for web only; native apps use RevenueCat / store billing.
 - Google/Apple open in in-app browser (`@capacitor/browser`)
 - App returns via `@capacitor/app` `appUrlOpen` listener (see `login.jsx`)
 
+## Safe area (status bar)
+
+After pulling, run `npm run build:mobile`. The app uses `@capacitor/status-bar` plus CSS `--gather-safe-top` so the mobile header clears the Android status bar.
+
+## Push notifications
+
+1. Run migration `20260606150000_push_device_tokens.sql` in Supabase.
+2. **Android:** add `google-services.json` from Firebase to `android/app/`.
+3. Enable notification toggles in Settings — native apps register device tokens automatically.
+4. Automated sends (reminders, digests) still need a server job using stored tokens.
+
+## Shared memories
+
+Run migration `20260606140000_shared_memories_rls.sql` so collaborators see memories on shared tables.
+
+## Legal (store listings)
+
+- Privacy: deploy `/privacy` — copy references `src/lib/legal.js`
+- Terms: deploy `/terms`
+- Update `operatorLabel` in `legal.js` when your LLC name is finalized
+
 ## Known native limitations (v1)
 
 - **Voice add** on Lists is hidden in native apps (Web Speech API unavailable in WebView).
 - **Stripe checkout** is web-only; native uses in-app purchases.
-- **Push notifications** — settings UI exists; native push not wired yet.
+- **Push delivery** — device registration works; scheduled server pushes are not live yet.
 
 ## Store checklist
 

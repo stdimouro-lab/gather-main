@@ -37,6 +37,8 @@ import {
   saveGatherPreferences,
   saveProfileName,
 } from "@/lib/profileSettings";
+import { syncPushRegistration } from "@/lib/pushNotifications";
+import { LEGAL } from "@/lib/legal";
 import {
   getProfileAvatarUrl,
   removeProfileAvatar,
@@ -232,6 +234,7 @@ export default function Settings() {
       });
       setNotifications(next);
       await refreshProfile?.();
+      await syncPushRegistration({ user, profile });
       toast({ title: "Notification settings saved" });
     } catch (err) {
       toast({
@@ -588,7 +591,9 @@ export default function Settings() {
                   Notifications
                 </h2>
                 <p className="mb-3 mt-1 text-[12px] text-slate-500">
-                  Preferences are saved to your account.
+                  Preferences are saved to your account. On mobile, enabling any
+                  alert registers your device for push when Firebase/APNs is
+                  configured.
                 </p>
 
                 <SettingsCard>
@@ -960,6 +965,10 @@ export default function Settings() {
             {activeSection === "legal" && (
               <section>
                 <h2 className="text-base font-medium text-slate-900">Legal</h2>
+                <p className="mb-3 text-[12px] text-slate-500">
+                  {LEGAL.appName} is operated by {LEGAL.operatorLabel}. Use these
+                  URLs in App Store Connect and Google Play Console.
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Link
                     to="/privacy"

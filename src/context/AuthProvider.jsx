@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { claimTabInvitesForUser } from "@/lib/tabShares";
 import { ensureAccountForUser } from "@/lib/account";
 import { getAuthCallbackUrl } from "@/lib/nativePlatform";
+import { syncPushRegistration } from "@/lib/pushNotifications";
 
 const AuthContext = createContext(null);
 
@@ -388,6 +389,11 @@ void loadProfile(newSession.user);
     }
   })();
 }, [user?.id, user?.email, session]);
+
+  useEffect(() => {
+    if (!user?.id || profileLoading) return;
+    void syncPushRegistration({ user, profile });
+  }, [user, profile, profileLoading]);
 
   const signIn = async ({ email, password }) => {
     return await supabase.auth.signInWithPassword({

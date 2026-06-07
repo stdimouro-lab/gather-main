@@ -13,7 +13,7 @@ import { DateTime } from "luxon";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
 import { fetchPeople } from "@/lib/people";
-import { fetchMemoryAssets } from "@/lib/memories";
+import { fetchAccessibleMemoryAssets } from "@/lib/memories";
 import { fetchAccessibleTabs } from "@/lib/accessTabs";
 import { fetchEvents } from "@/lib/events";
 import { generateSuggestions } from "@/lib/ai/suggestions";
@@ -344,7 +344,10 @@ export default function Home() {
       }
 
       try {
-        const data = await fetchMemoryAssets(user.id, { limit: 12 });
+        const data = await fetchAccessibleMemoryAssets(
+          { userId: user.id },
+          { limit: 12 }
+        );
         if (mounted) setMemoryAssets(data || []);
       } catch (error) {
         console.error("Failed loading memories", error);

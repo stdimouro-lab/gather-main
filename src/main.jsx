@@ -8,8 +8,11 @@ import { AuthProvider } from "./context/AuthProvider.jsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { toast } from "@/components/ui/use-toast";
+import { initNativeShell } from "@/lib/initNativeShell";
 
 const queryClient = new QueryClient();
+
+initNativeShell();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

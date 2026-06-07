@@ -91,10 +91,20 @@ html,
 body {
   overflow-x: hidden;
 }
+html.native-app {
+  --gather-safe-top: env(safe-area-inset-top, 0px);
+  --gather-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Android WebView often reports 0 for safe-area until status bar is inset */
+html.native-app[data-platform="android"] {
+  --gather-safe-top: max(env(safe-area-inset-top, 0px), 28px);
+}
+
 .pt-safe-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--gather-safe-top, env(safe-area-inset-top, 0px));
 }
 
 .pb-safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--gather-safe-bottom, env(safe-area-inset-bottom, 0px));
 }

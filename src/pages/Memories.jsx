@@ -10,7 +10,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { fetchMemoryAssets } from "@/lib/memories";
+import { fetchAccessibleMemoryAssets } from "@/lib/memories";
 import { toast } from "@/components/ui/use-toast";
 
 const BASE_FILTERS = ["All", "Images", "Videos", "Files"];
@@ -187,7 +187,8 @@ export default function Memories() {
     error,
   } = useQuery({
     queryKey: ["memoryAssets", user?.id],
-    queryFn: () => fetchMemoryAssets(user.id, { limit: 120 }),
+    queryFn: () =>
+      fetchAccessibleMemoryAssets({ userId: user.id }, { limit: 120 }),
     enabled: !!user?.id,
     staleTime: 30000,
   });
@@ -203,7 +204,6 @@ export default function Memories() {
           event: "*",
           schema: "public",
           table: "event_assets",
-          filter: `owner_id=eq.${user.id}`,
         },
         () => {
           queryClient.invalidateQueries({
