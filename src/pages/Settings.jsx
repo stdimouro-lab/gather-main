@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   CalendarDays,
@@ -38,6 +38,10 @@ import {
   saveProfileName,
 } from "@/lib/profileSettings";
 import { syncPushRegistration } from "@/lib/pushNotifications";
+import {
+  readFamilyMembers,
+  saveFamilyMembers,
+} from "@/lib/familyProfiles";
 import { LEGAL } from "@/lib/legal";
 import {
   getProfileAvatarUrl,
@@ -144,10 +148,13 @@ function Toggle({ on, onChange, disabled = false }) {
 }
 
 export default function Settings() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, refreshSession } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState("profile");
+  const [activeSection, setActiveSection] = useState(
+    location.state?.section || "profile"
+  );
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -156,6 +163,15 @@ export default function Settings() {
   const [timezoneDraft, setTimezoneDraft] = useState(getBrowserTimezone());
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef(null);
+  const [familyMembers, setFamilyMembers] = useState(() =>
+    readFamilyMembers(user)
+  );
+  const [savingKids, setSavingKids] = useState(false);
+  const [newKidName, setNewKidName] = useState("");
+
+  useEffect(() => {
+    setFamilyMembers(readFamilyMembers(user));
+  }, [user?.user_metadata?.family_members, user?.user_metadata?.family_kids]);
 
   const prefs = useMemo(
     () => readGatherPreferences(user, profile),
@@ -343,6 +359,69 @@ export default function Settings() {
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handleSaveMembers = async (nextMembers) => {
+    setSavingKids(true);
+    try {
+      const saved = await saveFamilyMembers({ members: nextMembers });
+      setFamilyMembers(saved);
+      await refreshSession?.();
+      await refreshProfile?.();
+      toast({
+        title: "Family profiles updated",
+        description:
+          saved.length > 0
+            ? `Tracking ${saved.map((m) => m.name).join(", ")} on Home and in Pip.`
+            : "Add names so Pip can personalize schedules.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not save",
+        description: err?.message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingKids(false);
+    }
+  };
+
+  const handleAddKid = async () => {
+    const name = newKidName.trim();
+    if (!name) return;
+    if (familyMembers.length >= 8) {
+      toast({
+        title: "Limit reached",
+        description: "You can add up to 8 family members.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const next = [
+      ...familyMembers,
+      {
+        name,
+        birthday: null,
+        anniversary: null,
+        schoolStartDate: null,
+      },
+    ];
+    setNewKidName("");
+    await handleSaveMembers(next);
+  };
+
+  const handleRemoveKid = async (name) => {
+    await handleSaveMembers(
+      familyMembers.filter((m) => m.name !== name)
+    );
+  };
+
+  const handleMemberDateChange = async (name, field, value) => {
+    const next = familyMembers.map((m) =>
+      m.name === name ? { ...m, [field]: value || null } : m
+    );
+    setFamilyMembers(next);
+    await handleSaveMembers(next);
   };
 
   const handleSaveTimezone = async () => {
@@ -581,6 +660,116 @@ export default function Settings() {
                       )
                     }
                   />
+                  <div className="border-b border-slate-100 px-4 py-4 last:border-0">
+                    <div className="text-[13px] font-medium text-slate-900">
+                      Family profiles
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Add names plus birthdays and key dates. Pip will remind you
+                      — e.g. &quot;Lincoln&apos;s birthday is in 5 days.&quot;
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {familyMembers.map((member) => (
+                        <div
+                          key={member.name}
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[13px] font-medium text-slate-900">
+                              {member.name}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={savingKids}
+                              onClick={() => handleRemoveKid(member.name)}
+                              className="text-[12px] text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                            <label className="block">
+                              <span className="text-[10px] text-slate-500">
+                                Birthday
+                              </span>
+                              <input
+                                type="date"
+                                value={member.birthday || ""}
+                                disabled={savingKids}
+                                onChange={(e) =>
+                                  handleMemberDateChange(
+                                    member.name,
+                                    "birthday",
+                                    e.target.value
+                                  )
+                                }
+                                className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1 text-[11px]"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="text-[10px] text-slate-500">
+                                Anniversary
+                              </span>
+                              <input
+                                type="date"
+                                value={member.anniversary || ""}
+                                disabled={savingKids}
+                                onChange={(e) =>
+                                  handleMemberDateChange(
+                                    member.name,
+                                    "anniversary",
+                                    e.target.value
+                                  )
+                                }
+                                className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1 text-[11px]"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="text-[10px] text-slate-500">
+                                School start
+                              </span>
+                              <input
+                                type="date"
+                                value={member.schoolStartDate || ""}
+                                disabled={savingKids}
+                                onChange={(e) =>
+                                  handleMemberDateChange(
+                                    member.name,
+                                    "schoolStartDate",
+                                    e.target.value
+                                  )
+                                }
+                                className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1 text-[11px]"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        type="text"
+                        value={newKidName}
+                        onChange={(e) => setNewKidName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddKid();
+                          }
+                        }}
+                        placeholder="e.g. Lincoln, Kai"
+                        className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-[12px]"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingKids || !newKidName.trim()}
+                        onClick={handleAddKid}
+                        className="rounded-md bg-[#6C63FF] px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </SettingsCard>
               </section>
             )}

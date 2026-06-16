@@ -10,9 +10,15 @@ import {
   Users,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { DateTime } from "luxon";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthProvider";
+import { createEvent } from "@/lib/events";
+import { uploadMemoryAsset } from "@/lib/memories";
+import { readFamilyKids, saveFamilyKids } from "@/lib/familyProfiles";
 import gatherLogo from "@/assets/gather-logo.png";
+
+const MAX_FAMILY_KIDS = 8;
 
 const MAX_FREE_TABLES = 3;
 
@@ -84,7 +90,7 @@ export default function OnboardingPage({ isGuideMode = false }) {
     user?.email?.split("@")[0] ||
     "";
 
-  const [step, setStep] = useState(isGuideMode ? 4 : 1);
+  const [step, setStep] = useState(isGuideMode ? 5 : 1); // guide lands on "How Gather works"
   const [displayName, setDisplayName] = useState(initialName);
   const [tableRows, setTableRows] = useState([
     createTableRow("Family"),
@@ -95,9 +101,24 @@ export default function OnboardingPage({ isGuideMode = false }) {
   const [loadingTables, setLoadingTables] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [firstEventTitle, setFirstEventTitle] = useState("");
+  const [firstEventDate, setFirstEventDate] = useState(
+    DateTime.local().plus({ days: 1 }).toFormat("yyyy-MM-dd")
+  );
+  const [firstEventTime, setFirstEventTime] = useState("18:00");
+  const [firstMemoryText, setFirstMemoryText] = useState("");
+  const [skipFirstEvent, setSkipFirstEvent] = useState(false);
+  const [skipFirstMemory, setSkipFirstMemory] = useState(false);
+  const [familyKids, setFamilyKids] = useState(() => readFamilyKids(user));
+  const [newKidName, setNewKidName] = useState("");
+  const [skipFamilyKids, setSkipFamilyKids] = useState(false);
 
   const hasExistingTables = existingTableCount > 0;
-  const totalSteps = 5;
+  const totalSteps = 8;
+
+  useEffect(() => {
+    setFamilyKids(readFamilyKids(user));
+  }, [user?.user_metadata?.family_kids]);
 
   useEffect(() => {
     let mounted = true;
@@ -251,6 +272,8 @@ export default function OnboardingPage({ isGuideMode = false }) {
 
       const currentCount = currentTables?.length || 0;
 
+      let defaultTabId = null;
+
       if (currentCount === 0 && cleanedTables.length > 0) {
         const rowsToInsert = cleanedTables.map((table) => ({
           owner_id: user.id,
@@ -259,11 +282,71 @@ export default function OnboardingPage({ isGuideMode = false }) {
           is_default: table.is_default,
         }));
 
-        const { error: insertError } = await supabase
+        const { data: insertedTabs, error: insertError } = await supabase
           .from("calendar_tabs")
-          .insert(rowsToInsert);
+          .insert(rowsToInsert)
+          .select("id, is_default");
 
         if (insertError) throw insertError;
+        defaultTabId =
+          insertedTabs?.find((t) => t.is_default)?.id ||
+          insertedTabs?.[0]?.id ||
+          null;
+      } else {
+        const { data: tabs } = await supabase
+          .from("calendar_tabs")
+          .select("id, is_default")
+          .eq("owner_id", user.id)
+          .order("is_default", { ascending: false })
+          .limit(1);
+        defaultTabId = tabs?.[0]?.id ?? null;
+      }
+
+      if (!skipFamilyKids && familyKids.length > 0) {
+        await saveFamilyKids({ kids: familyKids, user });
+      }
+
+      if (!skipFirstEvent && firstEventTitle.trim() && defaultTabId) {
+        const [hour, minute] = firstEventTime.split(":").map(Number);
+        const start = DateTime.fromISO(firstEventDate).set({
+          hour: hour || 18,
+          minute: minute || 0,
+        });
+        const end = start.plus({ hours: 1 });
+        let eventTitle = firstEventTitle.trim();
+        if (
+          familyKids.length === 1 &&
+          !eventTitle.toLowerCase().includes(familyKids[0].toLowerCase())
+        ) {
+          eventTitle = `${familyKids[0]} ${eventTitle}`;
+        }
+        await createEvent({
+          owner_id: user.id,
+          tab_id: defaultTabId,
+          title: eventTitle,
+          start_date: start.toUTC().toISO(),
+          end_date: end.toUTC().toISO(),
+          all_day: false,
+          recurrence: "none",
+          visibility: "full",
+          event_type: "appointment",
+        });
+      }
+
+      if (!skipFirstMemory && firstMemoryText.trim()) {
+        const caption = firstMemoryText.trim();
+        const title =
+          caption.length > 60 ? `${caption.slice(0, 57)}…` : caption;
+        await uploadMemoryAsset({
+          owner_id: user.id,
+          tab_id: defaultTabId,
+          event_id: null,
+          asset_type: "note",
+          title: title || "Family moment",
+          caption,
+          storage_path: null,
+          mime_type: "text/plain",
+        });
       }
 
       navigate("/home", { replace: true });
@@ -309,12 +392,35 @@ export default function OnboardingPage({ isGuideMode = false }) {
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const addFamilyKid = () => {
+    const name = newKidName.trim();
+    if (!name) return;
+    if (familyKids.length >= MAX_FAMILY_KIDS) {
+      setError(`You can add up to ${MAX_FAMILY_KIDS} family members.`);
+      return;
+    }
+    if (familyKids.some((k) => k.toLowerCase() === name.toLowerCase())) {
+      setNewKidName("");
+      return;
+    }
+    setFamilyKids((prev) => [...prev, name]);
+    setNewKidName("");
+    setError("");
+  };
+
+  const removeFamilyKid = (name) => {
+    setFamilyKids((prev) => prev.filter((k) => k !== name));
+  };
+
   const stepTitles = {
     1: "Welcome to Gather",
     2: "Your profile",
-    3: "Create your first tables",
-    4: "How Gather works",
-    5: "You’re ready",
+    3: "Your family",
+    4: "Create your first tables",
+    5: "How Gather works",
+    6: "Your first event",
+    7: "Your first memory",
+    8: "You're ready",
   };
 
   return (
@@ -338,7 +444,7 @@ export default function OnboardingPage({ isGuideMode = false }) {
           </div>
 
           <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((number) => {
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((number) => {
               const active = step === number;
               const complete = step > number;
 
@@ -462,9 +568,9 @@ export default function OnboardingPage({ isGuideMode = false }) {
                   </p>
                   <div className="mt-4 space-y-3 text-sm text-slate-600">
                     <p>1. Set your display name.</p>
-                    <p>2. Create up to 3 starter tables.</p>
-                    <p>3. Learn the main sections.</p>
-                    <p>4. Land on your Home dashboard.</p>
+                    <p>2. Add family member names.</p>
+                    <p>3. Create tables, then one event and memory.</p>
+                    <p>4. Land on Home with profiles and Family Story.</p>
                   </div>
                 </aside>
               </div>
@@ -490,6 +596,76 @@ export default function OnboardingPage({ isGuideMode = false }) {
             )}
 
             {step === 3 && (
+              <section className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
+                <h2 className="text-lg font-medium text-slate-900">
+                  Who&apos;s in your family?
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Add children or family members by first name. Pip and Home use
+                  these to personalize schedules — put names in event titles like
+                  &quot;Lincoln soccer&quot;.
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {familyKids.map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1 rounded-full border border-[#AFA9EC] bg-[#EEEDFE] px-3 py-1.5 text-sm text-[#534AB7]"
+                    >
+                      {name}
+                      <button
+                        type="button"
+                        disabled={skipFamilyKids}
+                        onClick={() => removeFamilyKid(name)}
+                        className="text-[#534AB7]/70 hover:text-[#534AB7] disabled:opacity-40"
+                        aria-label={`Remove ${name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <input
+                    type="text"
+                    value={newKidName}
+                    onChange={(e) => setNewKidName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addFamilyKid();
+                      }
+                    }}
+                    disabled={skipFamilyKids}
+                    placeholder="e.g. Lincoln, Kai, Mom"
+                    className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6C63FF] focus:ring-4 focus:ring-[#EEEDFE] disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    disabled={skipFamilyKids || !newKidName.trim()}
+                    onClick={addFamilyKid}
+                    className="shrink-0 rounded-xl bg-[#6C63FF] px-4 py-3 text-sm font-medium text-white hover:opacity-95 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <p className="mt-3 text-xs text-slate-500">
+                  {familyKids.length} of {MAX_FAMILY_KIDS} added
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setSkipFamilyKids((v) => !v)}
+                  className="mt-4 text-sm font-medium text-slate-500 hover:text-[#6C63FF]"
+                >
+                  {skipFamilyKids ? "I'll add family names now" : "Skip for now"}
+                </button>
+              </section>
+            )}
+
+            {step === 4 && (
               <section className="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6">
                 <h2 className="text-lg font-medium text-slate-900">
                   Create your first tables
@@ -595,7 +771,7 @@ export default function OnboardingPage({ isGuideMode = false }) {
               </section>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <section className="rounded-xl border border-slate-200 bg-white p-6">
                 <h2 className="text-lg font-medium text-slate-900">
                   How Gather works
@@ -629,7 +805,96 @@ export default function OnboardingPage({ isGuideMode = false }) {
               </section>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
+              <section className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
+                <h2 className="text-lg font-medium text-slate-900">
+                  Add your first event
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  One real appointment seeds your calendar and Family Story.
+                  {familyKids.length === 1
+                    ? ` Try "${familyKids[0]} soccer practice" Tuesday at 6pm.`
+                    : ' Example: "Soccer practice" Tuesday at 6pm.'}
+                </p>
+
+                <label className="mt-5 block text-sm font-medium text-slate-700">
+                  Event title
+                </label>
+                <input
+                  type="text"
+                  value={firstEventTitle}
+                  onChange={(e) => setFirstEventTitle(e.target.value)}
+                  placeholder="Soccer practice, dentist, family dinner…"
+                  disabled={skipFirstEvent}
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6C63FF] focus:ring-4 focus:ring-[#EEEDFE] disabled:opacity-50"
+                />
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={firstEventDate}
+                      onChange={(e) => setFirstEventDate(e.target.value)}
+                      disabled={skipFirstEvent}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Time
+                    </label>
+                    <input
+                      type="time"
+                      value={firstEventTime}
+                      onChange={(e) => setFirstEventTime(e.target.value)}
+                      disabled={skipFirstEvent}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSkipFirstEvent((v) => !v)}
+                  className="mt-4 text-sm font-medium text-slate-500 hover:text-[#6C63FF]"
+                >
+                  {skipFirstEvent ? "I'll add an event now" : "Skip for now"}
+                </button>
+              </section>
+            )}
+
+            {step === 7 && (
+              <section className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6">
+                <h2 className="text-lg font-medium text-slate-900">
+                  Save your first memory
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  A sentence is enough — this fills your Family Story on Home.
+                </p>
+
+                <textarea
+                  value={firstMemoryText}
+                  onChange={(e) => setFirstMemoryText(e.target.value)}
+                  disabled={skipFirstMemory}
+                  rows={4}
+                  placeholder="What made you smile this week? A game, a meal, a milestone…"
+                  className="mt-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6C63FF] focus:ring-4 focus:ring-[#EEEDFE] disabled:opacity-50"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setSkipFirstMemory((v) => !v)}
+                  className="mt-4 text-sm font-medium text-slate-500 hover:text-[#6C63FF]"
+                >
+                  {skipFirstMemory ? "I'll add a memory now" : "Skip for now"}
+                </button>
+              </section>
+            )}
+
+            {step === 8 && (
               <section className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-8 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#EEEDFE]">
                   <Sparkles className="h-6 w-6 text-[#6C63FF]" />
@@ -640,8 +905,12 @@ export default function OnboardingPage({ isGuideMode = false }) {
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  Your setup is ready. You’ll land on Home, where your day,
-                  people, memories, notes, and calendar come together.
+                  Your setup is ready. Home will show
+                  {familyKids.length > 0 && !skipFamilyKids
+                    ? ` profiles for ${familyKids.join(", ")},`
+                    : ""}{" "}
+                  your Family Story, Pip&apos;s briefing, and everything you
+                  added.
                 </p>
 
                 <button

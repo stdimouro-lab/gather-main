@@ -27,7 +27,22 @@ export const MEMORY_PROMPTS = [
   },
 ];
 
+const WEEKDAY_PROMPTS = {
+  1: "accomplish",
+  2: "small_moment",
+  3: "photos",
+  4: "laugh",
+  5: "proud",
+  6: "small_moment",
+  7: "week",
+};
+
 export function pickRotatingMemoryPrompt(context) {
+  const weekday = context?.now?.weekday ?? DateTime.local().weekday;
+  const scheduledId = WEEKDAY_PROMPTS[weekday];
+  const scheduled = MEMORY_PROMPTS.find((p) => p.id === scheduledId);
+  if (scheduled) return scheduled.text;
+
   const dayIndex = context?.now?.ordinal ?? DateTime.local().ordinal;
   const memoryCount = context?.memories?.length ?? 0;
   const index = (dayIndex + memoryCount) % MEMORY_PROMPTS.length;

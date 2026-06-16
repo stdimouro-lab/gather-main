@@ -23,6 +23,8 @@ const Team = lazy(() => import("./pages/Team"));
 const Notes = lazy(() => import("./pages/Notes"));
 const Lists = lazy(() => import("./pages/Lists"));
 const Pip = lazy(() => import("./pages/Pip"));
+const Timeline = lazy(() => import("./pages/Timeline"));
+const CalendarImport = lazy(() => import("./pages/CalendarImport"));
 
 function LazyPage({ children }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -128,6 +130,22 @@ export default function AppRouter() {
             element={
               <LazyPage>
                 <Pip />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/timeline"
+            element={
+              <LazyPage>
+                <Timeline />
+              </LazyPage>
+            }
+          />
+          <Route
+            path="/calendar/import"
+            element={
+              <LazyPage>
+                <CalendarImport />
               </LazyPage>
             }
           />

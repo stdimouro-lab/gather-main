@@ -1,8 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { DateTime } from "luxon";
 import {
-  Calendar,
   CalendarPlus,
   ChevronRight,
   ImagePlus,
@@ -16,13 +14,20 @@ import { buildProactiveBriefing, buildTodaySnapshot } from "@/lib/ai/pip/snapsho
 import { buildWeeklyFamilyDigest } from "@/lib/ai/pip/digest";
 import { getMemoryPromptState, pickRotatingMemoryPrompt } from "@/lib/ai/pip/memory";
 import { buildFamilyTimeline } from "@/lib/ai/pip/familyTimeline";
+import { buildPipNudges } from "@/lib/ai/pip/nudges";
+import { syncUpcomingEventReminders } from "@/lib/localNotifications";
 import PipAskBar from "@/components/pip/PipAskBar";
+import PipUpcomingEvent from "@/components/pip/PipUpcomingEvent";
 
-function Section({ title, children, action, id }) {
+function Section({ title, children, action, id, highlight = false }) {
   return (
     <section
       id={id}
-      className="rounded-xl border border-slate-200 bg-white overflow-hidden"
+      className={`rounded-xl border overflow-hidden ${
+        highlight
+          ? "border-[#AFA9EC] bg-gradient-to-br from-[#EEEDFE]/60 to-white"
+          : "border-slate-200 bg-white"
+      }`}
     >
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -57,6 +62,7 @@ export default function Pip() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: context, isLoading, refetch } = usePipContext();
+  const [feedNotice, setFeedNotice] = useState(null);
 
   const displayName =
     profile?.full_name ||
@@ -70,6 +76,7 @@ export default function Pip() {
   const memoryPrompt = getMemoryPromptState(context);
   const feed = buildFamilyTimeline(context);
   const memoryQuestion = pickRotatingMemoryPrompt(context);
+  const nudges = buildPipNudges(context);
 
   const upcoming = (context?.upcomingEvents ?? []).slice(0, 5);
 
@@ -77,11 +84,31 @@ export default function Pip() {
     if (location.state?.refresh) refetch();
   }, [location.state, refetch]);
 
+  useEffect(() => {
+    if (!context?.upcomingEvents?.length || !user) return;
+    syncUpcomingEventReminders({
+      events: context.upcomingEvents,
+      user,
+      profile,
+    });
+  }, [context?.upcomingEvents, user, profile]);
+
   const noteBody = location.state?.noteBody ?? null;
   const initialQuery = location.state?.initialQuery ?? null;
   const expectMemory =
     location.state?.initialMessage === "memory" ||
     location.state?.expectMemory;
+
+  const handleActionComplete = ({ message }) => {
+    if (message) setFeedNotice(message);
+    refetch();
+  };
+
+  const handleNudge = (nudge) => {
+    if (nudge.action === "memory") {
+      navigate("/pip", { state: { expectMemory: true }, replace: true });
+    }
+  };
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col pb-32">
@@ -114,6 +141,37 @@ export default function Pip() {
             </ul>
           </div>
 
+          {feedNotice && (
+            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] text-emerald-800">
+              <span>{feedNotice} — check Family feed below.</span>
+              <button
+                type="button"
+                onClick={() => setFeedNotice(null)}
+                className="text-emerald-600"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {nudges.length > 0 && (
+            <Section title="Gentle nudges">
+              <ul className="space-y-2">
+                {nudges.map((nudge) => (
+                  <li key={nudge.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleNudge(nudge)}
+                      className="w-full rounded-lg border border-amber-200/80 bg-amber-50/60 px-3 py-2 text-left text-[12px] text-amber-900 hover:bg-amber-50"
+                    >
+                      {nudge.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
           <Section title="Today's snapshot">
             <ul className="mb-4 space-y-2">
               {snapshot.lines.map((line) => (
@@ -144,7 +202,6 @@ export default function Pip() {
                 icon={ListChecks}
                 label="Weekly digest"
                 onClick={() => {
-                  /* shown below */
                   document
                     .getElementById("pip-weekly-digest")
                     ?.scrollIntoView({ behavior: "smooth" });
@@ -154,9 +211,7 @@ export default function Pip() {
                 icon={Search}
                 label="Find something"
                 onClick={() => {
-                  document
-                    .getElementById("pip-ask-input")
-                    ?.focus();
+                  document.getElementById("pip-ask-input")?.focus();
                 }}
               />
             </div>
@@ -177,29 +232,13 @@ export default function Pip() {
               <p className="text-[13px] text-slate-500">Nothing upcoming soon.</p>
             ) : (
               <ul className="space-y-2">
-                {upcoming.map((event) => {
-                  const when = DateTime.fromISO(
-                    event.start_at ?? event.start_date
-                  );
-                  return (
-                    <li
-                      key={event.id}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-[13px] font-medium text-slate-900">
-                          {event.title}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {when.isValid
-                            ? when.toFormat("EEE, MMM d · h:mm a")
-                            : ""}
-                        </div>
-                      </div>
-                      <Calendar className="h-4 w-4 shrink-0 text-[#6C63FF]" />
-                    </li>
-                  );
-                })}
+                {upcoming.map((event) => (
+                  <PipUpcomingEvent
+                    key={event.id}
+                    event={event}
+                    onActionComplete={handleActionComplete}
+                  />
+                ))}
               </ul>
             )}
           </Section>
@@ -243,7 +282,11 @@ export default function Pip() {
             </button>
           </Section>
 
-          <Section title="Weekly digest" id="pip-weekly-digest">
+          <Section
+            title="Weekly digest"
+            id="pip-weekly-digest"
+            highlight={briefing.highlightDigest}
+          >
             <ul className="space-y-1">
               {digest.lines.map((line) => (
                 <li key={line} className="text-[13px] text-slate-600">
@@ -309,6 +352,7 @@ export default function Pip() {
         noteBody={noteBody}
         initialQuery={initialQuery}
         expectMemory={expectMemory}
+        onActionComplete={handleActionComplete}
       />
     </div>
   );

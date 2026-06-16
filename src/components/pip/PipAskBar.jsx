@@ -9,6 +9,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import PipActionFooter from "@/components/pip/PipActionFooter";
+import { buildPipSuggestedChips } from "@/lib/ai/pip/suggestedChips";
+import { pipActionToastMessage } from "@/lib/ai/pip/actionFeedback";
 
 function ActionOption({ option, onToggle, running }) {
   if (!option.enabled) {
@@ -179,6 +181,7 @@ export default function PipAskBar({
   noteBody = null,
   initialQuery = null,
   expectMemory = false,
+  onActionComplete = null,
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -240,19 +243,30 @@ export default function PipAskBar({
     });
   };
 
+  const suggestedChips = buildPipSuggestedChips(context);
+
   const handleRun = async (actions) => {
     if (!context || !actions?.length) return;
     setRunning(true);
+    let lastResult = null;
+    let lastAction = null;
     try {
       for (const action of actions) {
         const res = await executePipAction(action, {
           userId: user.id,
           defaultTabId: context.defaultTab?.id,
         });
+        lastResult = res;
+        lastAction = action;
         if (res.kind === "navigate") navigate(res.path);
       }
       await refetch();
-      toast({ title: "Done", description: "Pip updated your family data." });
+      const toastMsg = pipActionToastMessage(lastAction, lastResult);
+      toast(toastMsg);
+      onActionComplete?.({
+        kind: lastAction?.type,
+        message: toastMsg.description,
+      });
       setResult(null);
       setInput("");
       setMemoryMode(false);
@@ -276,6 +290,23 @@ export default function PipAskBar({
         onClose={() => setResult(null)}
         running={running}
       />
+      {suggestedChips.length > 0 && !result && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {suggestedChips.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              onClick={() => {
+                setInput(chip);
+                handleResolve(chip);
+              }}
+              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 hover:border-[#AFA9EC] hover:bg-[#EEEDFE] hover:text-[#534AB7]"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
       <form className="flex gap-2" onSubmit={handleSubmit}>
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

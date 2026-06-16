@@ -38,12 +38,20 @@ export default function FamilyStorySection() {
             Your family story
           </span>
         </div>
-        <Link
-          to="/memories"
-          className="text-[11px] font-medium text-[#6C63FF]"
-        >
-          All memories →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/timeline"
+            className="text-[11px] font-medium text-[#6C63FF]"
+          >
+            Timeline →
+          </Link>
+          <Link
+            to="/memories"
+            className="text-[11px] font-medium text-[#6C63FF]"
+          >
+            Memories →
+          </Link>
+        </div>
       </div>
 
       <div className="px-2 py-2">

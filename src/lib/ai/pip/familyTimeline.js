@@ -128,3 +128,81 @@ export function buildFamilyTimeline(context, { limit = 8 } = {}) {
 export function buildFamilyFeed(context, options) {
   return buildFamilyTimeline(context, options);
 }
+
+function monthKey(iso) {
+  const dt = DateTime.fromISO(iso);
+  return dt.isValid ? dt.toFormat("yyyy-MM") : null;
+}
+
+function monthLabel(key) {
+  const dt = DateTime.fromISO(`${key}-01`);
+  return dt.isValid ? dt.toFormat("MMMM yyyy") : key;
+}
+
+/**
+ * Monthly timeline: events + memories grouped by month (signature Gather view).
+ */
+export function buildMonthlyFamilyTimeline(context, { monthsBack = 6 } = {}) {
+  const now = context?.now ?? DateTime.local();
+  const items = [];
+
+  for (const memory of context?.memories ?? []) {
+    const text = memory.caption || memory.title || "Family moment";
+    const at = memory.created_at;
+    if (!at) continue;
+    items.push({
+      id: `memory-${memory.id}`,
+      kind: "memory",
+      text: formatStoryLine(text, "memory"),
+      emoji: "📷",
+      sortAt: at,
+      month: monthKey(at),
+      href: "/memories",
+    });
+  }
+
+  const rangeStart = now.minus({ months: monthsBack }).startOf("month");
+
+  for (const event of [
+    ...(context?.storyEvents ?? []),
+    ...(context?.weekEvents ?? []),
+    ...(context?.upcomingEvents ?? []),
+  ]) {
+    const startIso = eventStart(event);
+    const dt = DateTime.fromISO(startIso);
+    if (!dt.isValid || dt < rangeStart) continue;
+    if (dt > now.plus({ months: 2 })) continue;
+
+    const title = event.title || "Family event";
+    items.push({
+      id: `event-${event.id}-${startIso}`,
+      kind: "event",
+      text: formatStoryLine(title, "event"),
+      emoji: "✓",
+      sortAt: startIso,
+      month: monthKey(startIso),
+      href: "/calendar",
+    });
+  }
+
+  items.sort((a, b) => new Date(b.sortAt) - new Date(a.sortAt));
+
+  const grouped = new Map();
+  for (const item of items) {
+    if (!item.month) continue;
+    if (!grouped.has(item.month)) {
+      grouped.set(item.month, {
+        key: item.month,
+        label: monthLabel(item.month),
+        items: [],
+      });
+    }
+    const bucket = grouped.get(item.month);
+    const dup = bucket.items.some(
+      (x) => x.text.toLowerCase() === item.text.toLowerCase() && x.kind === item.kind
+    );
+    if (!dup) bucket.items.push(item);
+  }
+
+  return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));
+}

@@ -17,6 +17,7 @@ import { useAuth } from "@/context/AuthProvider";
 import DataConnectionBanner from "@/components/DataConnectionBanner";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import MobileBottomNav, { MobileTopBar } from "@/components/layout/MobileAppNav";
+import FeedbackButton from "@/components/FeedbackButton";
 import gatherLogo from "@/assets/gather-logo.png";
 
 function NavItem({ to, icon: Icon, label }) {
@@ -126,6 +127,7 @@ export default function AppLayout() {
         </main>
 
         <MobileBottomNav />
+        <FeedbackButton />
       </div>
     </div>
   );

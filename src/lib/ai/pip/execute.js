@@ -1,6 +1,7 @@
 import { createEvent } from "@/lib/events";
 import { createList, createListItems } from "@/lib/lists";
 import { uploadMemoryAsset } from "@/lib/memories";
+import { scheduleEventReminder } from "@/lib/localNotifications";
 
 export async function executePipAction(action, { userId, defaultTabId }) {
   if (!action?.type || !userId) {
@@ -63,6 +64,16 @@ export async function executePipAction(action, { userId, defaultTabId }) {
 
     case "open_calendar":
       return { kind: "navigate", path: "/calendar" };
+
+    case "schedule_reminder": {
+      const res = await scheduleEventReminder({
+        event: action.payload?.event,
+        minutesBefore: action.payload?.minutesBefore ?? 30,
+        title: action.payload?.title,
+        body: action.payload?.body,
+      });
+      return { kind: "reminder", ...res };
+    }
 
     default:
       throw new Error(`Unknown Pip action: ${action.type}`);

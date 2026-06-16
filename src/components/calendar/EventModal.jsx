@@ -46,6 +46,12 @@ import { cn } from "@/lib/utils";
 import { DateTime } from "luxon";
 import { getRealEventId } from "@/lib/recurrenceUtils";
 import { useAuth } from "@/context/AuthProvider";
+import {
+  getAllEventTemplates,
+  applyEventTemplate,
+  saveCustomEventTemplate,
+} from "@/lib/eventTemplates";
+import { useToast } from "@/components/ui/use-toast";
 
 const WEEKDAYS = [
   { key: "SU", label: "S" },
@@ -78,6 +84,12 @@ export default function EventModal({
   hideDetails = false,
 }) {
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  const templates = useMemo(
+    () => getAllEventTemplates(user),
+    [user?.user_metadata?.event_templates]
+  );
 
   const [formData, setFormData] = useState({
     title: "",
@@ -288,6 +300,65 @@ const memoryTabLabel = "Files & Memories";
             {isSuggestionMode && (
               <div className="mt-1 text-xs text-slate-500">
                 You are a viewer on this shared table, so this will be sent as a suggestion for the owner to review.
+              </div>
+            )}
+
+            {!event && canEdit && !isSuggestionMode && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Label className="text-[11px] text-slate-500">Template</Label>
+                <select
+                  className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px]"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) return;
+                    const template = templates.find((t) => t.id === id);
+                    if (!template) return;
+                    const applied = applyEventTemplate(template, {
+                      defaultDate: defaultDate ? new Date(defaultDate) : new Date(),
+                      defaultTabId: formData.tab_id || defaultTab?.id,
+                    });
+                    setFormData((prev) => ({
+                      ...prev,
+                      ...applied,
+                      tab_id: applied.tab_id || prev.tab_id,
+                    }));
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Use a template…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                {formData.title?.trim() && (
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-[#6C63FF]"
+                    onClick={async () => {
+                      try {
+                        await saveCustomEventTemplate({
+                          user,
+                          template: formData,
+                        });
+                        toast({
+                          title: "Template saved",
+                          description: `"${formData.title}" is ready to reuse.`,
+                        });
+                      } catch (err) {
+                        toast({
+                          title: "Could not save template",
+                          description: err?.message,
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Save as template
+                  </button>
+                )}
               </div>
             )}
           </div>

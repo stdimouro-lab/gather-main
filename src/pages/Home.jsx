@@ -19,6 +19,8 @@ import { fetchEvents } from "@/lib/events";
 import { generateSuggestions } from "@/lib/ai/suggestions";
 import PipHomeSection from "@/components/pip/PipHomeSection";
 import FamilyStorySection from "@/components/home/FamilyStorySection";
+import FamilyProfilesSection from "@/components/home/FamilyProfilesSection";
+import FamilyCommandCenter from "@/components/home/FamilyCommandCenter";
 
 const tableColorMap = {
   indigo: "#6C63FF",
@@ -435,6 +437,8 @@ export default function Home() {
           </div>
         </div>
 
+        <FamilyCommandCenter />
+
         <Card className="flex items-center gap-3 px-4 py-3">
           <div className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-500">
             Today
@@ -493,6 +497,8 @@ export default function Home() {
             </div>
           )}
         </Card>
+
+        <FamilyProfilesSection />
 
         <FamilyStorySection />
 

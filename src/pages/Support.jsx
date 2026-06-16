@@ -77,6 +77,27 @@ export default function SupportPage() {
           </section>
 
           <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+            <div className="flex flex-wrap gap-3 mb-6">
+              <a
+                href="mailto:support@gatherapp.me?subject=Gather%20feedback"
+                className="rounded-lg bg-[#6C63FF] px-4 py-2 text-sm font-medium text-white"
+              >
+                Send feedback
+              </a>
+              <a
+                href="mailto:support@gatherapp.me?subject=Gather%20bug%20report"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+              >
+                Report bug
+              </a>
+              <a
+                href="mailto:support@gatherapp.me?subject=Gather%20feature%20request"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+              >
+                Request feature
+              </a>
+            </div>
+
             <div className="flex items-center gap-2 mb-4">
               <Bug className="w-5 h-5 text-indigo-600" />
               <h2 className="text-xl font-semibold text-slate-900">Report a Bug</h2>

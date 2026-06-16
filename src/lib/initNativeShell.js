@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { initPushListeners } from "@/lib/pushNotifications";
+import { initLocalNotificationListeners } from "@/lib/localNotifications";
 
 /**
  * Native shell setup: status bar, safe-area CSS vars for Android/iOS WebViews.
@@ -28,4 +29,5 @@ export async function initNativeShell() {
   }
 
   await initPushListeners();
+  await initLocalNotificationListeners();
 }

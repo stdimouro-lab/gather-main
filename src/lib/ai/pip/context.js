@@ -6,6 +6,8 @@ import { fetchPeople } from "@/lib/people";
 import { fetchMemoryAssets } from "@/lib/memories";
 import { fetchAccessibleLists } from "@/lib/lists";
 import { fetchNotes } from "@/lib/notes";
+import { readFamilyMembers } from "@/lib/familyProfiles";
+import { getMemoryPromptState } from "./memory";
 
 export function nameFromEmail(email = "") {
   const local = email.split("@")[0] || "";
@@ -14,7 +16,10 @@ export function nameFromEmail(email = "") {
   return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
 }
 
-export async function fetchPipFamilyContext(userId, email) {
+export async function fetchPipFamilyContext(userOrId, email) {
+  const userId =
+    typeof userOrId === "object" ? userOrId?.id : userOrId;
+  const user = typeof userOrId === "object" ? userOrId : null;
   if (!userId) return null;
 
   const now = DateTime.local();
@@ -77,11 +82,16 @@ export async function fetchPipFamilyContext(userId, email) {
   const upcomingRaw = upcomingRes.data ?? [];
   const storyEvents = storyRes.data ?? [];
 
-  const familyNames = (people ?? [])
+  const familyMembers = readFamilyMembers(user);
+  const familyKids = familyMembers.map((m) => m.name);
+  const sharedNames = (people ?? [])
     .map((p) => nameFromEmail(p.email))
     .filter(Boolean);
+  const familyNames = [
+    ...new Set([...familyKids, ...sharedNames]),
+  ];
 
-  return {
+  const ctx = {
     userId,
     now,
     weekStart,
@@ -93,10 +103,15 @@ export async function fetchPipFamilyContext(userId, email) {
     upcomingEvents: upcomingRaw,
     storyEvents,
     people: people ?? [],
+    familyMembers,
+    familyKids,
     familyNames,
     memories: memories ?? [],
     lists: lists ?? [],
     notes: notes ?? [],
     incompleteTaskCount: incompleteTasks ?? 0,
   };
+
+  ctx._memoryPrompt = getMemoryPromptState(ctx);
+  return ctx;
 }

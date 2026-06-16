@@ -1,6 +1,7 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ScanLine } from "lucide-react";
 import { format, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
 
@@ -43,15 +44,25 @@ export default function CalendarHeader({
             </div>
           </div>
 
-          <Button
-            onClick={onAddEvent}
-            className="h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-3 text-sm font-medium text-white shadow-md shadow-indigo-200/60 hover:from-indigo-600 hover:to-purple-700 sm:h-11 sm:px-5"
-            title="Add it once. Share it where it belongs."
-          >
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              to="/calendar/import"
+              className="hidden h-10 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:inline-flex"
+              title="Import from photo or PDF"
+            >
+              <ScanLine className="h-4 w-4 text-[#6C63FF]" />
+              Import
+            </Link>
+            <Button
+              onClick={onAddEvent}
+              className="h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-3 text-sm font-medium text-white shadow-md shadow-indigo-200/60 hover:from-indigo-600 hover:to-purple-700 sm:h-11 sm:px-5"
+              title="Add it once. Share it where it belongs."
+            >
             <Plus className="mr-1 h-4 w-4 sm:mr-2" />
             <span className="sm:hidden">Add</span>
             <span className="hidden sm:inline">+ New Event</span>
           </Button>
+          </div>
         </div>
 
         {/* Bottom row */}

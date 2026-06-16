@@ -97,9 +97,80 @@ After pulling, run `npm run build:mobile`. The app uses `@capacitor/status-bar` 
 ## Push notifications
 
 1. Run migration `20260606150000_push_device_tokens.sql` in Supabase.
-2. **Android:** add `google-services.json` from Firebase to `android/app/`.
+2. **Android:** add `google-services.json` from Firebase to `android/app/` (see **Firebase setup** below).
 3. Enable notification toggles in Settings — native apps register device tokens automatically.
 4. Automated sends (reminders, digests) still need a server job using stored tokens.
+
+## Firebase setup (Android push — do this before your device arrives)
+
+Gather’s Android app id is **`com.Dimouro.gather`**. The Gradle build auto-applies the Google Services plugin when `android/app/google-services.json` exists.
+
+### 1. Create the Firebase project
+
+1. Open [Firebase Console](https://console.firebase.google.com/) → **Add project**.
+2. Name it e.g. **Gather** (can match your Play app).
+3. Disable Google Analytics if you want a minimal setup (optional; not required for FCM).
+4. Create the project.
+
+### 2. Register the Android app
+
+1. In the project overview → **Add app** → **Android**.
+2. **Android package name:** `com.Dimouro.gather` (must match exactly).
+3. **App nickname:** Gather (optional).
+4. **Debug signing certificate SHA-1** (add now for emulator + USB debug on your PC):
+
+   ```
+   SHA-1:   13:FB:E9:A9:97:71:F0:9B:63:F8:58:7A:A6:7A:53:FA:93:65:58:85
+   SHA-256: C5:FB:6C:BB:06:7A:B1:B6:3E:FA:9F:33:16:00:B7:D3:30:55:3E:C3:E5:79:54:3C:34:62:BB:03:53:84:F4:BB
+   ```
+
+   This is your **debug** keystore (`%USERPROFILE%\.android\debug.keystore`). Re-run if you use a different machine:
+
+   ```powershell
+   & "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -list -v `
+     -keystore "$env:USERPROFILE\.android\debug.keystore" `
+     -alias androiddebugkey -storepass android -keypass android
+   ```
+
+5. Skip “Download google-services.json” for a moment → **Continue to console**.
+
+6. **Project settings** (gear) → **Your apps** → select the Android app → **Add fingerprint** if you skipped SHA-1 earlier.
+
+### 3. Enable Cloud Messaging
+
+1. Firebase Console → **Build** → **Cloud Messaging**.
+2. If prompted, enable the **Firebase Cloud Messaging API** (also check [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → enable **Firebase Cloud Messaging API** for the same project).
+
+### 4. Download `google-services.json`
+
+1. Firebase → **Project settings** → **Your apps** → Android `com.Dimouro.gather`.
+2. **Download google-services.json**.
+3. Place it here (exact path):
+
+   ```
+   android/app/google-services.json
+   ```
+
+   Not `android/google-services.json` — it must be inside **`android/app/`**.
+
+### 5. Rebuild and verify
+
+```bash
+npm run build:mobile
+npm run cap:open:android
+```
+
+In Android Studio: Run on emulator or device → Gather → **Settings** → turn on **Event reminders** (or any notification toggle) → accept the permission prompt.
+
+Check Logcat for push registration; tokens are stored in Supabase `push_device_tokens` when registration succeeds.
+
+### 6. Before Play Store release (later)
+
+Add your **Play App Signing** SHA-1 from Google Play Console → **Setup** → **App signing** → paste into Firebase under the same Android app. Debug SHA-1 alone is not enough for production installs from Play.
+
+### 7. Server-side push (later)
+
+Device registration is in the app; **sending** pushes still needs a backend job (Supabase Edge Function, etc.) using FCM with a **Firebase service account** or legacy server key. Keep the service account JSON private — never commit it.
 
 ## Shared memories
 

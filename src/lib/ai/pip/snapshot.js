@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { buildWeeklyFamilyDigest } from "./digest";
 import { getMemoryPromptState } from "./memory";
+import { getUpcomingProfileDates } from "@/lib/familyProfiles";
 
 function eventStart(event) {
   return event.start_date ?? event.start_at ?? event.start;
@@ -61,10 +62,20 @@ export function buildTodaySnapshot(context) {
   };
 }
 
+export function getPipTimeMode(context) {
+  const hour = context?.now?.hour ?? 12;
+  const weekday = context?.now?.weekday ?? 1;
+  if (weekday === 7) return "sunday";
+  if (hour >= 17) return "evening";
+  if (hour < 12) return "morning";
+  return "afternoon";
+}
+
 export function buildProactiveBriefing(context, displayName = "there") {
   const snapshot = buildTodaySnapshot(context);
   const memory = getMemoryPromptState(context);
   const hour = context?.now?.hour ?? 12;
+  const mode = getPipTimeMode(context);
 
   const greeting =
     hour < 12
@@ -74,30 +85,80 @@ export function buildProactiveBriefing(context, displayName = "there") {
         : "Good evening";
 
   const lines = [];
-
   const nextToday = snapshot.todayEvents?.[0];
-  if (nextToday) {
-    const when = DateTime.fromISO(eventStart(nextToday));
-    const time = when.isValid ? when.toFormat("h:mm a") : "";
+
+  if (mode === "evening") {
+    if (nextToday) {
+      const when = DateTime.fromISO(eventStart(nextToday));
+      const time = when.isValid ? when.toFormat("h:mm a") : "";
+      lines.push(
+        `Still on the calendar tonight: ${nextToday.title}${time ? ` at ${time}` : ""}.`
+      );
+    }
     lines.push(
-      `${nextToday.title}${time ? ` at ${time}` : ""}${when.isValid ? ` today` : ""}.`
+      memory.prompt ||
+        "Anything worth remembering from today?"
     );
+    if (snapshot.memoriesThisWeek === 0 && snapshot.eventsToday > 0) {
+      lines.push(
+        `${snapshot.eventsToday} event${snapshot.eventsToday === 1 ? "" : "s"} today — save a highlight before the day ends?`
+      );
+    }
+  } else if (mode === "sunday") {
+    const digest = buildWeeklyFamilyDigest(context);
+    lines.push(digest.lines[0] || "Here's your week at a glance.");
+    if (memory.show && memory.daysSince != null) {
+      lines.push(
+        `You haven't added a family memory in ${memory.daysSince} days. ${memory.prompt}`
+      );
+    } else if (snapshot.openTasks > 0) {
+      lines.push(
+        `${snapshot.openTasks} open task${snapshot.openTasks === 1 ? "" : "s"} to wrap up the week.`
+      );
+    }
   } else {
-    lines.push("Nothing on the calendar for the rest of today.");
+    if (nextToday) {
+      const when = DateTime.fromISO(eventStart(nextToday));
+      const time = when.isValid ? when.toFormat("h:mm a") : "";
+      lines.push(
+        `${nextToday.title}${time ? ` at ${time}` : ""}${when.isValid ? ` today` : ""}.`
+      );
+    } else {
+      lines.push("Nothing on the calendar for the rest of today.");
+    }
+
+    if (snapshot.openTasks > 0) {
+      lines.push(
+        `You have ${snapshot.openTasks} unfinished task${snapshot.openTasks === 1 ? "" : "s"}.`
+      );
+    }
+
+    if (memory.show && memory.daysSince != null) {
+      lines.push(
+        `You haven't added a family memory in ${memory.daysSince} days.`
+      );
+    } else if (memory.show && mode === "morning") {
+      lines.push("Start capturing a family memory when you have a moment.");
+    }
   }
 
-  if (snapshot.openTasks > 0) {
+  if (
+    snapshot.memoriesThisWeek === 0 &&
+    (context?.weekEvents?.length ?? 0) >= 3 &&
+    mode !== "sunday"
+  ) {
     lines.push(
-      `You have ${snapshot.openTasks} unfinished task${snapshot.openTasks === 1 ? "" : "s"}.`
+      `${context.weekEvents.length} events this week and no memories yet — worth saving one?`
     );
   }
 
-  if (memory.show && memory.daysSince != null) {
-    lines.push(
-      `You haven't added a family memory in ${memory.daysSince} days.`
-    );
-  } else if (memory.show) {
-    lines.push("Start capturing a family memory when you have a moment.");
+  const profileDates = getUpcomingProfileDates(
+    context?.familyMembers,
+    context?.now,
+    14
+  );
+  if (profileDates.length > 0) {
+    lines.push(profileDates[0].text);
   }
 
   const digest = buildWeeklyFamilyDigest(context);
@@ -105,7 +166,9 @@ export function buildProactiveBriefing(context, displayName = "there") {
   return {
     greeting: `${greeting}, ${displayName}.`,
     lines,
+    timeMode: mode,
     digestTitle: digest.title,
     digestLines: digest.lines,
+    highlightDigest: mode === "sunday",
   };
 }

@@ -61,7 +61,7 @@ export function answerFamilyQuestion(message, context) {
 
   if (/which child|who has the most|busiest child|most activit/.test(text)) {
     if (!names.length) {
-      return "I don't see shared family members yet. Invite people from People, then Pip can track who's busiest.";
+      return "Add children's names in Settings → Family profiles, or invite people from People, so Pip can compare schedules.";
     }
 
     const ranked = names
