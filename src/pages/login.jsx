@@ -14,6 +14,7 @@ import gatherLogo from "@/assets/gather-logo.png";
 import { getPostAuthRedirect } from "@/lib/getPostAuthRedirect";
 import {
   getAuthCallbackUrl,
+  isAndroid,
   isAuthCallbackUrl,
   isNativeApp,
 } from "@/lib/nativePlatform";
@@ -126,6 +127,7 @@ export default function LoginPage() {
 
     let listener;
     let browserFinishedListener;
+    let appStateListener;
 
     async function setupAppUrlListener() {
       listener = await App.addListener("appUrlOpen", async ({ url }) => {
@@ -173,12 +175,22 @@ export default function LoginPage() {
       });
     }
 
+    async function setupAppStateListener() {
+      appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
+        if (!isActive) return;
+        setOauthLoading(null);
+        setLoading(false);
+      });
+    }
+
     setupAppUrlListener();
     setupBrowserFinishedListener();
+    setupAppStateListener();
 
     return () => {
       if (listener) listener.remove();
       if (browserFinishedListener) browserFinishedListener.remove();
+      if (appStateListener) appStateListener.remove();
     };
   }, [navigate]);
 
@@ -252,12 +264,13 @@ export default function LoginPage() {
 
       const { Capacitor } = await import("@capacitor/core");
 
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && isAndroid()) {
+        window.location.href = data.url;
+        openedNativeBrowser = true;
+      } else if (Capacitor.isNativePlatform()) {
         const { Browser } = await import("@capacitor/browser");
-        await Browser.close().catch(() => {});
         await Browser.open({
           url: data.url,
-          presentationStyle: "fullscreen",
         });
         openedNativeBrowser = true;
       } else {

@@ -24,12 +24,6 @@ const config: CapacitorConfig = {
   server: {
     iosScheme: 'gather',
     androidScheme: 'https',
-    allowNavigation: [
-      '*.supabase.co',
-      'accounts.google.com',
-      '*.google.com',
-      'appleid.apple.com',
-    ],
   },
 };
 
