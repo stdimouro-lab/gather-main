@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { generatePipListSuggestions } from "@/lib/ai/pipLists";
+import { PIP_NAME } from "@/lib/pipBrand";
 
 export default function PipListDialog({
   open,
@@ -68,7 +69,7 @@ export default function PipListDialog({
           <DialogDescription>
             {suggestion.summary} For schedules, memories, and your week, open{" "}
             <Link to="/pip" className="font-medium text-[#6C63FF] underline">
-              Family Assistant
+              {PIP_NAME}
             </Link>
             .
           </DialogDescription>

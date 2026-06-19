@@ -4,6 +4,7 @@ import { summarizeWeek, answerFamilyQuestion } from "./weekSummary";
 import { parseNaturalLanguageEvent } from "./parseEvent";
 import { parseNoteToActions, buildNoteActionProposal } from "./parseNote";
 import { generatePipListSuggestions } from "../pipLists";
+import { PIP_NAME, PIP_ACRONYM } from "@/lib/pipBrand";
 
 const STARTER_REPLIES = [
   "What does my week look like?",
@@ -25,7 +26,7 @@ export function askPip(message, context, options = {}) {
   if (!text) {
     return {
       role: "pip",
-      text: "Hi — I'm Pip, your family assistant. I know your calendar, lists, notes, memories, and the people you share with. What can I help with?",
+      text: `Hi — I'm ${PIP_NAME}, your ${PIP_ACRONYM}. I know your calendar, lists, notes, memories, and the people you share with. What can I help with?`,
       actions: [],
       starters: getPipStarters(),
     };
@@ -155,7 +156,7 @@ export function askPip(message, context, options = {}) {
 
   return {
     role: "pip",
-    text: `I'm Pip — I help your family stay organized and remember life. I can:\n\n• Summarize your week\n• Answer schedule questions (e.g. "What does my week look like?")\n• Turn notes into tasks\n• Create recurring events from plain English\n• Nudge you to save memories\n\nTry: "${STARTER_REPLIES[0]}"`,
+    text: `I'm ${PIP_NAME} — your ${PIP_ACRONYM}. I help your family stay organized and remember life. I can:\n\n• Summarize your week\n• Answer schedule questions (e.g. "What does my week look like?")\n• Turn notes into tasks\n• Create recurring events from plain English\n• Nudge you to save memories\n\nTry: "${STARTER_REPLIES[0]}"`,
     actions: [],
     starters: getPipStarters(),
   };

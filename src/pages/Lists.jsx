@@ -43,6 +43,7 @@ import {
 import { getEventById } from "@/lib/events";
 import LinkListToEventDialog from "@/components/lists/LinkListToEventDialog";
 import PipListDialog from "@/components/lists/PipListDialog";
+import { PIP_NAME } from "@/lib/pipBrand";
 
 function ListRow({ list, active, onClick, itemCount }) {
   return (
@@ -681,7 +682,7 @@ export default function Lists() {
                 className="inline-flex items-center gap-1.5 rounded-md bg-[#6C63FF] px-3 py-2 text-[12px] font-medium text-white"
               >
                 <Sparkles className="h-4 w-4" />
-                Family Assistant
+                {PIP_NAME}
               </button>
 
               <button

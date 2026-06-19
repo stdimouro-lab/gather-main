@@ -30,7 +30,7 @@ const PRIMARY_TABS = [
 ];
 
 const MORE_LINKS = [
-  { to: "/pip", icon: Sparkles, label: "Assistant" },
+  { to: "/pip", icon: Sparkles, label: "Pip" },
   { to: "/memories", icon: Image, label: "Memories" },
   { to: "/team", icon: Users, label: "People" },
   { to: "/notes", icon: NotebookText, label: "Notes" },

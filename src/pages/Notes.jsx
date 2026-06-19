@@ -24,6 +24,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { fetchNotes, createNote, updateNote } from "@/lib/notes";
 import { fetchAccessibleTabs } from "@/lib/accessTabs";
+import { PIP_NAME } from "@/lib/pipBrand";
 function formatDate(dateString) {
   if (!dateString) return "Recently";
 
@@ -520,7 +521,7 @@ export default function Notes() {
                 className="inline-flex items-center gap-1 rounded-md bg-[#6C63FF] px-2.5 py-1.5 text-[11px] font-medium text-white"
               >
                 <Sparkles className="h-3 w-3" />
-                Family Assistant
+                {PIP_NAME}
               </button>
 
               <button

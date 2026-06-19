@@ -18,6 +18,7 @@ import { buildPipNudges } from "@/lib/ai/pip/nudges";
 import { syncUpcomingEventReminders } from "@/lib/localNotifications";
 import PipAskBar from "@/components/pip/PipAskBar";
 import PipUpcomingEvent from "@/components/pip/PipUpcomingEvent";
+import { PIP_NAME, PIP_ACRONYM, PIP_TAGLINE } from "@/lib/pipBrand";
 
 function Section({ title, children, action, id, highlight = false }) {
   return (
@@ -118,10 +119,11 @@ export default function Pip() {
             <Sparkles className="h-5 w-5 text-[#6C63FF]" />
           </div>
           <div>
-            <h1 className="text-xl font-medium text-slate-900">Family Assistant</h1>
-            <p className="text-[12px] text-slate-500">
-              Pip knows your calendar, memories, lists, and people.
+            <h1 className="text-xl font-medium text-slate-900">{PIP_NAME}</h1>
+            <p className="text-[12px] font-medium text-[#534AB7]">
+              {PIP_ACRONYM}
             </p>
+            <p className="text-[12px] text-slate-500">{PIP_TAGLINE}</p>
           </div>
         </div>
       </header>

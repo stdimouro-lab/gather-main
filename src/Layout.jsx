@@ -19,6 +19,7 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 import MobileBottomNav, { MobileTopBar } from "@/components/layout/MobileAppNav";
 import FeedbackButton from "@/components/FeedbackButton";
 import gatherLogo from "@/assets/gather-logo.png";
+import { PIP_NAME } from "@/lib/pipBrand";
 
 function NavItem({ to, icon: Icon, label }) {
   const location = useLocation();
@@ -78,7 +79,7 @@ export default function AppLayout() {
           <NavItem to="/team" icon={Users} label="People" />
           <NavItem to="/notes" icon={NotebookText} label="Notes" />
           <NavItem to="/lists" icon={ListChecks} label="Lists" />
-          <NavItem to="/pip" icon={Sparkles} label="Family Assistant" />
+          <NavItem to="/pip" icon={Sparkles} label={PIP_NAME} />
         </nav>
 
         <div className="mt-auto space-y-1 border-t border-slate-200 pt-3">

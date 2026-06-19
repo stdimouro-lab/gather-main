@@ -4,6 +4,7 @@ import usePipContext from "@/hooks/usePipContext";
 import { buildTodaySnapshot, buildProactiveBriefing } from "@/lib/ai/pip/snapshot";
 import { getMemoryPromptState } from "@/lib/ai/pip/memory";
 import { useAuth } from "@/context/AuthProvider";
+import { PIP_NAME } from "@/lib/pipBrand";
 
 function Card({ children, className = "" }) {
   return (
@@ -34,7 +35,7 @@ export default function PipHomeSection() {
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-[#534AB7]">
           <Sparkles className="h-3.5 w-3.5" />
-          Family Assistant
+          {PIP_NAME}
         </div>
         <Link
           to="/pip"
