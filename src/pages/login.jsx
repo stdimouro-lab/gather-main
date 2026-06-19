@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { App } from "@capacitor/app";
-import { Capacitor } from "@capacitor/core";
 import {
   CalendarDays,
   Users,
@@ -126,6 +125,7 @@ export default function LoginPage() {
     if (!isNativeApp()) return;
 
     let listener;
+    let browserFinishedListener;
 
     async function setupAppUrlListener() {
       listener = await App.addListener("appUrlOpen", async ({ url }) => {
@@ -135,40 +135,50 @@ export default function LoginPage() {
           const { Browser } = await import("@capacitor/browser");
           await Browser.close().catch(() => {});
 
-  const parsedUrl = new URL(url.replace("gather://", "https://gather.app/"));
-  const code = parsedUrl.searchParams.get("code");
-  const urlError = parsedUrl.searchParams.get("error");
-  const errorDescription =
-    parsedUrl.searchParams.get("error_description") ||
-    parsedUrl.searchParams.get("errorDescription");
+          const parsedUrl = new URL(url.replace("gather://", "https://gather.app/"));
+          const code = parsedUrl.searchParams.get("code");
+          const urlError = parsedUrl.searchParams.get("error");
+          const errorDescription =
+            parsedUrl.searchParams.get("error_description") ||
+            parsedUrl.searchParams.get("errorDescription");
 
-  if (urlError) {
-    throw new Error(errorDescription || urlError);
-  }
+          if (urlError) {
+            throw new Error(errorDescription || urlError);
+          }
 
-  if (!code) {
-    throw new Error("Login could not be completed. Please try again.");
-  }
+          if (!code) {
+            throw new Error("Login could not be completed. Please try again.");
+          }
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) throw error;
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
 
-  const destination = await getPostAuthRedirect(data?.session?.user?.id);
-  navigate(destination || "/calendar", { replace: true });
-} catch (err) {
-  console.error("OAuth callback error:", err);
-  setError(err?.message || "Authentication failed.");
-} finally {
-  setOauthLoading(null);
-  setLoading(false);
-}
+          const destination = await getPostAuthRedirect(data?.session?.user?.id);
+          navigate(destination || "/calendar", { replace: true });
+        } catch (err) {
+          console.error("OAuth callback error:", err);
+          setError(err?.message || "Authentication failed.");
+        } finally {
+          setOauthLoading(null);
+          setLoading(false);
+        }
+      });
+    }
+
+    async function setupBrowserFinishedListener() {
+      const { Browser } = await import("@capacitor/browser");
+      browserFinishedListener = await Browser.addListener("browserFinished", () => {
+        setOauthLoading(null);
+        setLoading(false);
       });
     }
 
     setupAppUrlListener();
+    setupBrowserFinishedListener();
 
     return () => {
       if (listener) listener.remove();
+      if (browserFinishedListener) browserFinishedListener.remove();
     };
   }, [navigate]);
 
@@ -214,48 +224,49 @@ export default function LoginPage() {
   }
 
   async function handleOAuth(provider) {
-  setOauthLoading(provider);
-  setError("");
-  setMessage("");
+    setOauthLoading(provider);
+    setError("");
+    setMessage("");
 
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: callbackUrl,
-        skipBrowserRedirect: true,
-        ...(provider === "google" && {
-  scopes: "openid email profile",
-  queryParams: {
-    prompt: "select_account",
-  },
-}),
-      },
-    });
-
-    if (error) throw error;
-
-    if (!data?.url) {
-      throw new Error(`Could not start ${provider} sign-in.`);
-    }
-
-    const { Capacitor } = await import("@capacitor/core");
-
-    if (Capacitor.isNativePlatform()) {
-      const { Browser } = await import("@capacitor/browser");
-      await Browser.open({
-        url: data.url,
-        presentationStyle: "fullscreen",
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: callbackUrl,
+          skipBrowserRedirect: true,
+          ...(provider === "google" && {
+            scopes: "openid email profile",
+            queryParams: {
+              prompt: "select_account",
+            },
+          }),
+        },
       });
-    } else {
-      window.location.href = data.url;
+
+      if (error) throw error;
+
+      if (!data?.url) {
+        throw new Error(`Could not start ${provider} sign-in.`);
+      }
+
+      const { Capacitor } = await import("@capacitor/core");
+
+      if (Capacitor.isNativePlatform()) {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({
+          url: data.url,
+          presentationStyle: "fullscreen",
+        });
+      } else {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("OAuth start error:", err);
+      setError(err?.message || `Could not start ${provider} sign-in.`);
+    } finally {
+      setOauthLoading(null);
     }
-  } catch (err) {
-    console.error("OAuth start error:", err);
-    setError(err?.message || `Could not start ${provider} sign-in.`);
-    setOauthLoading(null);
   }
-}
 
   return (
     <div className="min-h-screen bg-slate-950">
