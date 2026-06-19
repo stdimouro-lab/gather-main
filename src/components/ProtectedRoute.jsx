@@ -3,15 +3,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthProvider";
 
 export default function ProtectedRoute() {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
-
-  console.log("ProtectedRoute", {
-    path: location.pathname,
-    loading,
-    hasUser: !!user,
-    hasProfile: !!profile,
-  });
 
   if (loading) {
     return (

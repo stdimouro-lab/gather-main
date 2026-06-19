@@ -22,13 +22,6 @@ export default function AuthCallback() {
 
     const handleAuth = async () => {
       try {
-        console.log("AuthCallback render", {
-          href: window.location.href,
-          pathname: window.location.pathname,
-          search: window.location.search,
-          hash: window.location.hash,
-        });
-
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(
@@ -64,8 +57,6 @@ export default function AuthCallback() {
         const refreshToken = hashParams.get("refresh_token");
 
         if (accessToken && refreshToken) {
-          console.log("AuthCallback: setting session from hash tokens");
-
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -78,11 +69,6 @@ export default function AuthCallback() {
             return;
           }
 
-          console.log("AuthCallback: setSession complete", {
-            hasSession: !!data?.session,
-            hasUser: !!data?.session?.user,
-          });
-
           window.history.replaceState({}, document.title, "/auth/callback");
 
           setStatus("success");
@@ -93,8 +79,6 @@ export default function AuthCallback() {
         const code = searchParams.get("code");
 
         if (code) {
-          console.log("AuthCallback: exchanging code for session");
-
           const { data, error } =
             await supabase.auth.exchangeCodeForSession(code);
 
@@ -104,11 +88,6 @@ export default function AuthCallback() {
             setStatus("error");
             return;
           }
-
-          console.log("AuthCallback: exchange complete", {
-            hasSession: !!data?.session,
-            hasUser: !!data?.session?.user,
-          });
 
           setStatus("success");
           await finishRedirect(data?.session?.user?.id);
@@ -125,7 +104,6 @@ export default function AuthCallback() {
         }
 
         if (session?.user) {
-          console.log("AuthCallback: existing session already present");
           setStatus("success");
           await finishRedirect(session.user.id);
           return;

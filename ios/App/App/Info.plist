@@ -60,7 +60,5 @@
 	<string>Gather uses your photo library to save family memories and profile photos.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Gather uses the camera to capture family memories and profile photos.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Gather may use the microphone for voice features when available.</string>
 </dict>
 </plist>

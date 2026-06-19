@@ -126,9 +126,7 @@ export async function initLocalNotificationListeners() {
     const LocalNotifications = await getLocalNotifications();
     await LocalNotifications.addListener(
       "localNotificationActionPerformed",
-      (action) => {
-        console.log("Local notification action:", action);
-      }
+      () => {}
     );
   } catch (err) {
     console.warn("Local notification listeners skipped:", err);

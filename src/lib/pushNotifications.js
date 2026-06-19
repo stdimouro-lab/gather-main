@@ -115,13 +115,9 @@ export async function initPushListeners() {
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
 
-    await PushNotifications.addListener("pushNotificationReceived", (notification) => {
-      console.log("Push received:", notification);
-    });
+    await PushNotifications.addListener("pushNotificationReceived", () => {});
 
-    await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-      console.log("Push action:", action);
-    });
+    await PushNotifications.addListener("pushNotificationActionPerformed", () => {});
   } catch (err) {
     console.warn("Push listeners skipped:", err);
   }

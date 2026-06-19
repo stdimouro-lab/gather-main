@@ -87,7 +87,8 @@ Stripe keys are for web only; native apps use RevenueCat / store billing.
 ## OAuth on native
 
 - Redirect: `gather://auth/callback`
-- Google/Apple open in in-app browser (`@capacitor/browser`)
+- iOS: Google/Apple open in the in-app browser (`@capacitor/browser`)
+- Android: Google/Apple open through external browser navigation to avoid stale Custom Tab crashes
 - App returns via `@capacitor/app` `appUrlOpen` listener (see `login.jsx`)
 
 ## Safe area (status bar)
@@ -98,8 +99,9 @@ After pulling, run `npm run build:mobile`. The app uses `@capacitor/status-bar` 
 
 1. Run migration `20260606150000_push_device_tokens.sql` in Supabase.
 2. **Android:** add `google-services.json` from Firebase to `android/app/` (see **Firebase setup** below).
-3. Enable notification toggles in Settings — native apps register device tokens automatically.
-4. Automated sends (reminders, digests) still need a server job using stored tokens.
+3. **iOS:** enable Push Notifications for bundle id `com.Dimouro.gather` in Apple Developer/Xcode Signing & Capabilities, then verify the provisioning profile includes APNs.
+4. Enable notification toggles in Settings — native apps register device tokens automatically.
+5. Automated sends (reminders, digests) still need a server job using stored tokens.
 
 ## Firebase setup (Android push — do this before your device arrives)
 

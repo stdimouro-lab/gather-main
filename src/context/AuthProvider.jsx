@@ -148,7 +148,6 @@ export function AuthProvider({ children }) {
       }
 
       safeSet(() => setProfileLoading(true));
-      console.log("loadProfile start", activeUser.id);
 
       const promise = (async () => {
         try {
@@ -157,8 +156,6 @@ export function AuthProvider({ children }) {
             10000,
             "ensureProfile"
           );
-
-          console.log("loadProfile ensured profile");
 
           try {
             await withTimeout(
@@ -317,8 +314,6 @@ void loadProfile(newSession.user);
       });
 
       try {
-        console.log("AuthProvider bootstrap start");
-
         const { data, error } = await withTimeout(
           supabase.auth.getSession(),
           10000,
@@ -331,7 +326,6 @@ void loadProfile(newSession.user);
         }
 
         const newSession = data?.session ?? null;
-        console.log("AuthProvider bootstrap session:", !!newSession?.user);
 
         await hydrateFromSession(newSession);
       } catch (err) {
@@ -347,8 +341,6 @@ void loadProfile(newSession.user);
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      console.log("onAuthStateChange", _event, !!newSession?.user);
-
       try {
         await hydrateFromSession(newSession ?? null);
       } catch (err) {
@@ -378,9 +370,7 @@ void loadProfile(newSession.user);
         email: user.email,
       });
 
-      // 🔥 FORCE UI SYNC if anything was claimed
       if (claimed?.length) {
-        console.log("Invites claimed, refreshing UI...");
         window.dispatchEvent(new Event("gather:invites-claimed"));
       }
     } catch (e) {
@@ -457,15 +447,6 @@ void loadProfile(newSession.user);
     refreshSession,
     refreshProfile,
   ]);
-
-  console.log("AuthProvider state", {
-    path: typeof window !== "undefined" ? window.location.pathname : "",
-    loading,
-    profileLoading,
-    hasUser: !!user,
-    hasSession: !!session,
-    hasProfile: !!profile,
-  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
