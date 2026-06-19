@@ -227,6 +227,7 @@ export default function LoginPage() {
     setOauthLoading(provider);
     setError("");
     setMessage("");
+    let openedNativeBrowser = false;
 
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -253,10 +254,12 @@ export default function LoginPage() {
 
       if (Capacitor.isNativePlatform()) {
         const { Browser } = await import("@capacitor/browser");
+        await Browser.close().catch(() => {});
         await Browser.open({
           url: data.url,
           presentationStyle: "fullscreen",
         });
+        openedNativeBrowser = true;
       } else {
         window.location.href = data.url;
       }
@@ -264,7 +267,9 @@ export default function LoginPage() {
       console.error("OAuth start error:", err);
       setError(err?.message || `Could not start ${provider} sign-in.`);
     } finally {
-      setOauthLoading(null);
+      if (!openedNativeBrowser) {
+        setOauthLoading(null);
+      }
     }
   }
 
