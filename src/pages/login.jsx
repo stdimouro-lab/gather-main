@@ -138,14 +138,36 @@ export default function LoginPage() {
           await Browser.close().catch(() => {});
 
           const parsedUrl = new URL(url.replace("gather://", "https://gather.app/"));
+          const hashParams = new URLSearchParams(
+            parsedUrl.hash.startsWith("#")
+              ? parsedUrl.hash.slice(1)
+              : parsedUrl.hash
+          );
           const code = parsedUrl.searchParams.get("code");
-          const urlError = parsedUrl.searchParams.get("error");
+          const accessToken = hashParams.get("access_token");
+          const refreshToken = hashParams.get("refresh_token");
+          const urlError =
+            parsedUrl.searchParams.get("error") || hashParams.get("error");
           const errorDescription =
             parsedUrl.searchParams.get("error_description") ||
-            parsedUrl.searchParams.get("errorDescription");
+            parsedUrl.searchParams.get("errorDescription") ||
+            hashParams.get("error_description") ||
+            hashParams.get("errorDescription");
 
           if (urlError) {
             throw new Error(errorDescription || urlError);
+          }
+
+          if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) throw error;
+
+            const destination = await getPostAuthRedirect(data?.session?.user?.id);
+            navigate(destination || "/calendar", { replace: true });
+            return;
           }
 
           if (!code) {
