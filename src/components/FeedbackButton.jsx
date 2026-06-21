@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MessageSquarePlus, Bug, Lightbulb, X } from "lucide-react";
-
-const FEEDBACK_EMAIL = "support@gatherapp.me";
+import { LEGAL } from "@/lib/legal";
 
 function mailto(subject) {
-  return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}`;
+  return `mailto:${LEGAL.contactEmail}?subject=${encodeURIComponent(subject)}`;
 }
 
 export default function FeedbackButton() {

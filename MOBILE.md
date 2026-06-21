@@ -182,7 +182,7 @@ Run migration `20260606140000_shared_memories_rls.sql` so collaborators see memo
 
 - Privacy: deploy `/privacy` — copy references `src/lib/legal.js`
 - Terms: deploy `/terms`
-- Update `operatorLabel` in `legal.js` when your LLC name is finalized
+- Operator and support contact are defined in `src/lib/legal.js`
 
 ## Known native limitations (v1)
 

@@ -26,10 +26,10 @@ export default function PrivacyPage() {
 
         <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-8 leading-relaxed text-slate-600 shadow-sm">
           <p>
-            {LEGAL.operatorLabel} (&quot;we,&quot; &quot;us&quot;) operates{" "}
-            {LEGAL.appName}, a family calendar and life organization app available
-            on the web, iOS, and Android. This Privacy Policy explains what we
-            collect, how we use it, and the choices you have.
+            {LEGAL.operatorLabel} operates {LEGAL.appName}. {LEGAL.appName} is a
+            family calendar and life organization app available on the web, iOS,
+            and Android. This Privacy Policy explains what we collect, how we use
+            it, and the choices you have.
           </p>
 
           <section>

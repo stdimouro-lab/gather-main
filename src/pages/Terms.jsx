@@ -26,9 +26,10 @@ export default function TermsPage() {
 
         <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-8 leading-relaxed text-slate-600 shadow-sm">
           <p>
-            These Terms of Service (&quot;Terms&quot;) govern your use of{" "}
-            {LEGAL.appName}, operated by {LEGAL.operatorLabel}. By creating an
-            account or using {LEGAL.appName}, you agree to these Terms and our{" "}
+            {LEGAL.appName} is operated by {LEGAL.operatorLabel}. These Terms of
+            Service (&quot;Terms&quot;) govern your use of {LEGAL.appName}. By
+            creating an account or using {LEGAL.appName}, you agree to these
+            Terms and our{" "}
             <Link to="/privacy" className="text-[#6C63FF]">
               Privacy Policy
             </Link>

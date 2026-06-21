@@ -1,10 +1,10 @@
-/** Store listing + in-app legal constants (update operator name when LLC is finalized). */
+/** Store listing + in-app legal constants. */
 export const LEGAL = {
   appName: "Gather",
-  operatorName: "Dimouro",
-  operatorLabel: "Dimouro",
-  contactEmail: "support@gatherapp.me",
-  privacyEmail: "privacy@gatherapp.me",
+  operatorName: "StrongRoots Labs LLC",
+  operatorLabel: "StrongRoots Labs",
+  contactEmail: "StrongRootsLabs@gmail.com",
+  privacyEmail: "StrongRootsLabs@gmail.com",
   websiteUrl: "https://gatherapp.me",
   effectiveDate: "June 6, 2026",
   packageId: "com.Dimouro.gather",
