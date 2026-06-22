@@ -9,6 +9,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Support from "./pages/Support";
+import DeleteAccount from "./pages/DeleteAccount";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -38,6 +39,7 @@ export default function AppRouter() {
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/support" element={<Support />} />
+      <Route path="/delete-account" element={<DeleteAccount />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
